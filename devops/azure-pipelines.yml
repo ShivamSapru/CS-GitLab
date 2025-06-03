@@ -4,19 +4,23 @@ trigger:
 pool:
   vmImage: 'ubuntu-latest'
 
-steps:
+jobs:
+- job: BuildAndDeploy
+  steps:
+  - checkout: self
+
   - task: UsePythonVersion@0
     inputs:
       versionSpec: '3.10'
 
-  - script: pip install -r requirements.txt
+  - script: |
+      python -m pip install -r requirements.txt
     displayName: 'Install dependencies'
 
-  - script: |
-      uvicorn backend.main:app --host 127.0.0.1 --port 8000
-    displayName: 'Run backend API'
-
-  - task: PublishBuildArtifacts@1
+  - task: Docker@2
     inputs:
-      PathtoPublish: 'docs'
-      ArtifactName: 'documentation'
+      containerRegistry: 'YourAzureContainerRegistry'
+      repository: 'subtitle-translator'
+      command: 'buildAndPush'
+      Dockerfile: 'devops/Dockerfile'
+      tags: latest

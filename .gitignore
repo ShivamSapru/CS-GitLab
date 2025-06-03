@@ -1,9 +1,7 @@
 __pycache__/
 .env
 *.log
-*.sqlite3
-.idea/
-.vscode/
+*.pyc
 node_modules/
+frontend/build/
 dist/
-__test__/

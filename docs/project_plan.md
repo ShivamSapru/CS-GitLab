@@ -1,16 +1,14 @@
-# Subtitle Translator App – Project Plan
+# Project Plan – Subtitle Translator App
 
 ## Objective
-To build a real-time and static subtitle translation app using LLMs, enabling multilingual communication during online meetings and events.
+Enable static and real-time subtitle translation to enhance content accessibility across languages.
 
-## Deliverables
-- Static subtitle upload and translation
-- Real-time subtitle ingestion (Zoom/Teams) and translation
-- Downloadable transcripts
-- Azure-hosted web app with REST API
+## Goals
+- Upload, translate, and edit subtitle files
+- Capture and translate real-time captions from events
+- Enable multilingual transcription export (PDF, DOCX)
 
 ## Timeline
-- Week 1–2: Setup, static translation MVP
-- Week 3–4: Real-time subtitle processing
-- Week 5–6: Authentication, performance tuning
-- Week 7+: Testing, polish, final reporting
+- Week 1–2: Setup + static upload + translation
+- Week 3–5: Real-time stream + UI
+- Week 6–8: User feedback, accuracy tests, export

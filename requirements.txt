@@ -1,10 +1,9 @@
 fastapi
 uvicorn
+httpx
 python-dotenv
+langdetect
+transformers
+pydantic
 sqlalchemy
 psycopg2-binary
-pydantic
-requests
-websockets
-transformers
-openai
