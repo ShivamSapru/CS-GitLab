@@ -1,0 +1,22 @@
+trigger:
+  - main
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+steps:
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: '3.10'
+
+  - script: pip install -r requirements.txt
+    displayName: 'Install dependencies'
+
+  - script: |
+      uvicorn backend.main:app --host 127.0.0.1 --port 8000
+    displayName: 'Run backend API'
+
+  - task: PublishBuildArtifacts@1
+    inputs:
+      PathtoPublish: 'docs'
+      ArtifactName: 'documentation'
