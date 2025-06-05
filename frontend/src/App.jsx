@@ -15,173 +15,6 @@ import {
   Save,
 } from "lucide-react";
 
-// Template 1: Main Dashboard/Landing Page
-const Dashboard = ({ onNavigate, isDarkMode }) => {
-  const [activeFeature, setActiveFeature] = useState("static");
-
-  const features = [
-    {
-      id: "static",
-      title: "Static Subtitle Translation",
-      icon: FileText,
-      description: "Upload and translate subtitle files (SRT, VTT)",
-      color: "bg-blue-500",
-      route: "upload", // Maps to your template IDs
-    },
-    {
-      id: "realtime",
-      title: "Real-time Translation",
-      icon: Zap,
-      description: "Live subtitle translation during events",
-      color: "bg-green-500",
-      route: "realtime",
-    },
-    {
-      id: "transcription",
-      title: "Post-Event Transcription",
-      icon: Users,
-      description: "Process and translate meeting transcripts",
-      color: "bg-purple-500",
-      route: "review", // Maps to review template
-    },
-  ];
-
-  const handleFeatureClick = (feature) => {
-    setActiveFeature(feature.id);
-    // Navigate to the respective page
-    if (onNavigate) {
-      onNavigate(feature.route);
-    }
-  };
-
-  return (
-    <div
-      className={`min-h-screen transition-colors duration-300 ${
-        isDarkMode
-          ? "bg-gradient-to-br from-gray-900 to-gray-800"
-          : "bg-gradient-to-br from-blue-50 to-indigo-100"
-      }`}
-    >
-      {/* Header */}
-      <header
-        className={`shadow-sm border-b transition-colors duration-300 ${
-          isDarkMode
-            ? "bg-gray-800 border-gray-700"
-            : "bg-white border-gray-200"
-        }`}
-      >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center">
-                <Globe className="w-6 h-6 text-white" />
-              </div>
-              <h1
-                className={`text-2xl font-bold transition-colors duration-300 ${
-                  isDarkMode ? "text-white" : "text-gray-900"
-                }`}
-              >
-                SubtitleTranslator
-              </h1>
-            </div>
-            <div className="flex items-center space-x-4">
-              <button className="text-gray-600 hover:text-gray-900">
-                <Settings className="w-5 h-5" />
-              </button>
-              <div className="w-8 h-8 bg-gray-300 rounded-full"></div>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Hero Section */}
-        <div className="text-center mb-12">
-          <h2
-            className={`text-4xl font-bold mb-4 transition-colors duration-300 ${
-              isDarkMode ? "text-white" : "text-gray-900"
-            }`}
-          >
-            Break Language Barriers with AI-Powered Subtitles
-          </h2>
-          <p
-            className={`text-xl max-w-3xl mx-auto transition-colors duration-300 ${
-              isDarkMode ? "text-gray-300" : "text-gray-600"
-            }`}
-          >
-            Translate subtitles in real-time or process static files. Make your
-            content accessible to global audiences.
-          </p>
-        </div>
-
-        {/* Feature Cards - Now clickable with navigation */}
-
-        {/* Feature Cards - Now clickable with navigation */}
-        <div className="grid md:grid-cols-3 gap-8 mb-12">
-          {features.map((feature) => {
-            const IconComponent = feature.icon;
-            return (
-              <div
-                key={feature.id}
-                className={`rounded-xl shadow-lg p-6 cursor-pointer transition-all duration-200 hover:shadow-xl hover:-translate-y-1 hover:ring-2 hover:ring-blue-500 transform ${
-                  isDarkMode ? "bg-gray-800" : "bg-white"
-                }`}
-                onClick={() => handleFeatureClick(feature)}
-              >
-                <div
-                  className={`w-12 h-12 ${feature.color} rounded-lg flex items-center justify-center mb-4`}
-                >
-                  <IconComponent className="w-6 h-6 text-white" />
-                </div>
-                <h3
-                  className={`text-xl font-semibold mb-2 transition-colors duration-300 ${
-                    isDarkMode ? "text-white" : "text-gray-900"
-                  }`}
-                >
-                  {feature.title}
-                </h3>
-                <p
-                  className={`mb-4 transition-colors duration-300 ${
-                    isDarkMode ? "text-gray-300" : "text-gray-600"
-                  }`}
-                >
-                  {feature.description}
-                </p>
-                <div className="flex items-center text-blue-500 text-sm font-medium">
-                  <span>Get Started</span>
-                  <svg
-                    className="w-4 h-4 ml-1"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9 5l7 7-7 7"
-                    />
-                  </svg>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Quick Start Button */}
-        <div className="text-center">
-          <button
-            onClick={() => onNavigate && onNavigate("upload")}
-            className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-8 py-3 rounded-lg font-semibold hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 shadow-lg hover:shadow-xl"
-          >
-            Get Started
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
 // Template 2: Static Subtitle Upload Interface
 const StaticSubtitleUpload = () => {
   const [dragActive, setDragActive] = useState(false);
@@ -558,8 +391,44 @@ const SubtitleTranslatorApp = () => {
         isDarkMode ? "bg-gray-900" : "bg-gray-100"
       }`}
     >
-      {/* Template Switcher */}
-      {/* Template Switcher */}
+      {/* Header - Responsive */}
+      <header
+        className={`shadow-sm border-b transition-colors duration-300 ${
+          isDarkMode
+            ? "bg-gray-800 border-gray-700"
+            : "bg-white border-gray-200"
+        }`}
+      >
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8">
+          <div className="flex justify-between items-center py-3 sm:py-4">
+            <div className="flex items-center space-x-2 sm:space-x-3">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center">
+                <Globe className="w-4 h-4 sm:w-6 sm:h-6 text-white" />
+              </div>
+              <h1
+                className={`text-lg sm:text-xl lg:text-2xl font-bold transition-colors duration-300 ${
+                  isDarkMode ? "text-white" : "text-gray-900"
+                }`}
+              >
+                SubtitleTranslator
+              </h1>
+            </div>
+            <div className="flex items-center space-x-2 sm:space-x-4">
+              <button
+                className={`transition-colors duration-300 ${
+                  isDarkMode
+                    ? "text-gray-300 hover:text-white"
+                    : "text-gray-600 hover:text-gray-900"
+                }`}
+              >
+                <Settings className="w-4 h-4 sm:w-5 sm:h-5" />
+              </button>
+              <div className="w-6 h-6 sm:w-8 sm:h-8 bg-gray-300 rounded-full"></div>
+            </div>
+          </div>
+        </div>
+      </header>
+
       <div
         className={`shadow-sm border-b transition-colors duration-300 ${
           isDarkMode
@@ -567,14 +436,15 @@ const SubtitleTranslatorApp = () => {
             : "bg-white border-gray-200"
         }`}
       >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex space-x-8">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center py-3 sm:py-4 space-y-3 sm:space-y-0">
+            {/* Navigation Tabs - Responsive */}
+            <div className="flex flex-wrap gap-2 sm:gap-4 lg:gap-8 w-full sm:w-auto">
               {templates.map((template) => (
                 <button
                   key={template.id}
                   onClick={() => setCurrentTemplate(template.id)}
-                  className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                  className={`px-3 py-2 sm:px-4 sm:py-2 rounded-lg font-medium transition-colors text-sm sm:text-base whitespace-nowrap ${
                     currentTemplate === template.id
                       ? "bg-blue-500 text-white"
                       : isDarkMode
@@ -586,10 +456,10 @@ const SubtitleTranslatorApp = () => {
                 </button>
               ))}
             </div>
-            {/* Dark Mode Toggle */}
+            {/* Dark Mode Toggle - Always visible */}
             <button
               onClick={toggleDarkMode}
-              className={`p-2 rounded-lg transition-colors ${
+              className={`p-2 rounded-lg transition-colors self-end sm:self-auto ${
                 isDarkMode
                   ? "bg-gray-700 text-yellow-400 hover:bg-gray-600"
                   : "bg-gray-100 text-gray-600 hover:bg-gray-200"
@@ -600,7 +470,7 @@ const SubtitleTranslatorApp = () => {
             >
               {isDarkMode ? (
                 <svg
-                  className="w-5 h-5"
+                  className="w-4 h-4 sm:w-5 sm:h-5"
                   fill="currentColor"
                   viewBox="0 0 20 20"
                 >
@@ -612,7 +482,7 @@ const SubtitleTranslatorApp = () => {
                 </svg>
               ) : (
                 <svg
-                  className="w-5 h-5"
+                  className="w-4 h-4 sm:w-5 sm:h-5"
                   fill="currentColor"
                   viewBox="0 0 20 20"
                 >
@@ -626,6 +496,138 @@ const SubtitleTranslatorApp = () => {
 
       {/* Current Template */}
       {getCurrentComponent()}
+    </div>
+  );
+};
+
+// Updated Dashboard Component with better responsive design
+const Dashboard = ({ onNavigate, isDarkMode }) => {
+  const [activeFeature, setActiveFeature] = useState("static");
+
+  const features = [
+    {
+      id: "static",
+      title: "Static Translation",
+      icon: FileText,
+      description: "Upload and translate subtitle files (SRT, VTT)",
+      color: "bg-blue-500",
+      route: "upload",
+    },
+    {
+      id: "realtime",
+      title: "Real-time Translation",
+      icon: Zap,
+      description: "Live subtitle translation during events",
+      color: "bg-green-500",
+      route: "realtime",
+    },
+    {
+      id: "transcription",
+      title: "Post-Event Transcription",
+      icon: Users,
+      description: "Process and translate meeting transcripts",
+      color: "bg-purple-500",
+      route: "review",
+    },
+  ];
+
+  const handleFeatureClick = (feature) => {
+    setActiveFeature(feature.id);
+    if (onNavigate) {
+      onNavigate(feature.route);
+    }
+  };
+
+  return (
+    <div
+      className={`min-h-screen transition-colors duration-300 ${
+        isDarkMode
+          ? "bg-gradient-to-br from-gray-900 to-gray-800"
+          : "bg-gradient-to-br from-blue-50 to-indigo-100"
+      }`}
+    >
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+        {/* Hero Section - Responsive */}
+        <div className="text-center mb-8 sm:mb-12">
+          <h2
+            className={`text-2xl sm:text-3xl lg:text-4xl font-bold mb-3 sm:mb-4 transition-colors duration-300 leading-tight ${
+              isDarkMode ? "text-white" : "text-gray-900"
+            }`}
+          >
+            Break Language Barriers with AI-Powered Subtitles
+          </h2>
+          <p
+            className={`text-base sm:text-lg lg:text-xl max-w-3xl mx-auto transition-colors duration-300 px-4 ${
+              isDarkMode ? "text-gray-300" : "text-gray-600"
+            }`}
+          >
+            Translate subtitles in real-time or process static files. Make your
+            content accessible to global audiences.
+          </p>
+        </div>
+
+        {/* Feature Cards - Responsive Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8 mb-8 sm:mb-12">
+          {features.map((feature) => {
+            const IconComponent = feature.icon;
+            return (
+              <div
+                key={feature.id}
+                className={`rounded-xl shadow-lg p-4 sm:p-6 cursor-pointer transition-all duration-200 hover:shadow-xl hover:-translate-y-1 hover:ring-2 hover:ring-blue-500 transform ${
+                  isDarkMode ? "bg-gray-800" : "bg-white"
+                }`}
+                onClick={() => handleFeatureClick(feature)}
+              >
+                <div
+                  className={`w-10 h-10 sm:w-12 sm:h-12 ${feature.color} rounded-lg flex items-center justify-center mb-3 sm:mb-4`}
+                >
+                  <IconComponent className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                </div>
+                <h3
+                  className={`text-lg sm:text-xl font-semibold mb-2 transition-colors duration-300 ${
+                    isDarkMode ? "text-white" : "text-gray-900"
+                  }`}
+                >
+                  {feature.title}
+                </h3>
+                <p
+                  className={`mb-3 sm:mb-4 text-sm sm:text-base transition-colors duration-300 ${
+                    isDarkMode ? "text-gray-300" : "text-gray-600"
+                  }`}
+                >
+                  {feature.description}
+                </p>
+                <div className="flex items-center text-blue-500 text-sm font-medium">
+                  <span>Get Started</span>
+                  <svg
+                    className="w-3 h-3 sm:w-4 sm:h-4 ml-1"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 5l7 7-7 7"
+                    />
+                  </svg>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Quick Start Button - Responsive */}
+        <div className="text-center">
+          <button
+            onClick={() => onNavigate && onNavigate("upload")}
+            className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-6 sm:px-8 py-2.5 sm:py-3 rounded-lg font-semibold hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 shadow-lg hover:shadow-xl text-sm sm:text-base"
+          >
+            Get Started
+          </button>
+        </div>
+      </div>
     </div>
   );
 };
