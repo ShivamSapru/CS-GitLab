@@ -4,21 +4,23 @@ services:
   backend:
     build: ./backend
     ports:
-      - "3000:3000" # Host:Container
+      # Host:Container - Mapping local machine's port 8000 to the container's internal port 8000
+      - "8000:8000"
     environment:
-      NODE_ENV: development
-      # For local testing, put a dummy key here. Remove for deployment!
-      AZURE_TRANSLATOR_KEY: "your-dummy-key-for-local-dev"
+      PYTHONUNBUFFERED: 1
+      AZURE_TRANSLATOR_KEY: "your-dummy-azure-translator-key-for-local-dev"
     volumes:
-      - ./backend:/app # Mounts local code for hot-reloading
+      - ./backend:/app
 
   frontend:
     build: ./frontend
     ports:
-      - "80:80" # Host:Container
+      # Host:Container - Mapping local machine's port 3000 to the container's internal port 80 (Nginx)
+      - "3000:80"
     depends_on:
       - backend
     environment:
-      REACT_APP_BACKEND_URL: http://localhost:3000 # Frontend uses this to talk to backend
+      # Frontend needs to know where the backend API is.
+      VITE_APP_BACKEND_URL: http://localhost:8000
     volumes:
-      - ./frontend:/app # Mounts local code for hot-reloading
+      - ./frontend:/app
