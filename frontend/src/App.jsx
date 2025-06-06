@@ -13,6 +13,8 @@ import {
   X,
   Edit3,
   Save,
+  Menu,
+  User,
 } from "lucide-react";
 
 // Template 2: Static Subtitle Upload Interface
@@ -286,6 +288,19 @@ const RealTimeTranslation = () => {
       setIsLive(false);
     }
   };
+  return (
+    <div className="max-w-4xl mx-auto p-6">
+      <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 rounded-lg mb-6">
+        ⚠️ <strong>Real-time Translation is coming soon.</strong> This feature
+        is under development.
+      </div>
+
+      {/* Placeholder for future real-time translation UI */}
+      <div className="text-gray-500 text-center italic mt-8">
+        The real-time translation interface will appear here once available.
+      </div>
+    </div>
+  );
 };
 
 // Template 4: Translation Review & Edit Interface
@@ -342,16 +357,50 @@ const TranslationReview = () => {
     if (confidence >= 75) return "text-yellow-600 bg-yellow-100";
     return "text-red-600 bg-red-100";
   };
+  return (
+    <div className="max-w-4xl mx-auto p-6">
+      <div className="bg-blue-100 border-l-4 border-blue-500 text-blue-700 p-4 rounded-lg mb-6">
+        🛠️ <strong>Translation Review is coming soon.</strong> This feature is
+        currently under development.
+      </div>
+
+      {/* Placeholder UI for future review tools */}
+      <div className="text-gray-500 text-center italic mt-8">
+        Subtitle review and editing tools will appear here.
+      </div>
+    </div>
+  );
 };
 
-// Main App Component with Template Switcher
+// Profile Component
+const Profile = () => {
+  return (
+    <div className="max-w-4xl mx-auto p-6">
+      <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 rounded-lg mb-6">
+        ⚠️ <strong>Profile management is coming soon.</strong> This feature is
+        under development.
+      </div>
+
+      {/* Placeholder for future profile interface */}
+      <div className="text-gray-500 text-center italic mt-8">
+        Profile settings and management tools will appear here once available.
+      </div>
+    </div>
+  );
+};
+
+// Main App Component with Template Switcher and Hamburger Menu
 const SubtitleTranslatorApp = () => {
   const [currentTemplate, setCurrentTemplate] = useState("dashboard");
-
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const toggleDarkMode = () => {
     setIsDarkMode(!isDarkMode);
+  };
+
+  const toggleMenu = () => {
+    setIsMenuOpen(!isMenuOpen);
   };
 
   const templates = [
@@ -363,10 +412,12 @@ const SubtitleTranslatorApp = () => {
       component: RealTimeTranslation,
     },
     { id: "review", name: "Translation Review", component: TranslationReview },
+    { id: "profile", name: "Profile", component: Profile },
   ];
 
   const handleNavigation = (templateId) => {
     setCurrentTemplate(templateId);
+    setIsMenuOpen(false); // Close menu after navigation
   };
 
   const getCurrentComponent = () => {
@@ -375,7 +426,6 @@ const SubtitleTranslatorApp = () => {
 
     const Component = template.component;
 
-    // Pass navigation prop only to Dashboard
     if (currentTemplate === "dashboard") {
       return (
         <Component onNavigate={handleNavigation} isDarkMode={isDarkMode} />
@@ -391,9 +441,9 @@ const SubtitleTranslatorApp = () => {
         isDarkMode ? "bg-gray-900" : "bg-gray-100"
       }`}
     >
-      {/* Header - Responsive */}
+      {/* Header  with Hamburger Menu */}
       <header
-        className={`shadow-sm border-b transition-colors duration-300 ${
+        className={`shadow-sm border-b transition-colors duration-300 relative ${
           isDarkMode
             ? "bg-gray-800 border-gray-700"
             : "bg-white border-gray-200"
@@ -401,7 +451,21 @@ const SubtitleTranslatorApp = () => {
       >
         <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8">
           <div className="flex justify-between items-center py-3 sm:py-4">
+            {/* Left side - Hamburger + Logo */}
             <div className="flex items-center space-x-2 sm:space-x-3">
+              {/* Hamburger Menu Button */}
+              <button
+                onClick={toggleMenu}
+                className={`p-2 rounded-lg transition-colors ${
+                  isDarkMode
+                    ? "text-gray-300 hover:text-white hover:bg-gray-700"
+                    : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                }`}
+              >
+                <Menu className="w-5 h-5" />
+              </button>
+
+              {/* Logo */}
               <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center">
                 <Globe className="w-4 h-4 sm:w-6 sm:h-6 text-white" />
               </div>
@@ -413,53 +477,11 @@ const SubtitleTranslatorApp = () => {
                 SubtitleTranslator
               </h1>
             </div>
-            <div className="flex items-center space-x-2 sm:space-x-4">
-              <button
-                className={`transition-colors duration-300 ${
-                  isDarkMode
-                    ? "text-gray-300 hover:text-white"
-                    : "text-gray-600 hover:text-gray-900"
-                }`}
-              >
-                <Settings className="w-4 h-4 sm:w-5 sm:h-5" />
-              </button>
-              <div className="w-6 h-6 sm:w-8 sm:h-8 bg-gray-300 rounded-full"></div>
-            </div>
-          </div>
-        </div>
-      </header>
 
-      <div
-        className={`shadow-sm border-b transition-colors duration-300 ${
-          isDarkMode
-            ? "bg-gray-800 border-gray-700"
-            : "bg-white border-gray-200"
-        }`}
-      >
-        <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center py-3 sm:py-4 space-y-3 sm:space-y-0">
-            {/* Navigation Tabs - Responsive */}
-            <div className="flex flex-wrap gap-2 sm:gap-4 lg:gap-8 w-full sm:w-auto">
-              {templates.map((template) => (
-                <button
-                  key={template.id}
-                  onClick={() => setCurrentTemplate(template.id)}
-                  className={`px-3 py-2 sm:px-4 sm:py-2 rounded-lg font-medium transition-colors text-sm sm:text-base whitespace-nowrap ${
-                    currentTemplate === template.id
-                      ? "bg-blue-500 text-white"
-                      : isDarkMode
-                        ? "text-gray-300 hover:text-white hover:bg-gray-700"
-                        : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-                  }`}
-                >
-                  {template.name}
-                </button>
-              ))}
-            </div>
-            {/* Dark Mode Toggle - Always visible */}
+            {/* Right side - Dark Mode Toggle */}
             <button
               onClick={toggleDarkMode}
-              className={`p-2 rounded-lg transition-colors self-end sm:self-auto ${
+              className={`p-2 rounded-lg transition-colors ${
                 isDarkMode
                   ? "bg-gray-700 text-yellow-400 hover:bg-gray-600"
                   : "bg-gray-100 text-gray-600 hover:bg-gray-200"
@@ -492,7 +514,85 @@ const SubtitleTranslatorApp = () => {
             </button>
           </div>
         </div>
-      </div>
+
+        {/* Hamburger Menu Dropdown */}
+        {isMenuOpen && (
+          <>
+            {/* Backdrop */}
+            <div
+              className="fixed inset-0 bg-black bg-opacity-50 z-40"
+              onClick={() => setIsMenuOpen(false)}
+            ></div>
+
+            {/* Menu Panel */}
+            <div
+              className={`absolute top-full left-0 right-0 z-50 shadow-lg border-t transition-colors duration-300 ${
+                isDarkMode
+                  ? "bg-gray-800 border-gray-700"
+                  : "bg-white border-gray-200"
+              }`}
+            >
+              <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-4">
+                {/* Navigation Section */}
+                <div className="mb-6">
+                  <h3
+                    className={`text-sm font-medium mb-3 ${
+                      isDarkMode ? "text-gray-300" : "text-gray-500"
+                    }`}
+                  >
+                    Navigation
+                  </h3>
+                  <div className="space-y-2">
+                    {templates
+                      .filter((template) => template.id !== "profile")
+                      .map((template) => (
+                        <button
+                          key={template.id}
+                          onClick={() => handleNavigation(template.id)}
+                          className={`w-full text-left px-4 py-3 rounded-lg font-medium transition-colors ${
+                            currentTemplate === template.id
+                              ? "bg-blue-500 text-white"
+                              : isDarkMode
+                                ? "text-gray-300 hover:text-white hover:bg-gray-700"
+                                : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                          }`}
+                        >
+                          {template.name}
+                        </button>
+                      ))}
+                  </div>
+                </div>
+
+                {/* User Actions Section */}
+                <div className="border-t pt-4">
+                  <h3
+                    className={`text-sm font-medium mb-3 border-t ${
+                      isDarkMode
+                        ? "text-gray-300 border-gray-700"
+                        : "text-gray-500 border-gray-200"
+                    }`}
+                  >
+                    Account
+                  </h3>
+                  <div className="space-y-2">
+                    <button
+                      onClick={() => handleNavigation("profile")}
+                      className={`w-full text-left px-4 py-3 rounded-lg font-medium transition-colors flex items-center space-x-3 ${
+                        isDarkMode
+                          ? "text-gray-300 hover:text-white hover:bg-gray-700"
+                          : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                      }`}
+                    >
+                      <User className="w-5 h-5" />
+                      <span>Profile</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+      </header>
 
       {/* Current Template */}
       {getCurrentComponent()}
