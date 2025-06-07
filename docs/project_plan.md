@@ -1,4 +1,4 @@
-# COMP47250 Project Plan
+# COMP47250 Project Plan - Team Software Project (COMP47250)
 
 ## Team: The Sentinels  
 ## Project Title: Subtitle Translator App
