@@ -1,0 +1,211 @@
+1
+00:00:00,000 --> 00:00:01,020
+[Translated to fr] ...should he have, Colonel?
+
+2
+00:00:01,020 --> 00:00:03,060
+[Translated to fr] You snotty little bastard.
+
+3
+00:00:03,060 --> 00:00:04,840
+[Translated to fr] [Ross] Your Honor, I'd like to ask for a recess.
+
+4
+00:00:04,840 --> 00:00:06,420
+[Translated to fr] I'd like an answer to the question, Judge.
+
+5
+00:00:06,560 --> 00:00:08,180
+[Translated to fr] The court will wait for an answer.
+
+6
+00:00:09,040 --> 00:00:13,660
+[Translated to fr] If Lieutenant Kendrick, gave an order...
+[Translated to fr] that Santiago wasn't to be touched...
+
+7
+00:00:14,740 --> 00:00:16,320
+[Translated to fr] ...then why did he have to be transferred?
+
+8
+00:00:17,880 --> 00:00:18,500
+[Translated to fr] Colonel?
+
+9
+00:00:19,720 --> 00:00:23,600
+[Translated to fr] Lt. Kendrick ordered the code red, didn't he,
+[Translated to fr] because *that's* what you told Lt. Kendrick to do!
+
+10
+00:00:23,600 --> 00:00:24,100
+[Translated to fr] [Ross] Object!
+
+11
+00:00:24,100 --> 00:00:24,900
+[Translated to fr] [Kaffee] And when it went bad, you cut these guys loose!
+
+12
+00:00:24,900 --> 00:00:26,020
+[Translated to fr] [Randolph] That will be all, Counsel.
+[Translated to fr] [Kaffee] And when it went bad, you cut these guys loose!
+
+13
+00:00:26,020 --> 00:00:26,660
+[Translated to fr] [Kaffee] And when it went bad, you cut these guys loose!
+
+14
+00:00:26,660 --> 00:00:27,160
+[Translated to fr] [Ross] Your Honor!
+
+15
+00:00:27,160 --> 00:00:28,900
+[Translated to fr] [Randolph] Counsel, I'll hold you in contempt!
+[Translated to fr] [Kaffee] You had Markinson sign a phony transfer order!
+
+16
+00:00:28,900 --> 00:00:29,400
+[Translated to fr] [Ross] YOUR HONOR!
+[Translated to fr] [Kaffee] You had Markinson sign a phony transfer order!
+
+17
+00:00:29,400 --> 00:00:30,440
+[Translated to fr] [Kaffee] You doctored the log book!
+
+18
+00:00:30,440 --> 00:00:31,120
+[Translated to fr] [Ross] DAMMIT, KAFFEE!
+[Translated to fr] [Kaffee] You coerced the doctor! Now I'm asking you!
+
+19
+00:00:31,120 --> 00:00:31,620
+[Translated to fr] [Kaffee] You coerced the doctor! Now I'm asking you!
+
+20
+00:00:31,620 --> 00:00:33,080
+[Translated to fr] [Randolph] Consider yourself in contempt!
+[Translated to fr] [Kaffee] You coerced the doctor! Now I'm asking you!
+
+21
+00:00:33,080 --> 00:00:36,200
+[Translated to fr] COLONEL JESSUP! DID YOU ORDER THE CODE RED?!
+
+22
+00:00:36,200 --> 00:00:37,680
+[Translated to fr] You don't have to answer that question!
+
+23
+00:00:37,680 --> 00:00:39,300
+[Translated to fr] I'll answer the question.
+
+24
+00:00:39,900 --> 00:00:40,940
+[Translated to fr] You want answers?!
+
+25
+00:00:40,940 --> 00:00:42,000
+[Translated to fr] I think I'm entitled to--
+
+26
+00:00:42,000 --> 00:00:42,960
+[Translated to fr] [Jessup] *You want answers*?!
+
+27
+00:00:42,960 --> 00:00:44,340
+[Translated to fr] I WANT THE TRUTH!
+
+28
+00:00:44,340 --> 00:00:46,520
+[Translated to fr] *You can't handle the truth*!
+
+29
+00:00:47,840 --> 00:00:52,380
+[Translated to fr] Son, we live in a world that has walls, and those
+[Translated to fr] walls have to be guarded by men with guns.
+
+30
+00:00:52,380 --> 00:00:56,200
+[Translated to fr] Who's gonna do it? You?(!) You, Lt. Weinberg?(!)
+
+31
+00:00:57,060 --> 00:01:00,440
+[Translated to fr] I have a greater responsibility than you can possibly fathom!
+
+32
+00:01:01,000 --> 00:01:05,840
+[Translated to fr] You weep for Santiago and you
+[Translated to fr] curse the Marines. You have that luxury.
+
+33
+00:01:05,920 --> 00:01:12,540
+[Translated to fr] You have the luxury of not knowing what I know:
+[Translated to fr] That Santiago's death - while tragic - *probably* saved lives!
+
+34
+00:01:12,540 --> 00:01:18,340
+[Translated to fr] And my existence - while grotesque and
+[Translated to fr] incomprehensible to you - *saves lives*!
+
+35
+00:01:18,600 --> 00:01:22,740
+[Translated to fr] You don't want the truth, because deep down
+[Translated to fr] in places you don't talk about at parties...
+
+36
+00:01:22,740 --> 00:01:26,980
+[Translated to fr] You *want* me on that wall.
+[Translated to fr] You *need* me on that wall.
+
+37
+00:01:27,900 --> 00:01:32,160
+[Translated to fr] We use words like "honor", "code", "loyalty".
+
+38
+00:01:32,460 --> 00:01:36,240
+[Translated to fr] We use this words as the backbone
+[Translated to fr] of a life spent *defending* something.
+
+39
+00:01:36,240 --> 00:01:37,920
+[Translated to fr] You use them as a punchline!
+
+40
+00:01:38,220 --> 00:01:42,120
+[Translated to fr] I have neither the time, nor the inclination to explain myself
+
+41
+00:01:42,120 --> 00:01:46,460
+[Translated to fr] to a man who rises and sleeps under the
+[Translated to fr] blanket of the very freedom that I provide
+
+42
+00:01:46,460 --> 00:01:49,320
+[Translated to fr] and then *questions* the manner in which I provide it!
+
+43
+00:01:49,320 --> 00:01:52,560
+[Translated to fr] I would rather you just said "thank you", and went on your way.
+
+44
+00:01:52,560 --> 00:01:56,420
+[Translated to fr] Otherwise, I suggest you pick up a weapon and stand a post.
+
+45
+00:01:56,560 --> 00:02:01,380
+[Translated to fr] *Either way, I don't give a DAMN
+[Translated to fr] what you think you are entitled to*!
+
+46
+00:02:01,840 --> 00:02:02,980
+[Translated to fr] Did you order the code red?
+
+47
+00:02:03,160 --> 00:02:04,020
+[Translated to fr] [Jessup] I did the job--
+
+48
+00:02:04,020 --> 00:02:05,160
+[Translated to fr] DID YOU ORDER THE CODE RED?!
+
+49
+00:02:05,160 --> 00:02:07,300
+[Translated to fr] *YOU'RE GODDAMN RIGHT I DID*!!

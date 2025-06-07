@@ -17,6 +17,25 @@ import {
   User,
 } from "lucide-react";
 
+// API Configuration for Static Upload only
+const API_BASE_URL = "http://localhost:8000";
+
+const apiCall = async (endpoint, options = {}) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, options);
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(
+        errorData.error || `HTTP error! status: ${response.status}`,
+      );
+    }
+    return await response.json();
+  } catch (error) {
+    console.error("API call failed:", error);
+    throw error;
+  }
+};
+
 // Template 2: Static Subtitle Upload Interface
 const StaticSubtitleUpload = () => {
   const [dragActive, setDragActive] = useState(false);
