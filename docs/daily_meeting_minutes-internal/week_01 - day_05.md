@@ -1,11 +1,11 @@
-# 📋 Minutes of Meeting – Daily Internal Call  
+# Minutes of Meeting – Daily Internal Call  
 **Date:** June 06, 2025  
 **Project:** Subtitle Translator App  
 **Attendees:** Project Team  
 
 ---
 
-## 🧾 Team Task Summary
+## Team Task Summary
 
 | **Name** | **Tasks Done** | **Tasks To Do** |
 |----------|----------------|-----------------|
