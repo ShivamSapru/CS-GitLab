@@ -21,7 +21,7 @@ The architecture emphasises modularity, cloud deployment via Azure, Docker-based
 
 ---
 
-## 📆 Sprint Schedule
+## Sprint Schedule
 
 | **Sprint** | **Dates** | **Theme** | **Key Tasks** | **Milestones** |
 |------------|-----------|-----------|---------------|----------------|
