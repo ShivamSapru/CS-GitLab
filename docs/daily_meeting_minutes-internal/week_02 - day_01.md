@@ -5,7 +5,7 @@
 **Note:**  
 - Yadnesh could not attend due to a GP appointment.  
 - Shubham could not join since he's not feeling well.  
-- Shubham and Yadnesh will be providing updates later; meanwhile, Yadnesh's current updates are included below.
+- Shubham and Yadnesh will be providing updates later; meanwhile, Yadnesh's current updates are mentioned below.
 
 ---
 
