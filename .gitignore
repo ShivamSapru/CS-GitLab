@@ -2,6 +2,8 @@ __pycache__/
 .env
 *.log
 *.pyc
+*.srt
+*.vtt
 node_modules/
 frontend/build/
 dist/
