@@ -353,11 +353,20 @@ const StaticSubtitleUpload = () => {
             }`}
           />
           <p
-            className={`text-lg mb-2 ${
+            className={`text-lg mb-2 px-4 ${
               backendConnected ? "text-gray-600" : "text-gray-400"
             }`}
           >
-            {uploadedFile ? uploadedFile.name : "Drop your subtitle files here"}
+            {uploadedFile ? (
+              <span
+                className="break-all max-w-full inline-block"
+                title={uploadedFile.name}
+              >
+                {uploadedFile.name}
+              </span>
+            ) : (
+              "Drop your subtitle files here"
+            )}
           </p>
           <p
             className={`text-sm mb-4 ${
@@ -515,8 +524,14 @@ const StaticSubtitleUpload = () => {
                   key={file.language}
                   className="flex items-center justify-between bg-white p-3 rounded-lg"
                 >
-                  <span className="text-gray-700">
-                    {file.filename} ({file.languageName})
+                  <span
+                    className="text-gray-700 break-all pr-4 flex-1 min-w-0"
+                    title={`${file.filename} (${file.languageName})`}
+                  >
+                    <span className="block sm:inline">{file.filename}</span>
+                    <span className="text-gray-500 block sm:inline sm:ml-2">
+                      ({file.languageName})
+                    </span>
                   </span>
                   <button
                     onClick={() => downloadFile(file.filename)}
