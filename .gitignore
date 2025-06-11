@@ -1,7 +1,10 @@
 __pycache__/
 .env
+.DS_Store
 *.log
 *.pyc
+*.srt
+*.vtt
 node_modules/
 frontend/build/
 dist/
