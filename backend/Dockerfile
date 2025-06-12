@@ -3,13 +3,13 @@ FROM python:3.9-slim-buster
 
 WORKDIR /app
 
-# COPY requirements.txt ./
+COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-# Port: 8000
-EXPOSE 8000 # Using 8000 as a placeholder for the backend's listening port.
+# # Using 8000 as a placeholder for the backends listening port.
+EXPOSE 8000
 
-# Command to run Python application.
+# Run Python application
 CMD ["python", "main.py"]

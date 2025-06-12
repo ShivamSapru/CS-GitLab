@@ -4,7 +4,6 @@ services:
   backend:
     build: ./backend
     ports:
-      # Host:Container - Mapping local machine's port 8000 to the container's internal port 8000
       - "8000:8000"
     environment:
       PYTHONUNBUFFERED: 1
@@ -15,12 +14,11 @@ services:
   frontend:
     build: ./frontend
     ports:
-      # Host:Container - Mapping local machine's port 3000 to the container's internal port 80 (Nginx)
       - "3000:80"
     depends_on:
       - backend
     environment:
-      # Frontend needs to know where the backend API is.
+      # Frontend needs to know where the backend API is
       VITE_APP_BACKEND_URL: http://localhost:8000
     volumes:
       - ./frontend:/app
