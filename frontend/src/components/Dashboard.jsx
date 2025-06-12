@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { FileText, Zap, Users } from "lucide-react";
+import { FileText, Zap, Users, FolderOpen } from "lucide-react";
 
 const Dashboard = ({ onNavigate, isDarkMode }) => {
   const [activeFeature, setActiveFeature] = useState("static");
@@ -12,6 +12,14 @@ const Dashboard = ({ onNavigate, isDarkMode }) => {
       description: "Upload and translate subtitle files (SRT, VTT)",
       color: "bg-blue-500",
       route: "upload",
+    },
+    {
+      id: "library",
+      title: "Translation Library",
+      icon: FolderOpen,
+      description: "Browse and manage your translated subtitle files",
+      color: "bg-purple-500",
+      route: "library",
     },
     {
       id: "realtime",
