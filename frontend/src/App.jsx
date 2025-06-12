@@ -1,14 +1,13 @@
 import React, { useState } from "react";
 import { Globe, Menu, User } from "lucide-react";
 
-
 // Import all components
 import Dashboard from "./components/Dashboard";
 import StaticSubtitleUpload from "./components/StaticSubtitleUpload";
 import RealTimeTranslation from "./components/RealTimeTranslation";
 import TranslationReview from "./components/TranslationReview";
 import Profile from "./components/Profile";
-
+import Library from "./components/Library";
 
 // Main App Component with Template Switcher and Hamburger Menu
 const SubtitleTranslatorApp = () => {
@@ -33,6 +32,7 @@ const SubtitleTranslatorApp = () => {
       component: RealTimeTranslation,
     },
     { id: "review", name: "Translation Review", component: TranslationReview },
+    { id: "library", name: "Library", component: Library },
     { id: "profile", name: "Profile", component: Profile },
   ];
 
