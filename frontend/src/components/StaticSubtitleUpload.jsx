@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Upload, Download, Check, X } from "lucide-react";
+import { Upload, Download, Check, X, AlertCircle } from "lucide-react";
 
 // API Configuration for Static Upload only
-const API_BASE_URL = "http://localhost:8000";
+const API_BASE_URL = "http://localhost:8000/api";
 
 const apiCall = async (endpoint, options = {}) => {
   try {
@@ -32,6 +32,8 @@ const StaticSubtitleUpload = () => {
   const [loadingLanguages, setLoadingLanguages] = useState(true);
   const [error, setError] = useState(null);
   const [backendConnected, setBackendConnected] = useState(false);
+  const [currentTranslatingLanguage, setCurrentTranslatingLanguage] =
+    useState("");
   const fileInputRef = useRef(null);
 
   // Load languages from backend on component mount
@@ -40,6 +42,9 @@ const StaticSubtitleUpload = () => {
       try {
         setLoadingLanguages(true);
         setError(null);
+
+        // First check if backend is healthy
+        await apiCall("/health");
 
         const languageData = await apiCall("/languages");
 
@@ -56,9 +61,9 @@ const StaticSubtitleUpload = () => {
         setError(null);
       } catch (err) {
         setBackendConnected(false);
-        setLanguages([]); // Don't show hardcoded languages
+        setLanguages([]);
         setError(
-          `Backend connection failed: ${err.message}. Please start your FastAPI server on http://localhost:8000`,
+          `Backend connection failed: ${err.message}. Please ensure your FastAPI server is running on http://localhost:8000 with Azure credentials configured.`,
         );
         console.error("Failed to load languages:", err);
       } finally {
@@ -113,7 +118,7 @@ const StaticSubtitleUpload = () => {
     }
   };
 
-  // Real translation function that calls the backend API
+  // Enhanced translation function with better progress tracking
   const startTranslation = async () => {
     if (!backendConnected) {
       setError("Backend not connected. Please start your FastAPI server.");
@@ -131,9 +136,13 @@ const StaticSubtitleUpload = () => {
       const totalLanguages = targetLanguages.length;
       const translatedResults = [];
 
-      // Process each target language
+      // Process each target language sequentially
       for (let i = 0; i < targetLanguages.length; i++) {
         const targetLang = targetLanguages[i];
+        const targetLangName =
+          languages.find((l) => l.code === targetLang)?.name || targetLang;
+
+        setCurrentTranslatingLanguage(`Translating to ${targetLangName}...`);
 
         // Create FormData for file upload
         const formData = new FormData();
@@ -142,6 +151,7 @@ const StaticSubtitleUpload = () => {
         formData.append("target_language", targetLang);
 
         try {
+          // Start translation request
           const result = await apiCall("/upload-file", {
             method: "POST",
             body: formData,
@@ -149,24 +159,32 @@ const StaticSubtitleUpload = () => {
 
           translatedResults.push({
             language: targetLang,
-            languageName:
-              languages.find((l) => l.code === targetLang)?.name || targetLang,
+            languageName: targetLangName,
             filename: result.translated_filename,
             originalFilename: result.original_filename,
+            message: result.message,
           });
 
           // Update progress
           const progress = ((i + 1) / totalLanguages) * 100;
           setTranslationProgress(progress);
+
+          // Small delay to show progress
+          if (i < targetLanguages.length - 1) {
+            await new Promise((resolve) => setTimeout(resolve, 500));
+          }
         } catch (err) {
           console.error(`Translation failed for ${targetLang}:`, err);
-          setError(`Translation failed for ${targetLang}: ${err.message}`);
+          setError(`Translation failed for ${targetLangName}: ${err.message}`);
+          break; // Stop on first error
         }
       }
 
       setTranslatedFiles(translatedResults);
+      setCurrentTranslatingLanguage("");
     } catch (err) {
       setError(`Translation failed: ${err.message}`);
+      setCurrentTranslatingLanguage("");
     } finally {
       setIsTranslating(false);
     }
@@ -185,7 +203,8 @@ const StaticSubtitleUpload = () => {
       );
 
       if (!response.ok) {
-        throw new Error("Download failed");
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Download failed");
       }
 
       const blob = await response.blob();
@@ -207,6 +226,7 @@ const StaticSubtitleUpload = () => {
     setTranslationProgress(0);
     setTranslatedFiles([]);
     setError(null);
+    setCurrentTranslatingLanguage("");
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -218,6 +238,7 @@ const StaticSubtitleUpload = () => {
     setError(null);
 
     try {
+      await apiCall("/health");
       const languageData = await apiCall("/languages");
       const languageArray = Object.entries(languageData).map(
         ([code, name]) => ({
@@ -233,7 +254,7 @@ const StaticSubtitleUpload = () => {
       setBackendConnected(false);
       setLanguages([]);
       setError(
-        `Backend connection failed: ${err.message}. Please start your FastAPI server on http://localhost:8000`,
+        `Backend connection failed: ${err.message}. Please ensure your FastAPI server is running with Azure credentials configured.`,
       );
     } finally {
       setLoadingLanguages(false);
@@ -244,7 +265,7 @@ const StaticSubtitleUpload = () => {
     <div className="max-w-4xl mx-auto p-6">
       <div className="bg-white rounded-xl shadow-lg p-8">
         <h2 className="text-2xl font-bold text-gray-900 mb-6">
-          Static Subtitle Translation
+          Azure Powered Subtitle Translation
         </h2>
 
         {/* Backend Connection Status */}
@@ -267,7 +288,7 @@ const StaticSubtitleUpload = () => {
                   backendConnected ? "text-green-800" : "text-red-800"
                 }`}
               >
-                Backend Status:{" "}
+                Azure Translation Service:{" "}
                 {backendConnected ? "Connected" : "Disconnected"}
               </span>
             </div>
@@ -286,37 +307,53 @@ const StaticSubtitleUpload = () => {
         {/* Error Display */}
         {error && (
           <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-            <div className="flex items-center">
-              <X className="w-5 h-5 text-red-500 mr-2" />
-              <span className="text-red-800">{error}</span>
+            <div className="flex items-start">
+              <AlertCircle className="w-5 h-5 text-red-500 mr-2 mt-0.5 flex-shrink-0" />
+              <div className="text-red-800">
+                <div className="font-medium mb-1">Translation Error</div>
+                <div className="text-sm">{error}</div>
+              </div>
             </div>
           </div>
         )}
 
-        {/* Show message when backend is not connected */}
+        {/* Show setup instructions when backend is not connected */}
         {!backendConnected && !loadingLanguages && (
-          <div className="mb-6 p-6 bg-yellow-50 border border-yellow-200 rounded-lg">
-            <h3 className="text-lg font-medium text-yellow-800 mb-2">
-              Backend Required
+          <div className="mb-6 p-6 bg-blue-50 border border-blue-200 rounded-lg">
+            <h3 className="text-lg font-medium text-blue-800 mb-2">
+              Setup Required
             </h3>
-            <p className="text-yellow-700 mb-4">
-              This feature requires a connection to the FastAPI backend server.
-              Please:
+            <p className="text-blue-700 mb-4">
+              This feature requires Azure Translator service. Please ensure:
             </p>
-            <ol className="list-decimal list-inside text-yellow-700 space-y-1 mb-4">
+            <ol className="list-decimal list-inside text-blue-700 space-y-2 mb-4">
+              <li>Your FastAPI server is running on port 8000</li>
               <li>
-                Start your FastAPI server:{" "}
-                <code className="bg-yellow-100 px-2 py-1 rounded">
-                  uvicorn main:app --reload --port 8000
-                </code>
+                Azure Translator credentials are configured in your .env file:
+                <ul className="list-disc list-inside ml-4 mt-1 space-y-1">
+                  <li>
+                    <code className="bg-blue-100 px-2 py-1 rounded text-xs">
+                      AZURE_TRANSLATOR_ENDPOINT
+                    </code>
+                  </li>
+                  <li>
+                    <code className="bg-blue-100 px-2 py-1 rounded text-xs">
+                      AZURE_SUBSCRIPTION_KEY
+                    </code>
+                  </li>
+                  <li>
+                    <code className="bg-blue-100 px-2 py-1 rounded text-xs">
+                      AZURE_REGION
+                    </code>
+                  </li>
+                </ul>
               </li>
-              <li>Ensure CORS is enabled in your backend</li>
-              <li>Click "Retry Connection" above</li>
+              <li>Click "Retry Connection" above once configured</li>
             </ol>
           </div>
         )}
 
-        {/* File Upload Area - disabled when backend not connected */}
+        {/* File Upload Area */}
         <div
           className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
             !backendConnected
@@ -356,7 +393,7 @@ const StaticSubtitleUpload = () => {
               backendConnected ? "text-gray-400" : "text-gray-300"
             }`}
           >
-            Supports SRT, VTT formats
+            Supports SRT, VTT formats • Powered by Azure Translator
           </p>
           <button
             onClick={() => backendConnected && fileInputRef.current?.click()}
@@ -379,7 +416,7 @@ const StaticSubtitleUpload = () => {
           />
         </div>
 
-        {/* Language Selection - only show when backend connected */}
+        {/* Language Selection */}
         {uploadedFile && backendConnected && (
           <div className="mt-8 space-y-6">
             {/* Source Language */}
@@ -451,7 +488,9 @@ const StaticSubtitleUpload = () => {
         {isTranslating && (
           <div className="mt-8">
             <div className="flex justify-between items-center mb-2">
-              <span className="text-sm text-gray-600">Translating...</span>
+              <span className="text-sm text-gray-600">
+                {currentTranslatingLanguage || "Processing..."}
+              </span>
               <span className="text-sm text-gray-600">
                 {Math.round(translationProgress)}%
               </span>
@@ -498,27 +537,30 @@ const StaticSubtitleUpload = () => {
             <div className="flex items-center mb-3">
               <Check className="w-5 h-5 text-green-500 mr-2" />
               <span className="text-green-800 font-medium">
-                Translation Complete!
+                Translation Complete! ({translatedFiles.length} file
+                {translatedFiles.length > 1 ? "s" : ""} ready)
               </span>
             </div>
             <div className="space-y-2">
               {translatedFiles.map((file) => (
                 <div
                   key={file.language}
-                  className="flex items-center justify-between bg-white p-3 rounded-lg"
+                  className="flex items-center justify-between bg-white p-3 rounded-lg border"
                 >
-                  <span
-                    className="text-gray-700 break-all pr-4 flex-1 min-w-0"
-                    title={`${file.filename} (${file.languageName})`}
-                  >
-                    <span className="block sm:inline">{file.filename}</span>
-                    <span className="text-gray-500 block sm:inline sm:ml-2">
-                      ({file.languageName})
-                    </span>
-                  </span>
+                  <div className="flex-1 min-w-0 pr-4">
+                    <div
+                      className="text-gray-700 font-medium truncate"
+                      title={file.filename}
+                    >
+                      {file.filename}
+                    </div>
+                    <div className="text-sm text-gray-500">
+                      Translated to {file.languageName}
+                    </div>
+                  </div>
                   <button
                     onClick={() => downloadFile(file.filename)}
-                    className="text-blue-500 hover:text-blue-700 flex items-center space-x-1"
+                    className="text-blue-500 hover:text-blue-700 flex items-center space-x-1 flex-shrink-0"
                   >
                     <Download className="w-4 h-4" />
                     <span>Download</span>
