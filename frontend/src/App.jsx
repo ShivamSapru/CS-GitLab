@@ -87,16 +87,23 @@ const SubtitleTranslatorApp = () => {
               </button>
 
               {/* Logo */}
-              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center">
-                <Globe className="w-4 h-4 sm:w-6 sm:h-6 text-white" />
-              </div>
-              <h1
-                className={`text-lg sm:text-xl lg:text-2xl font-bold transition-colors duration-300 ${
-                  isDarkMode ? "text-white" : "text-gray-900"
-                }`}
+              <button
+                onClick={() => {
+                  handleNavigation("Dashboard");
+                }}
+                className="flex items-center space-x-3 hover:opacity-80 transition-opacity duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded-lg p-1"
               >
-                SubtitleTranslator
-              </h1>
+                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center">
+                  <Globe className="w-4 h-4 sm:w-6 sm:h-6 text-white" />
+                </div>
+                <h1
+                  className={`text-lg sm:text-xl lg:text-2xl font-bold transition-colors duration-300 ${
+                    isDarkMode ? "text-white" : "text-gray-900"
+                  }`}
+                >
+                  SubtitleTranslator
+                </h1>
+              </button>
             </div>
 
             {/* Right side - Dark Mode Toggle */}
