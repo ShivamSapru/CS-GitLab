@@ -1,5 +1,12 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Upload, Download, Check, X, AlertCircle } from "lucide-react";
+import {
+  Upload,
+  Download,
+  Check,
+  X,
+  AlertCircle,
+  ChevronDown,
+} from "lucide-react";
 
 // API Configuration for Static Upload only
 const API_BASE_URL = "http://localhost:8000/api";
@@ -20,10 +27,148 @@ const apiCall = async (endpoint, options = {}) => {
   }
 };
 
+// Multi-select dropdown component
+const MultiSelectDropdown = ({
+  languages,
+  selectedLanguages,
+  onSelectionChange,
+  disabled,
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const handleLanguageToggle = (languageCode) => {
+    const newSelection = selectedLanguages.includes(languageCode)
+      ? selectedLanguages.filter((code) => code !== languageCode)
+      : [...selectedLanguages, languageCode];
+    onSelectionChange(newSelection);
+  };
+
+  const removeLanguage = (languageCode) => {
+    onSelectionChange(
+      selectedLanguages.filter((code) => code !== languageCode),
+    );
+  };
+
+  const getSelectedLanguageNames = () => {
+    return selectedLanguages.map(
+      (code) => languages.find((lang) => lang.code === code)?.name || code,
+    );
+  };
+
+  return (
+    <div className="relative" ref={dropdownRef}>
+      {/* Selected languages display */}
+      <div className="mb-2 flex flex-wrap gap-2">
+        {selectedLanguages.map((code) => {
+          const language = languages.find((lang) => lang.code === code);
+          return (
+            <span
+              key={code}
+              className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-blue-100 text-blue-800"
+            >
+              {language?.name || code}
+              <button
+                onClick={() => removeLanguage(code)}
+                className="ml-2 text-blue-600 hover:text-blue-800"
+                disabled={disabled}
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          );
+        })}
+      </div>
+
+      {/* Dropdown trigger */}
+      <button
+        type="button"
+        onClick={() => !disabled && setIsOpen(!isOpen)}
+        disabled={disabled}
+        className={`w-full p-3 border rounded-lg text-left flex items-center justify-between ${
+          disabled
+            ? "border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed"
+            : "border-gray-300 bg-white hover:border-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+        }`}
+      >
+        <span
+          className={
+            selectedLanguages.length === 0 ? "text-gray-500" : "text-gray-900"
+          }
+        >
+          {selectedLanguages.length === 0
+            ? "Select target languages..."
+            : `${selectedLanguages.length} language${selectedLanguages.length > 1 ? "s" : ""} selected`}
+        </span>
+        <ChevronDown
+          className={`w-5 h-5 transition-transform ${isOpen ? "rotate-180" : ""}`}
+        />
+      </button>
+
+      {/* Dropdown menu */}
+      {isOpen && !disabled && (
+        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+          {languages.map((language) => (
+            <button
+              key={language.code}
+              type="button"
+              onClick={() => handleLanguageToggle(language.code)}
+              className={`w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center justify-between ${
+                selectedLanguages.includes(language.code) ? "bg-blue-50" : ""
+              }`}
+            >
+              <span className="truncate">
+                {language.code} - {language.name}
+              </span>
+              {selectedLanguages.includes(language.code) && (
+                <Check className="w-4 h-4 text-blue-500 flex-shrink-0 ml-2" />
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const ToggleSwitch = ({ enabled, onChange, disabled }) => {
+  return (
+    <button
+      type="button"
+      onClick={() => !disabled && onChange(!enabled)}
+      disabled={disabled}
+      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+        disabled
+          ? "bg-gray-200 cursor-not-allowed"
+          : enabled
+            ? "bg-blue-600"
+            : "bg-gray-200"
+      }`}
+    >
+      <span
+        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+          enabled ? "translate-x-6" : "translate-x-1"
+        }`}
+      />
+    </button>
+  );
+};
+
 const StaticSubtitleUpload = () => {
   const [dragActive, setDragActive] = useState(false);
   const [uploadedFile, setUploadedFile] = useState(null);
-  const [sourceLanguage, setSourceLanguage] = useState("en");
+  const [censorProfanity, setCensorProfanity] = useState(false);
   const [targetLanguages, setTargetLanguages] = useState([]);
   const [translationProgress, setTranslationProgress] = useState(0);
   const [isTranslating, setIsTranslating] = useState(false);
@@ -36,7 +181,7 @@ const StaticSubtitleUpload = () => {
     useState("");
   const fileInputRef = useRef(null);
 
-  // Load languages from backend on component mount
+  // Load languages from Microsoft Translator API
   useEffect(() => {
     const loadLanguages = async () => {
       try {
@@ -45,26 +190,60 @@ const StaticSubtitleUpload = () => {
 
         // First check if backend is healthy
         await apiCall("/health");
+        setBackendConnected(true);
 
-        const languageData = await apiCall("/languages");
+        // Fetch languages from Microsoft Translator API
+        const response = await fetch(
+          "https://api.cognitive.microsofttranslator.com/languages?api-version=3.0&scope=translation",
+        );
+        if (!response.ok) {
+          throw new Error(`Failed to fetch languages: ${response.status}`);
+        }
 
-        // Convert backend format to frontend format
-        const languageArray = Object.entries(languageData).map(
-          ([code, name]) => ({
+        const data = await response.json();
+
+        // Convert Microsoft Translator format to our format
+        const languageArray = Object.entries(data.translation).map(
+          ([code, info]) => ({
             code,
-            name,
+            name: info.name,
+            nativeName: info.nativeName,
           }),
         );
 
+        // Sort languages alphabetically by name
+        languageArray.sort((a, b) => a.name.localeCompare(b.name));
+
         setLanguages(languageArray);
-        setBackendConnected(true);
         setError(null);
       } catch (err) {
-        setBackendConnected(false);
-        setLanguages([]);
-        setError(
-          `Backend connection failed: ${err.message}. Please ensure your FastAPI server is running on http://localhost:8000 with Azure credentials configured.`,
-        );
+        if (err.message.includes("Failed to fetch languages")) {
+          // If Microsoft API fails, try to fall back to backend
+          try {
+            const languageData = await apiCall("/languages");
+            const languageArray = Object.entries(languageData).map(
+              ([code, name]) => ({
+                code,
+                name,
+              }),
+            );
+            setLanguages(languageArray);
+            setBackendConnected(true);
+            setError(null);
+          } catch (backendErr) {
+            setBackendConnected(false);
+            setLanguages([]);
+            setError(
+              `Language loading failed: ${err.message}. Backend connection also failed: ${backendErr.message}`,
+            );
+          }
+        } else {
+          setBackendConnected(false);
+          setLanguages([]);
+          setError(
+            `Backend connection failed: ${err.message}. Please ensure your FastAPI server is running on http://localhost:8000 with Azure credentials configured.`,
+          );
+        }
         console.error("Failed to load languages:", err);
       } finally {
         setLoadingLanguages(false);
@@ -147,7 +326,8 @@ const StaticSubtitleUpload = () => {
         // Create FormData for file upload
         const formData = new FormData();
         formData.append("file", uploadedFile);
-        formData.append("source_language", sourceLanguage);
+        formData.append("source_language", "auto");
+        formData.append("censor_profanity", censorProfanity);
         formData.append("target_language", targetLang);
 
         try {
@@ -225,6 +405,8 @@ const StaticSubtitleUpload = () => {
     setUploadedFile(null);
     setTranslationProgress(0);
     setTranslatedFiles([]);
+    setCensorProfanity(false);
+    setTargetLanguages([]);
     setError(null);
     setCurrentTranslatingLanguage("");
     if (fileInputRef.current) {
@@ -239,16 +421,35 @@ const StaticSubtitleUpload = () => {
 
     try {
       await apiCall("/health");
-      const languageData = await apiCall("/languages");
-      const languageArray = Object.entries(languageData).map(
-        ([code, name]) => ({
-          code,
-          name,
-        }),
-      );
-
-      setLanguages(languageArray);
       setBackendConnected(true);
+
+      // Try to reload languages from Microsoft API
+      const response = await fetch(
+        "https://api.cognitive.microsofttranslator.com/languages?api-version=3.0&scope=translation",
+      );
+      if (response.ok) {
+        const data = await response.json();
+        const languageArray = Object.entries(data.translation).map(
+          ([code, info]) => ({
+            code,
+            name: info.name,
+            nativeName: info.nativeName,
+          }),
+        );
+        languageArray.sort((a, b) => a.name.localeCompare(b.name));
+        setLanguages(languageArray);
+      } else {
+        // Fallback to backend languages
+        const languageData = await apiCall("/languages");
+        const languageArray = Object.entries(languageData).map(
+          ([code, name]) => ({
+            code,
+            name,
+          }),
+        );
+        setLanguages(languageArray);
+      }
+
       setError(null);
     } catch (err) {
       setBackendConnected(false);
@@ -419,30 +620,7 @@ const StaticSubtitleUpload = () => {
         {/* Language Selection */}
         {uploadedFile && backendConnected && (
           <div className="mt-8 space-y-6">
-            {/* Source Language */}
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                Source Language
-              </h3>
-              <select
-                value={sourceLanguage}
-                onChange={(e) => setSourceLanguage(e.target.value)}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                disabled={loadingLanguages || !backendConnected}
-              >
-                {loadingLanguages ? (
-                  <option>Loading languages...</option>
-                ) : (
-                  languages.map((lang) => (
-                    <option key={lang.code} value={lang.code}>
-                      {lang.name}
-                    </option>
-                  ))
-                )}
-              </select>
-            </div>
-
-            {/* Target Languages */}
+            {/* Target Languages - Multi-select Dropdown */}
             <div>
               <h3 className="text-lg font-semibold text-gray-900 mb-4">
                 Select Target Languages
@@ -450,35 +628,12 @@ const StaticSubtitleUpload = () => {
               {loadingLanguages ? (
                 <p className="text-gray-500">Loading languages...</p>
               ) : (
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                  {languages
-                    .filter((lang) => lang.code !== sourceLanguage)
-                    .map((lang) => (
-                      <label
-                        key={lang.code}
-                        className="flex items-center space-x-2 cursor-pointer"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={targetLanguages.includes(lang.code)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setTargetLanguages([
-                                ...targetLanguages,
-                                lang.code,
-                              ]);
-                            } else {
-                              setTargetLanguages(
-                                targetLanguages.filter((l) => l !== lang.code),
-                              );
-                            }
-                          }}
-                          className="rounded border-gray-300"
-                        />
-                        <span className="text-gray-700">{lang.name}</span>
-                      </label>
-                    ))}
-                </div>
+                <MultiSelectDropdown
+                  languages={languages}
+                  selectedLanguages={targetLanguages}
+                  onSelectionChange={setTargetLanguages}
+                  disabled={loadingLanguages || !backendConnected}
+                />
               )}
             </div>
           </div>
@@ -513,24 +668,35 @@ const StaticSubtitleUpload = () => {
             Reset
           </button>
 
-          {uploadedFile &&
-            !isTranslating &&
-            translatedFiles.length === 0 &&
-            backendConnected && (
-              <button
-                onClick={startTranslation}
-                disabled={
-                  targetLanguages.length === 0 ||
-                  loadingLanguages ||
-                  !backendConnected
-                }
-                className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
-              >
-                Start Translation
-              </button>
-            )}
-        </div>
+          {uploadedFile && backendConnected && (
+            <div className="flex items-center space-x-6">
+              {/* Profanity Filter Toggle */}
+              <div className="flex items-center space-x-3">
+                <span className="text-sm text-gray-700">Censor profanity</span>
 
+                <ToggleSwitch
+                  enabled={censorProfanity}
+                  onChange={setCensorProfanity}
+                  disabled={isTranslating || loadingLanguages}
+                />
+              </div>
+
+              {!isTranslating && translatedFiles.length === 0 && (
+                <button
+                  onClick={startTranslation}
+                  disabled={
+                    targetLanguages.length === 0 ||
+                    loadingLanguages ||
+                    !backendConnected
+                  }
+                  className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                >
+                  Start Translation
+                </button>
+              )}
+            </div>
+          )}
+        </div>
         {/* Download Results */}
         {translatedFiles.length > 0 && (
           <div className="mt-8 p-4 bg-green-50 rounded-lg">

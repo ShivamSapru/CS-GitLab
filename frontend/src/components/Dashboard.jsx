@@ -125,16 +125,6 @@ const Dashboard = ({ onNavigate, isDarkMode }) => {
             );
           })}
         </div>
-
-        {/* Quick Start Button - Responsive */}
-        <div className="text-center">
-          <button
-            onClick={() => onNavigate && onNavigate("upload")}
-            className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-6 sm:px-8 py-2.5 sm:py-3 rounded-lg font-semibold hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 shadow-lg hover:shadow-xl text-sm sm:text-base"
-          >
-            Get Started
-          </button>
-        </div>
       </div>
     </div>
   );
