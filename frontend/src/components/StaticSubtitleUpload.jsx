@@ -33,6 +33,8 @@ const MultiSelectDropdown = ({
   selectedLanguages,
   onSelectionChange,
   disabled,
+  searchTerm,
+  onSearchChange,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
@@ -53,6 +55,7 @@ const MultiSelectDropdown = ({
       ? selectedLanguages.filter((code) => code !== languageCode)
       : [...selectedLanguages, languageCode];
     onSelectionChange(newSelection);
+    onSearchChange("");
   };
 
   const removeLanguage = (languageCode) => {
@@ -91,51 +94,56 @@ const MultiSelectDropdown = ({
         })}
       </div>
 
-      {/* Dropdown trigger */}
-      <button
-        type="button"
-        onClick={() => !disabled && setIsOpen(!isOpen)}
-        disabled={disabled}
-        className={`w-full p-3 border rounded-lg text-left flex items-center justify-between ${
-          disabled
-            ? "border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed"
-            : "border-gray-300 bg-white hover:border-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-        }`}
-      >
-        <span
-          className={
-            selectedLanguages.length === 0 ? "text-gray-500" : "text-gray-900"
+      {/* Search input */}
+      <div className="relative">
+        <input
+          type="text"
+          value={searchTerm}
+          onChange={(e) => onSearchChange(e.target.value)}
+          onFocus={() => !disabled && setIsOpen(true)}
+          placeholder={
+            selectedLanguages.length === 0
+              ? "Select or type to search languages..."
+              : `${selectedLanguages.length} selected - type to search more...`
           }
-        >
-          {selectedLanguages.length === 0
-            ? "Select target languages..."
-            : `${selectedLanguages.length} language${selectedLanguages.length > 1 ? "s" : ""} selected`}
-        </span>
-        <ChevronDown
-          className={`w-5 h-5 transition-transform ${isOpen ? "rotate-180" : ""}`}
+          disabled={disabled}
+          className={`w-full p-3 border rounded-lg pr-10 ${
+            disabled
+              ? "border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed"
+              : "border-gray-300 bg-white hover:border-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          }`}
         />
-      </button>
+        <ChevronDown
+          className={`absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 transition-transform ${isOpen ? "rotate-180" : ""} ${disabled ? "text-gray-300" : "text-gray-400"}`}
+        />
+      </div>
 
       {/* Dropdown menu */}
       {isOpen && !disabled && (
         <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-          {languages.map((language) => (
-            <button
-              key={language.code}
-              type="button"
-              onClick={() => handleLanguageToggle(language.code)}
-              className={`w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center justify-between ${
-                selectedLanguages.includes(language.code) ? "bg-blue-50" : ""
-              }`}
-            >
-              <span className="truncate">
-                {language.code} - {language.name}
-              </span>
-              {selectedLanguages.includes(language.code) && (
-                <Check className="w-4 h-4 text-blue-500 flex-shrink-0 ml-2" />
-              )}
-            </button>
-          ))}
+          {languages
+            .filter(
+              (language) =>
+                language.name
+                  .toLowerCase()
+                  .includes(searchTerm.toLowerCase()) ||
+                language.code.toLowerCase().includes(searchTerm.toLowerCase()),
+            )
+            .map((language) => (
+              <button
+                key={language.code}
+                type="button"
+                onClick={() => handleLanguageToggle(language.code)}
+                className={`w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center justify-between ${
+                  selectedLanguages.includes(language.code) ? "bg-blue-50" : ""
+                }`}
+              >
+                <span className="truncate">{language.name}</span>
+                {selectedLanguages.includes(language.code) && (
+                  <Check className="w-4 h-4 text-blue-500 flex-shrink-0 ml-2" />
+                )}
+              </button>
+            ))}
         </div>
       )}
     </div>
@@ -173,6 +181,7 @@ const StaticSubtitleUpload = () => {
   const [translationProgress, setTranslationProgress] = useState(0);
   const [isTranslating, setIsTranslating] = useState(false);
   const [translatedFiles, setTranslatedFiles] = useState([]);
+  const [searchTerm, setSearchTerm] = useState("");
   const [languages, setLanguages] = useState([]);
   const [loadingLanguages, setLoadingLanguages] = useState(true);
   const [error, setError] = useState(null);
@@ -633,6 +642,8 @@ const StaticSubtitleUpload = () => {
                   selectedLanguages={targetLanguages}
                   onSelectionChange={setTargetLanguages}
                   disabled={loadingLanguages || !backendConnected}
+                  searchTerm={searchTerm}
+                  onSearchChange={setSearchTerm}
                 />
               )}
             </div>
@@ -660,10 +671,10 @@ const StaticSubtitleUpload = () => {
         )}
 
         {/* Action Buttons */}
-        <div className="mt-8 flex justify-between items-center">
+        <div className="mt-8 flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4">
           <button
             onClick={resetComponent}
-            className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+            className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 w-full sm:w-auto"
           >
             Reset
           </button>
@@ -689,7 +700,7 @@ const StaticSubtitleUpload = () => {
                     loadingLanguages ||
                     !backendConnected
                   }
-                  className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                  className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed w-full sm:w-auto"
                 >
                   Start Translation
                 </button>

@@ -34,7 +34,7 @@ const Dashboard = ({ onNavigate, isDarkMode }) => {
       title: "Post-Event Transcription",
       icon: Users,
       description: "Process and translate meeting transcripts",
-      color: "bg-purple-500",
+      color: "bg-yellow-500",
       route: "review",
     },
   ];
