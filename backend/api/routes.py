@@ -17,24 +17,40 @@ router = APIRouter()
 
 temp_dir = tempfile.mkdtemp()
 
-# List of Languages present for translation
-LANGUAGE_CODES = {
-    "en": "English",
-    "hi": "Hindi",
-    "fr": "French",
-    "de": "German"
-}
 
 AZURE_TRANSLATOR_ENDPOINT = os.getenv("AZURE_TRANSLATOR_ENDPOINT")
 AZURE_SUBSCRIPTION_KEY = os.getenv("AZURE_SUBSCRIPTION_KEY")
 AZURE_REGION = os.getenv("AZURE_REGION")
+AZURE_LANGUAGES_URL = os.getenv("AZURE_LANGUAGES_URL")
 
 
 if not AZURE_SUBSCRIPTION_KEY or not AZURE_REGION:
     raise EnvironmentError("Missing AZURE_SUBSCRIPTION_KEY or AZURE_REGION in environment.")
 
 
-MAX_CHAR_LIMIT = 20000  # Azure limit is 50000 characters/request
+MAX_CHAR_LIMIT = 20000  # Azure limit is 50000 characters per request
+
+
+def fetch_language_codes() -> Dict[str, str]:
+    try:
+        if not AZURE_LANGUAGES_URL:
+            raise EnvironmentError("AZURE_LANGUAGES_URL is not set in environment variables.")
+
+        response = httpx.get(AZURE_LANGUAGES_URL)
+        response.raise_for_status()
+        data = response.json()
+
+        translation_langs = data.get("translation", {})
+        formatted_languages = {
+            code: lang_data["name"]
+            for code, lang_data in translation_langs.items()
+        }
+
+        return formatted_languages
+
+    except Exception as e:
+        print(f"Failed to fetch Azure language codes: {e}")
+        return {}
 
 
 def post_with_retries(url, headers, json_body, retries=14):
@@ -71,9 +87,11 @@ def chunk_texts(texts, max_chars):
     return chunks
 
 
-def detect_and_translate(texts, to_lang):
+def detect_and_translate(texts, to_lang, no_prof):
     path = "/translate?api-version=3.0"
     params = f"&to={to_lang}"
+    if no_prof:
+        params += "&profanityAction=Marked"
     url = AZURE_TRANSLATOR_ENDPOINT + path + params
     headers = {
         "Ocp-Apim-Subscription-Key": AZURE_SUBSCRIPTION_KEY,
@@ -105,6 +123,9 @@ def detect_and_translate(texts, to_lang):
     return translated
 
 
+# List of Languages present for translation
+LANGUAGE_CODES = fetch_language_codes()
+
 # Endpoint to get the supported languages
 @router.get("/languages")
 def get_languages() -> Dict[str, str]:
@@ -119,13 +140,15 @@ def health_check():
 @router.post("/upload-file")
 async def upload_file(
     file: UploadFile = File(...),
-    source_language: str = Form(...),
-    target_language: str = Form(...)
+    # source_language: str = Form(...),
+    target_language: str = Form(...),
+    censor_profanity: bool = Form(...)
 ):
     try:
         input_path = os.path.join(temp_dir, file.filename)
         base_name, file_ext = os.path.splitext(file.filename)
-        output_filename = f"{base_name} (Translated to {target_language.upper()}){file_ext}"
+        tag = " and Censored" if censor_profanity else ""
+        output_filename = f"{base_name} (Translated to {target_language.upper()}{tag}){file_ext}"
         output_path = os.path.join(temp_dir, output_filename)
 
         with open(input_path, "wb") as f:
@@ -135,7 +158,7 @@ async def upload_file(
             with open(input_path, "r", encoding="utf-8") as f:
                 subtitles = list(srt.parse(f.read()))
             texts = [s.content for s in subtitles]
-            translated = detect_and_translate(texts, target_language)
+            translated = detect_and_translate(texts, target_language, censor_profanity)
             for i, s in enumerate(subtitles):
                 s.content = translated[i]
             with open(output_path, "w", encoding="utf-8") as f:
@@ -144,7 +167,7 @@ async def upload_file(
         elif file_ext.lower() == ".vtt":
             vtt = webvtt.read(input_path)
             texts = [caption.text for caption in vtt.captions]
-            translated = detect_and_translate(texts, target_language)
+            translated = detect_and_translate(texts, target_language, censor_profanity)
             for i, caption in enumerate(vtt.captions):
                 caption.text = translated[i]
             vtt.save(output_path)
@@ -154,7 +177,7 @@ async def upload_file(
         return {
             "original_filename": file.filename,
             "translated_filename": output_filename,
-            "source_language": source_language,
+            # "source_language": source_language,
             "target_language": target_language,
             "target_language_name": LANGUAGE_CODES[target_language],
             "message": "File uploaded, translated, and saved successfully."
