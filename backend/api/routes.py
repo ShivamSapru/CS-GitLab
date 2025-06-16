@@ -88,7 +88,7 @@ def chunk_texts(texts, max_chars):
 
 
 def detect_and_translate(texts, to_lang, no_prof):
-    path = "/translate?api-version=3.0"
+    path = "translate?api-version=3.0"
     params = f"&to={to_lang}"
     if no_prof:
         params += "&profanityAction=Marked"
@@ -96,8 +96,16 @@ def detect_and_translate(texts, to_lang, no_prof):
     headers = {
         "Ocp-Apim-Subscription-Key": AZURE_SUBSCRIPTION_KEY,
         "Ocp-Apim-Subscription-Region": AZURE_REGION,
-        "Content-type": "application/json",
+        "Content-Type": "application/json",
     }
+
+     # DEBUG: Print the actual request details
+    print("=== DEBUG REQUEST ===")
+    print(f"URL: {url}")
+    print(f"Headers: {headers}")
+    print(f"Target Language: {to_lang}")
+    print(f"Texts to translate: {texts[:2]}...")  # First 2 items only
+    print("====================")
 
     translated = []
     count = 1
@@ -213,3 +221,15 @@ def download_subtitle(filename: str = Query(..., description="Name of the subtit
             status_code=500,
             content={"error": f"Download failed: {str(e)}"}
         )
+
+@router.get("/debug-env")
+def debug_environment():
+    """Debug endpoint to check environment variables"""
+    return {
+        "endpoint": os.getenv("AZURE_TRANSLATOR_ENDPOINT"),
+        "region": os.getenv("AZURE_REGION"),
+        "key_exists": bool(os.getenv("AZURE_SUBSCRIPTION_KEY")),
+        "key_length": len(os.getenv("AZURE_SUBSCRIPTION_KEY", "")),
+        "working_directory": os.getcwd(),
+        "env_file_exists": os.path.exists(".env")
+    }
