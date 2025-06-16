@@ -10,6 +10,7 @@ import {
 
 // API Configuration for Static Upload only
 const API_BASE_URL = "http://localhost:8000/api";
+const MAX_SELECTED_LANGUAGES = 5;
 
 const apiCall = async (endpoint, options = {}) => {
   try {
@@ -35,6 +36,7 @@ const MultiSelectDropdown = ({
   disabled,
   searchTerm,
   onSearchChange,
+  maxLanguages,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
@@ -51,11 +53,22 @@ const MultiSelectDropdown = ({
   }, []);
 
   const handleLanguageToggle = (languageCode) => {
-    const newSelection = selectedLanguages.includes(languageCode)
-      ? selectedLanguages.filter((code) => code !== languageCode)
-      : [...selectedLanguages, languageCode];
-    onSelectionChange(newSelection);
-    onSearchChange("");
+    if (selectedLanguages.includes(languageCode)) {
+      // Remove language (always allowed)
+      const newSelection = selectedLanguages.filter(
+        (code) => code !== languageCode,
+      );
+      onSelectionChange(newSelection);
+    } else {
+      // Add language (only if under limit)
+      if (selectedLanguages.length < MAX_SELECTED_LANGUAGES) {
+        const newSelection = [...selectedLanguages, languageCode];
+        onSelectionChange(newSelection);
+      }
+      // Don't add if at limit - could show a message here if needed
+    }
+    onSearchChange(""); // Clear search after selection
+    setIsOpen(false); // Close dropdown after selection
   };
 
   const removeLanguage = (languageCode) => {
@@ -129,21 +142,30 @@ const MultiSelectDropdown = ({
                   .includes(searchTerm.toLowerCase()) ||
                 language.code.toLowerCase().includes(searchTerm.toLowerCase()),
             )
-            .map((language) => (
-              <button
-                key={language.code}
-                type="button"
-                onClick={() => handleLanguageToggle(language.code)}
-                className={`w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center justify-between ${
-                  selectedLanguages.includes(language.code) ? "bg-blue-50" : ""
-                }`}
-              >
-                <span className="truncate">{language.name}</span>
-                {selectedLanguages.includes(language.code) && (
-                  <Check className="w-4 h-4 text-blue-500 flex-shrink-0 ml-2" />
-                )}
-              </button>
-            ))}
+            .map((language) => {
+              const isSelected = selectedLanguages.includes(language.code);
+              const isAtLimit = selectedLanguages.length >= maxLanguages;
+              const isDisabled = !isSelected && isAtLimit;
+
+              return (
+                <button
+                  key={language.code}
+                  type="button"
+                  onClick={() => handleLanguageToggle(language.code)}
+                  disabled={isDisabled}
+                  className={`w-full px-4 py-2 text-left flex items-center justify-between ${
+                    isDisabled
+                      ? "text-gray-400 cursor-not-allowed"
+                      : "hover:bg-gray-50"
+                  } ${isSelected ? "bg-blue-50" : ""}`}
+                >
+                  <span className="truncate">{language.name}</span>
+                  {selectedLanguages.includes(language.code) && (
+                    <Check className="w-4 h-4 text-blue-500 flex-shrink-0 ml-2" />
+                  )}
+                </button>
+              );
+            })}
         </div>
       )}
     </div>
@@ -631,9 +653,14 @@ const StaticSubtitleUpload = () => {
           <div className="mt-8 space-y-6">
             {/* Target Languages - Multi-select Dropdown */}
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                Select Target Languages
-              </h3>
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Select Target Languages
+                </h3>
+                <span className="text-sm text-gray-500">
+                  {targetLanguages.length}/{MAX_SELECTED_LANGUAGES} selected
+                </span>
+              </div>
               {loadingLanguages ? (
                 <p className="text-gray-500">Loading languages...</p>
               ) : (
@@ -644,6 +671,7 @@ const StaticSubtitleUpload = () => {
                   disabled={loadingLanguages || !backendConnected}
                   searchTerm={searchTerm}
                   onSearchChange={setSearchTerm}
+                  maxLanguages={MAX_SELECTED_LANGUAGES}
                 />
               )}
             </div>
