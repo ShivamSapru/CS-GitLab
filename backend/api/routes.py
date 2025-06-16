@@ -208,7 +208,6 @@ def health_check():
 @router.post("/upload-file")
 async def upload_file(
     file: UploadFile = File(...),
-    # source_language: str = Form(...),
     target_language: str = Form(...),
     censor_profanity: bool = Form(...)
 ):

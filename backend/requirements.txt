@@ -9,6 +9,7 @@ authlib
 srt
 webvtt-py
 passlib
+bcrypt
 
 # Database dependencies
 asyncpg    
