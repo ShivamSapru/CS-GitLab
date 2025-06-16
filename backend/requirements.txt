@@ -7,3 +7,4 @@ transformers
 pydantic
 sqlalchemy
 psycopg2-binary
+authlib
