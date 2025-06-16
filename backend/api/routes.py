@@ -1,7 +1,13 @@
+from datetime import datetime
 import os
 import httpx
 import tempfile
 import time
+
+from sqlalchemy.orm import Session
+from fastapi import Depends
+from database.db import SessionLocal
+from database import models
 
 from fastapi import APIRouter, UploadFile, File, Form, Query
 from fastapi.responses import JSONResponse, FileResponse
@@ -14,6 +20,13 @@ import webvtt
 load_dotenv()
 
 router = APIRouter(prefix="/translate")
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 temp_dir = tempfile.mkdtemp()
 
@@ -120,7 +133,8 @@ def health_check():
 async def upload_file(
     file: UploadFile = File(...),
     source_language: str = Form(...),
-    target_language: str = Form(...)
+    target_language: str = Form(...),
+    db: Session = Depends(get_db)
 ):
     try:
         input_path = os.path.join(temp_dir, file.filename)
@@ -140,6 +154,22 @@ async def upload_file(
                 s.content = translated[i]
             with open(output_path, "w", encoding="utf-8") as f:
                 f.write(srt.compose(subtitles))
+                
+            subtitle_record = models.SubtitleFile(
+                user_id=None,
+                original_filename=file.name,
+                storage_path=output_path,
+                file_format="srt",
+                file_size_bytes=os.path.getsize(output_path),
+                is_original=False,
+                is_public=False,
+                has_profanity=False,
+                source_language=source_language,
+                created_at=datetime.utcnow()
+            )
+            db.add(subtitle_record)
+            db.commit()
+            db.refresh(subtitle_record)
 
         elif file_ext.lower() == ".vtt":
             vtt = webvtt.read(input_path)
@@ -148,6 +178,24 @@ async def upload_file(
             for i, caption in enumerate(vtt.captions):
                 caption.text = translated[i]
             vtt.save(output_path)
+
+            subtitle_record = models.SubtitleFile(
+                user_id=None,
+                original_filename=file.filename,
+                storage_path=output_path,
+                file_format="vtt",
+                file_size_bytes=os.path.getsize(output_path),
+                is_original=False,
+                is_public=False,
+                has_profanity=False,
+                source_language=source_language,
+                created_at=datetime.utcnow()
+            )
+            db.add(subtitle_record)
+            db.commit()
+            db.refresh(subtitle_record)
+
+        
         else:
             raise ValueError("Unsupported file format. Please upload .srt or .vtt")
 
