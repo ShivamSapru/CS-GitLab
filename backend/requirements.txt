@@ -2,13 +2,13 @@ fastapi
 uvicorn
 httpx
 python-dotenv
-langdetect
-transformers
 pydantic
 sqlalchemy
 psycopg2-binary
 authlib
-pysrt
+srt
+webvtt-py
+passlib
 
 # Database dependencies
 asyncpg    
