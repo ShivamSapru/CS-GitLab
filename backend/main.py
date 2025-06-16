@@ -8,6 +8,12 @@ app = FastAPI(
     version="1.0.0"
 )
 
+# Create database tables at startup
+models.Base.metadata.create_all(bind=engine)
+
+# Include routers
+app.include_router(routes.router)
+
 # Allow CORS for local dev
 app.add_middleware(
     CORSMiddleware,
