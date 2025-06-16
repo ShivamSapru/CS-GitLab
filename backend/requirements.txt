@@ -8,6 +8,7 @@ pydantic
 sqlalchemy
 psycopg2-binary
 authlib
+pysrt
 
 # Database dependencies
 asyncpg    
