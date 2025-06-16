@@ -13,7 +13,7 @@ import webvtt
 
 load_dotenv()
 
-router = APIRouter()
+router = APIRouter(prefix="/translate")
 
 temp_dir = tempfile.mkdtemp()
 
