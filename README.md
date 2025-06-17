@@ -6,7 +6,7 @@ A full-stack platform to translate both static subtitle files and real-time capt
 
 ⚠️ **Notice: Active Development is on `dev` Branch**
 
-The latest and most complete source code (backend, frontend, and features) is maintained in the [`dev`](https://github.com/your-org-or-user/subtitle-translator-app/tree/dev) branch.  
+The latest and most complete source code (backend, frontend, and features) is maintained in the [`dev`](https://github.com/ShivamSapru/CS-GitLab/tree/dev) branch.  
 
 This `main` branch currently only contains an up-to-date `docs/` folder for project documentation.
 
