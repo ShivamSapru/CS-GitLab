@@ -1,8 +1,13 @@
-__pycache__/
+venv
+.DS_Store
+__pycache__
+.idea
+.vscode
 .env
 *.log
 *.pyc
+*.srt
+*.vtt
 node_modules/
 frontend/build/
 dist/
-.DS_Store
