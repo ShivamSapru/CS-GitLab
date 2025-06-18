@@ -7,6 +7,7 @@ import {
   AlertCircle,
   ChevronDown,
   Archive,
+  Eye,
 } from "lucide-react";
 
 // API Configuration for Static Upload only
@@ -213,6 +214,12 @@ const StaticSubtitleUpload = () => {
     useState("");
   const [isDownloadingZip, setIsDownloadingZip] = useState(false);
   const fileInputRef = useRef(null);
+  const [previewingFile, setPreviewingFile] = useState(null);
+  const [previewContent, setPreviewContent] = useState("");
+  const [showPreview, setShowPreview] = useState(false);
+  const [loadingPreview, setLoadingPreview] = useState(false);
+  const [originalContent, setOriginalContent] = useState("");
+  const [loadingOriginal, setLoadingOriginal] = useState(false);
 
   // Load languages from Microsoft Translator API
   useEffect(() => {
@@ -487,6 +494,82 @@ const StaticSubtitleUpload = () => {
     }
   };
 
+  // Preview subtitle file content with original comparison
+  const previewFile = async (filename, languageName) => {
+    if (!backendConnected) {
+      setError("Backend not connected. Cannot preview files.");
+      return;
+    }
+
+    setLoadingPreview(true);
+    setLoadingOriginal(true);
+    setError(null);
+
+    try {
+      // Fetch translated file
+      const translatedResponse = await fetch(
+        `${API_BASE_URL}/download-subtitle?filename=${encodeURIComponent(filename)}`,
+      );
+
+      if (!translatedResponse.ok) {
+        const errorData = await translatedResponse.json();
+        throw new Error(errorData.error || "Preview failed");
+      }
+
+      const translatedContent = await translatedResponse.text();
+      setPreviewContent(translatedContent);
+      setLoadingPreview(false);
+
+      // Fetch original file content
+      if (uploadedFile) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          setOriginalContent(e.target.result);
+          setLoadingOriginal(false);
+        };
+        reader.onerror = () => {
+          setError("Failed to read original file");
+          setLoadingOriginal(false);
+        };
+        reader.readAsText(uploadedFile);
+      }
+
+      setPreviewingFile({ filename, languageName });
+      setShowPreview(true);
+      // Add this: Scroll to preview section after a short delay
+      setTimeout(() => {
+        if (previewSectionRef.current) {
+          previewSectionRef.current.scrollIntoView({
+            behavior: "smooth",
+            block: "start",
+            inline: "nearest",
+          });
+        }
+      }, 100); // Small delay to ensure the component has rendered
+    } catch (err) {
+      setError(`Preview failed: ${err.message}`);
+      setLoadingPreview(false);
+      setLoadingOriginal(false);
+    }
+  };
+
+  // Sync scroll between original and translated preview
+  const handleScrollSync = (e, targetRef) => {
+    if (targetRef.current) {
+      targetRef.current.scrollTop = e.target.scrollTop;
+      targetRef.current.scrollLeft = e.target.scrollLeft;
+    }
+  };
+
+  // Close preview
+  const closePreview = () => {
+    setShowPreview(false);
+    setPreviewingFile(null);
+    setPreviewContent("");
+    setOriginalContent("");
+    setLoadingOriginal(false);
+  };
+
   const resetComponent = () => {
     setUploadedFile(null);
     setTranslationProgress(0);
@@ -496,10 +579,20 @@ const StaticSubtitleUpload = () => {
     setError(null);
     setCurrentTranslatingLanguage("");
     setIsDownloadingZip(false);
+    setShowPreview(false);
+    setPreviewingFile(null);
+    setPreviewContent("");
+    setOriginalContent("");
+    setLoadingPreview(false);
+    setLoadingOriginal(false);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
   };
+
+  const originalPreviewRef = useRef(null);
+  const translatedPreviewRef = useRef(null);
+  const previewSectionRef = useRef(null);
 
   // Retry connection to backend
   const retryConnection = async () => {
@@ -837,15 +930,122 @@ const StaticSubtitleUpload = () => {
                       Translated to {file.languageName}
                     </div>
                   </div>
-                  <button
-                    onClick={() => downloadFile(file.filename)}
-                    className="text-blue-500 hover:text-blue-700 flex items-center space-x-1 flex-shrink-0"
-                  >
-                    <Download className="w-4 h-4" />
-                    <span>Download</span>
-                  </button>
+                  <div className="flex items-center space-x-2 flex-shrink-0">
+                    <button
+                      onClick={() =>
+                        previewFile(file.filename, file.languageName)
+                      }
+                      disabled={loadingPreview}
+                      className="text-green-600 hover:text-green-800 flex items-center space-x-1 px-3 py-1 rounded border border-green-300 hover:bg-green-50 disabled:opacity-50"
+                    >
+                      <Eye className="w-4 h-4" />
+                      <span>{loadingPreview ? "Loading..." : "Preview"}</span>
+                    </button>
+                    <button
+                      onClick={() => downloadFile(file.filename)}
+                      className="text-blue-500 hover:text-blue-700 flex items-center space-x-1"
+                    >
+                      <Download className="w-4 h-4" />
+                      <span>Download</span>
+                    </button>
+                  </div>
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+        {/* Subtitle Preview Modal/Section - Side by Side */}
+        {showPreview && previewingFile && (
+          <div
+            ref={previewSectionRef}
+            className="mt-8 p-4 bg-gray-50 rounded-lg border"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Preview</h3>
+                <p className="text-sm text-gray-600">
+                  {previewingFile.filename} - {previewingFile.languageName}
+                </p>
+              </div>
+              <button
+                onClick={closePreview}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            {/* Side by side preview */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+              {/* Original File */}
+              <div className="bg-white rounded-lg border">
+                <div className="px-4 py-2 bg-gray-100 border-b rounded-t-lg">
+                  <h4 className="font-medium text-gray-700 flex items-center">
+                    <span className="w-3 h-3 bg-blue-500 rounded-full mr-2"></span>
+                    Original (Auto-detected)
+                  </h4>
+                </div>
+                <div className="p-4">
+                  {loadingOriginal ? (
+                    <div className="flex items-center justify-center h-64">
+                      <div className="text-gray-500">
+                        Loading original content...
+                      </div>
+                    </div>
+                  ) : (
+                    <div
+                      ref={originalPreviewRef}
+                      onScroll={(e) =>
+                        handleScrollSync(e, translatedPreviewRef)
+                      }
+                      className="max-h-96 overflow-auto"
+                    >
+                      <pre className="text-sm text-gray-700 whitespace-pre-wrap font-mono">
+                        {originalContent}
+                      </pre>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Translated File */}
+              <div className="bg-white rounded-lg border">
+                <div className="px-4 py-2 bg-gray-100 border-b rounded-t-lg">
+                  <h4 className="font-medium text-gray-700 flex items-center">
+                    <span className="w-3 h-3 bg-green-500 rounded-full mr-2"></span>
+                    Translated ({previewingFile.languageName})
+                  </h4>
+                </div>
+                <div className="p-4">
+                  {loadingPreview ? (
+                    <div className="flex items-center justify-center h-64">
+                      <div className="text-gray-500">
+                        Loading translated content...
+                      </div>
+                    </div>
+                  ) : (
+                    <div
+                      ref={translatedPreviewRef}
+                      onScroll={(e) => handleScrollSync(e, originalPreviewRef)}
+                      className="max-h-96 overflow-auto"
+                    >
+                      <pre className="text-sm text-gray-700 whitespace-pre-wrap font-mono">
+                        {previewContent}
+                      </pre>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-2">
+              <button
+                onClick={() => downloadFile(previewingFile.filename)}
+                className="flex items-center justify-center space-x-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+              >
+                <Download className="w-4 h-4" />
+                <span>Download Translated File</span>
+              </button>
             </div>
           </div>
         )}
