@@ -6,6 +6,7 @@ import {
   X,
   AlertCircle,
   ChevronDown,
+  Archive,
 } from "lucide-react";
 
 // API Configuration for Static Upload only
@@ -210,6 +211,7 @@ const StaticSubtitleUpload = () => {
   const [backendConnected, setBackendConnected] = useState(false);
   const [currentTranslatingLanguage, setCurrentTranslatingLanguage] =
     useState("");
+  const [isDownloadingZip, setIsDownloadingZip] = useState(false);
   const fileInputRef = useRef(null);
 
   // Load languages from Microsoft Translator API
@@ -432,6 +434,59 @@ const StaticSubtitleUpload = () => {
     }
   };
 
+  // Add new function to download all files as ZIP
+  const downloadAllAsZip = async () => {
+    if (!backendConnected) {
+      setError("Backend not connected. Cannot download files.");
+      return;
+    }
+
+    if (translatedFiles.length === 0) {
+      setError("No translated files available for download.");
+      return;
+    }
+
+    setIsDownloadingZip(true);
+    setError(null);
+
+    try {
+      // Send the list of filenames to the backend
+      const filenames = translatedFiles.map((file) => file.filename);
+
+      const response = await fetch(`${API_BASE_URL}/download-zip`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ filenames }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "ZIP download failed");
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+
+      // Create a meaningful ZIP filename based on the original file
+      const originalName =
+        uploadedFile?.name.replace(/\.[^/.]+$/, "") || "subtitles";
+      a.download = `${originalName}_translated.zip`;
+
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(`ZIP download failed: ${err.message}`);
+    } finally {
+      setIsDownloadingZip(false);
+    }
+  };
+
   const resetComponent = () => {
     setUploadedFile(null);
     setTranslationProgress(0);
@@ -440,6 +495,7 @@ const StaticSubtitleUpload = () => {
     setTargetLanguages([]);
     setError(null);
     setCurrentTranslatingLanguage("");
+    setIsDownloadingZip(false);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -739,12 +795,30 @@ const StaticSubtitleUpload = () => {
         {/* Download Results */}
         {translatedFiles.length > 0 && (
           <div className="mt-8 p-4 bg-green-50 rounded-lg">
-            <div className="flex items-center mb-3">
-              <Check className="w-5 h-5 text-green-500 mr-2" />
-              <span className="text-green-800 font-medium">
-                Translation Complete! ({translatedFiles.length} file
-                {translatedFiles.length > 1 ? "s" : ""} ready)
-              </span>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center">
+                <Check className="w-5 h-5 text-green-500 mr-2" />
+                <span className="text-green-800 font-medium">
+                  Translation Complete! ({translatedFiles.length} file
+                  {translatedFiles.length > 1 ? "s" : ""} ready)
+                </span>
+              </div>
+
+              {/* Add Download All as ZIP button when multiple files */}
+              {translatedFiles.length > 1 && (
+                <button
+                  onClick={downloadAllAsZip}
+                  disabled={isDownloadingZip}
+                  className="flex items-center space-x-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-sm"
+                >
+                  <Archive className="w-4 h-4" />
+                  <span>
+                    {isDownloadingZip
+                      ? "Creating ZIP..."
+                      : "Download All as ZIP"}
+                  </span>
+                </button>
+              )}
             </div>
             <div className="space-y-2">
               {translatedFiles.map((file) => (

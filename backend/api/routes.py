@@ -4,12 +4,18 @@ import tempfile
 import time
 
 from fastapi import APIRouter, UploadFile, File, Form, Query
-from fastapi.responses import JSONResponse, FileResponse
-from typing import Dict, Optional
+from fastapi.responses import JSONResponse, FileResponse, StreamingResponse
+from typing import Dict, Optional, List
 from dotenv import load_dotenv
+from pydantic import BaseModel
+
 
 import srt
 import webvtt
+
+class ZipRequest(BaseModel):
+    filenames: List[str]
+
 
 load_dotenv()
 
@@ -88,17 +94,24 @@ def chunk_texts(texts, max_chars):
 
 
 def detect_and_translate(texts, to_lang, no_prof):
-    path = "/translate?api-version=3.0"
+    path = "translate?api-version=3.0"
     params = f"&to={to_lang}"
     if no_prof:
         params += "&profanityAction=Marked"
-    url = AZURE_TRANSLATOR_ENDPOINT.rstrip('/') + path + params
+    url = AZURE_TRANSLATOR_ENDPOINT + path + params
     headers = {
         "Ocp-Apim-Subscription-Key": AZURE_SUBSCRIPTION_KEY,
         "Ocp-Apim-Subscription-Region": AZURE_REGION,
-        "Content-Type": "application/json; charset=UTF-8",
+        "Content-Type": "application/json",
     }
-    # print(url, headers)
+
+     # DEBUG: Print the actual request details
+    print("=== DEBUG REQUEST ===")
+    print(f"URL: {url}")
+    print(f"Headers: {headers}")
+    print(f"Target Language: {to_lang}")
+    print(f"Texts to translate: {texts[:2]}...")  # First 2 items only
+    print("====================")
 
     translated = []
     count = 1
@@ -135,79 +148,13 @@ def get_languages() -> Dict[str, str]:
 # Health check endpoint
 @router.get("/health")
 def health_check():
-    url = f"{os.getenv('AZURE_TRANSLATOR_ENDPOINT').rstrip('/')}/translate?api-version=3.0&to=fr"
-    headers = {
-        "Ocp-Apim-Subscription-Key": AZURE_SUBSCRIPTION_KEY,
-        "Ocp-Apim-Subscription-Region": AZURE_REGION,
-        "Content-Type": "application/json; charset=UTF-8",
-    }
-    json_body = [{"Text": "Hello, world!!"}]
-    # print(url, headers, json_body)
-
-    try:
-        resp = httpx.post(url, headers=headers, json=json_body)
-        # print(resp.status_code, resp.json())
-
-        if resp.status_code == 200:
-            return {
-                "status": f"{resp.status_code} healthy",
-                "message": "Backend server is running and Azure Translator is reachable."
-            }
-
-        elif resp.status_code == 401:
-            return JSONResponse(
-                content={
-                    "status": f"{resp.status_code} unauthorized",
-                    "message": "Invalid or missing Azure credentials. Check API key and region."
-                }
-            )
-
-        elif resp.status_code == 403:
-            return JSONResponse(
-                content={
-                    "status": f"{resp.status_code} forbidden",
-                    "message": "Access to Azure Translator is forbidden. Verify subscription and permissions."
-                }
-            )
-
-        elif resp.status_code == 429:
-            return JSONResponse(
-                content={
-                    "status": f"{resp.status_code} rate_limited",
-                    "message": "Azure Translator rate limit exceeded. Try again later or optimize request volume."
-                }
-            )
-
-        elif resp.status_code == 503:
-            return JSONResponse(
-                content={
-                    "status": f"{resp.status_code} service_unavailable",
-                    "message": "Azure Translator service temporarily unavailable."
-                }
-            )
-
-        else:
-            return JSONResponse(
-                status_code=resp.status_code,
-                content={
-                    "status": "error",
-                    "message": f"Unexpected error occurred. Azure response code: {resp.status_code}"
-                }
-            )
-
-    except Exception as e:
-        return JSONResponse(
-            content={
-                "status": "internal_error",
-                "message": f"Health check failed due to: {str(e)}"
-            }
-        )
-
+    return {"status": "healthy", "message": "Backend server is running"}
 
 # Uploading the .srt or .vtt file and selecting the source and target language
 @router.post("/upload-file")
 async def upload_file(
     file: UploadFile = File(...),
+    # source_language: str = Form(...),
     target_language: str = Form(...),
     censor_profanity: bool = Form(...)
 ):
@@ -256,7 +203,6 @@ async def upload_file(
             content={"error": f"Internal server error: {str(e)}"}
         )
 
-
 # Download subtitle file by dynamic name
 @router.get("/download-subtitle")
 def download_subtitle(filename: str = Query(..., description="Name of the subtitle file to download")):
@@ -282,15 +228,46 @@ def download_subtitle(filename: str = Query(..., description="Name of the subtit
             content={"error": f"Download failed: {str(e)}"}
         )
 
+@router.post("/download-zip")
+async def download_zip(request: ZipRequest):
+    """
+    Create and return a ZIP file containing multiple translated subtitle files
+    """
+    import zipfile
+    import io
 
-@router.get("/debug-env")
-def debug_environment():
-    """Debug endpoint to check environment variables"""
-    return {
-        "endpoint": os.getenv("AZURE_TRANSLATOR_ENDPOINT"),
-        "region": os.getenv("AZURE_REGION"),
-        "key_exists": bool(os.getenv("AZURE_SUBSCRIPTION_KEY")),
-        "key_length": len(os.getenv("AZURE_SUBSCRIPTION_KEY", "")),
-        "working_directory": os.getcwd(),
-        "env_file_exists": os.path.exists(".env")
-    }
+    try:
+        # Create a BytesIO object to store the ZIP file in memory
+        zip_buffer = io.BytesIO()
+
+        # Create a ZIP file
+        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+            for filename in request.filenames:
+                # Use the same temp_dir that your other endpoints use
+                file_path = os.path.join(temp_dir, filename)
+
+                # Check if file exists
+                if not os.path.exists(file_path):
+                    return JSONResponse(
+                        status_code=404,
+                        content={"error": f"File {filename} not found"}
+                    )
+
+                # Add file to ZIP
+                zip_file.write(file_path, filename)
+
+        # Reset buffer position to beginning
+        zip_buffer.seek(0)
+
+        # Return the ZIP file as a streaming response
+        return StreamingResponse(
+            io.BytesIO(zip_buffer.read()),
+            media_type="application/zip",
+            headers={"Content-Disposition": "attachment; filename=translated_subtitles.zip"}
+        )
+
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={"error": f"Error creating ZIP file: {str(e)}"}
+        )
