@@ -1,0 +1,13 @@
+# Minutes of Meeting – Daily Internal Call  
+**Date:** June 18, 2025  
+**Project:** Subtitle Translator App  
+**Attendees:** Project Team  
+**Note:** Shivam Could not attend due to some work  
+
+| Name                         | Tasks Done                                                                                                                                         | Tasks To Do                                                                                                                       |
+|------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------|
+| **Samudra Pratim Borkakoti** | - Completed backend connection to Azure Translator API.  <br> - Implemented subtitle file serialization/deserialization.  <br> - Enabled auto-detect source language and fallback translation. <br> - Helped unify backend-supported languages dynamically from API. | - Improve auto-detection accuracy with fallback logic. <br> - Collaborate on testing backend with frontend log system. |
+| **Pratham Sharma**           | - Finalized multi-language translation from single file. <br> - Added profanity toggle in frontend. <br> - Integrated dynamic language dropdown using API. <br> - Removed source language dropdown. <br> - Started reviewing serialized data styling. | - Finalize frontend for serialization/log preview. <br> - Collaborate with backend to verify translation and log output. <br> - Assist with UI part |
+| **Shubham Ravikiran Limkar** | - Completed Dockerization of backend, frontend, and database. <br> - Set up Docker Compose for database containerization. <br> - Started updating architecture diagram and README documentation. | - Finalize updates in README and architecture diagram. <br> - Ensure full Docker integration is documented. |
+| **Yadnesh Sujit Sirdeshmukh**| - Completed user login using OAuth. <br> - Successfully connected backend to PostgreSQL. <br> - Verified user data saving in PostgreSQL. | - Push updated code to feature/backend. <br> - Continue developing authentication and start linking it with user archiving. |
+| **Rishabh Sudarshanraj Lingsugur** | - Completed MoMs. <br> - Finalized test case documentation with security validation scenarios. <br> - Researched user authentication/security flow. | - Draft user stories. <br> - Continue testing database integration for security of the app and document them in excel file <br> - Continue working on interim presentation |
