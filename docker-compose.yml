@@ -1,26 +1,46 @@
 # version: '3.8'
 
 services:
+  # --- PostgreSQL Database Service ---
+  db:
+    image: postgres:13-alpine # Using a stable PostgreSQL version
+    restart: always           # Ensures the database always restarts if it crashes
+    environment:
+      POSTGRES_DB: subtitle_translator_db # Name of your database
+      POSTGRES_USER: user               # Database username (for local dev)
+      POSTGRES_PASSWORD: password       # Database password (for local dev)
+    volumes:
+      - db_data:/var/lib/postgresql/data # Persist data outside the container
+    ports:
+      - "5432:5432" # Map host port 5432 to container port 5432 (default PostgreSQL port)
+
   backend:
     build: ./backend
     ports:
-      # Host:Container - Mapping local machine's port 8000 to the container's internal port 8000
       - "8000:8000"
     environment:
       PYTHONUNBUFFERED: 1
-      AZURE_TRANSLATOR_KEY: "your-dummy-azure-translator-key-for-local-dev"
+      AZURE_TRANSLATOR_ENDPOINT: "https://dummy-endpoint.cognitiveservices.azure.com/"
+      AZURE_SUBSCRIPTION_KEY: "subscription-key-for-local-dev"
+      AZURE_REGION: "westus2"
+      # Database Connection Environment Variables for Backend
+      DATABASE_URL: postgresql://user:password@db:5432/subtitle_translator_db
     volumes:
       - ./backend:/app
+    depends_on:
+      - db
 
   frontend:
     build: ./frontend
     ports:
-      # Host:Container - Mapping local machine's port 3000 to the container's internal port 80 (Nginx)
       - "3000:80"
     depends_on:
       - backend
     environment:
-      # Frontend needs to know where the backend API is.
       VITE_APP_BACKEND_URL: http://localhost:8000
     volumes:
       - ./frontend:/app
+
+# Define volumes at the root level to persist data
+volumes:
+  db_data:
