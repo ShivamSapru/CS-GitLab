@@ -15,19 +15,25 @@ const MAX_SELECTED_LANGUAGES = 5;
 
 const apiCall = async (endpoint, options = {}) => {
   try {
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, options);
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      ...options,
+      credentials: "include",  // 🔐 Ensures cookies (session) are sent
+    });
+
     if (!response.ok) {
       const errorData = await response.json();
       throw new Error(
-        errorData.error || `HTTP error! status: ${response.status}`,
+        errorData.error || `HTTP error! status: ${response.status}`
       );
     }
+
     return await response.json();
   } catch (error) {
     console.error("API call failed:", error);
     throw error;
   }
 };
+
 
 // Multi-select dropdown component
 const MultiSelectDropdown = ({

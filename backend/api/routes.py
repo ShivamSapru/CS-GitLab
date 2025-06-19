@@ -3,10 +3,16 @@ import httpx
 import tempfile
 import time
 
-from fastapi import APIRouter, UploadFile, File, Form, Query
+from fastapi import APIRouter, UploadFile, File, Form, Query, Request, Depends
 from fastapi.responses import JSONResponse, FileResponse
 from typing import Dict, Optional
 from dotenv import load_dotenv
+
+from database.models import SubtitleFile, User
+from database.db import SessionLocal
+from sqlalchemy.orm import Session
+from uuid import uuid4
+from datetime import datetime
 
 import srt
 import webvtt
@@ -16,6 +22,14 @@ load_dotenv()
 router = APIRouter()
 
 temp_dir = tempfile.mkdtemp()
+
+# --- DB Dependency ---
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 
 AZURE_TRANSLATOR_ENDPOINT = os.getenv("AZURE_TRANSLATOR_ENDPOINT")
@@ -207,9 +221,11 @@ def health_check():
 # Uploading the .srt or .vtt file and selecting the source and target language
 @router.post("/upload-file")
 async def upload_file(
+    request: Request,
     file: UploadFile = File(...),
     target_language: str = Form(...),
-    censor_profanity: bool = Form(...)
+    censor_profanity: bool = Form(...),
+    db: Session = Depends(get_db)
 ):
     try:
         input_path = os.path.join(temp_dir, file.filename)
@@ -241,12 +257,40 @@ async def upload_file(
         else:
             raise ValueError("Unsupported file format. Please upload .srt or .vtt")
 
+        # ✅ Retrieve user from session
+        session_user = request.session.get("user")
+        if not session_user or not session_user.get("email"):
+            return JSONResponse(status_code=401, content={"error": "User not authenticated"})
+
+        user_email = session_user["email"]
+        user = db.query(User).filter(User.email == user_email).first()
+        if not user:
+            return JSONResponse(status_code=404, content={"error": "User not found"})
+
+        # ✅ Store subtitle metadata in database
+        subtitle = SubtitleFile(
+            file_id=uuid4(),
+            project_id=None,
+            user_id=user.user_id,
+            original_file_name=file.filename,
+            storage_path=output_path,
+            file_format=file_ext.lower().replace(".", ""),
+            file_size_bytes=os.path.getsize(output_path),
+            is_original=True,
+            is_public=False,
+            has_profanity=censor_profanity,
+            source_language="auto",
+            created_at=datetime.utcnow()
+        )
+
+        db.add(subtitle)
+        db.commit()
+
         return {
             "original_filename": file.filename,
             "translated_filename": output_filename,
-            # "source_language": source_language,
             "target_language": target_language,
-            "target_language_name": LANGUAGE_CODES[target_language],
+            "target_language_name": LANGUAGE_CODES.get(target_language),
             "message": "File uploaded, translated, and saved successfully."
         }
 
