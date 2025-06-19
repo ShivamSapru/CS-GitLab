@@ -30,7 +30,7 @@ class TranslationProject(Base):
 
 
 class SubtitleFile(Base):
-    __tablename__ = "sutitle_files"
+    __tablename__ = "subtitle_files"
 
     file_id = Column(pgUUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     project_id = Column(pgUUID(as_uuid=True), ForeignKey("translation_projects.project_id"), nullable=True)
@@ -41,7 +41,7 @@ class SubtitleFile(Base):
     file_size_bytes = Column(BigInteger)
     is_original = Column(Boolean, default=True)
     is_public = Column(Boolean, default=False)
-    has_profanity = Column(Boolean, deafult=False)
+    has_profanity = Column(Boolean, default=False)
     source_language = Column(String(10))  # BCP-47 tag
     created_at = Column(TIMESTAMP)
 

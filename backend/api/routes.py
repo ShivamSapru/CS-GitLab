@@ -1,13 +1,7 @@
-from datetime import datetime
 import os
 import httpx
 import tempfile
 import time
-
-from sqlalchemy.orm import Session
-from fastapi import Depends
-from database.db import SessionLocal
-from database import models
 
 from fastapi import APIRouter, UploadFile, File, Form, Query
 from fastapi.responses import JSONResponse, FileResponse
@@ -19,35 +13,44 @@ import webvtt
 
 load_dotenv()
 
-router = APIRouter(prefix="/translate")
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+router = APIRouter()
 
 temp_dir = tempfile.mkdtemp()
 
-# List of Languages present for translation
-LANGUAGE_CODES = {
-    "en": "English",
-    "hi": "Hindi",
-    "fr": "French",
-    "de": "German"
-}
 
 AZURE_TRANSLATOR_ENDPOINT = os.getenv("AZURE_TRANSLATOR_ENDPOINT")
 AZURE_SUBSCRIPTION_KEY = os.getenv("AZURE_SUBSCRIPTION_KEY")
 AZURE_REGION = os.getenv("AZURE_REGION")
+AZURE_LANGUAGES_URL = os.getenv("AZURE_LANGUAGES_URL")
 
 
 if not AZURE_SUBSCRIPTION_KEY or not AZURE_REGION:
     raise EnvironmentError("Missing AZURE_SUBSCRIPTION_KEY or AZURE_REGION in environment.")
 
 
-MAX_CHAR_LIMIT = 20000  # Azure limit is 50000 characters/request
+MAX_CHAR_LIMIT = 20000  # Azure limit is 50000 characters per request
+
+
+def fetch_language_codes() -> Dict[str, str]:
+    try:
+        if not AZURE_LANGUAGES_URL:
+            raise EnvironmentError("AZURE_LANGUAGES_URL is not set in environment variables.")
+
+        response = httpx.get(AZURE_LANGUAGES_URL)
+        response.raise_for_status()
+        data = response.json()
+
+        translation_langs = data.get("translation", {})
+        formatted_languages = {
+            code: lang_data["name"]
+            for code, lang_data in translation_langs.items()
+        }
+
+        return formatted_languages
+
+    except Exception as e:
+        print(f"Failed to fetch Azure language codes: {e}")
+        return {}
 
 
 def post_with_retries(url, headers, json_body, retries=14):
@@ -84,15 +87,18 @@ def chunk_texts(texts, max_chars):
     return chunks
 
 
-def detect_and_translate(texts, to_lang):
+def detect_and_translate(texts, to_lang, no_prof):
     path = "/translate?api-version=3.0"
     params = f"&to={to_lang}"
-    url = AZURE_TRANSLATOR_ENDPOINT + path + params
+    if no_prof:
+        params += "&profanityAction=Marked"
+    url = AZURE_TRANSLATOR_ENDPOINT.rstrip('/') + path + params
     headers = {
         "Ocp-Apim-Subscription-Key": AZURE_SUBSCRIPTION_KEY,
         "Ocp-Apim-Subscription-Region": AZURE_REGION,
-        "Content-type": "application/json",
+        "Content-Type": "application/json; charset=UTF-8",
     }
+    # print(url, headers)
 
     translated = []
     count = 1
@@ -118,6 +124,9 @@ def detect_and_translate(texts, to_lang):
     return translated
 
 
+# List of Languages present for translation
+LANGUAGE_CODES = fetch_language_codes()
+
 # Endpoint to get the supported languages
 @router.get("/languages")
 def get_languages() -> Dict[str, str]:
@@ -126,20 +135,87 @@ def get_languages() -> Dict[str, str]:
 # Health check endpoint
 @router.get("/health")
 def health_check():
-    return {"status": "healthy", "message": "Backend server is running"}
+    url = f"{os.getenv('AZURE_TRANSLATOR_ENDPOINT').rstrip('/')}/translate?api-version=3.0&to=fr"
+    headers = {
+        "Ocp-Apim-Subscription-Key": AZURE_SUBSCRIPTION_KEY,
+        "Ocp-Apim-Subscription-Region": AZURE_REGION,
+        "Content-Type": "application/json; charset=UTF-8",
+    }
+    json_body = [{"Text": "Hello, world!!"}]
+    # print(url, headers, json_body)
+
+    try:
+        resp = httpx.post(url, headers=headers, json=json_body)
+        # print(resp.status_code, resp.json())
+
+        if resp.status_code == 200:
+            return {
+                "status": f"{resp.status_code} healthy",
+                "message": "Backend server is running and Azure Translator is reachable."
+            }
+
+        elif resp.status_code == 401:
+            return JSONResponse(
+                content={
+                    "status": f"{resp.status_code} unauthorized",
+                    "message": "Invalid or missing Azure credentials. Check API key and region."
+                }
+            )
+
+        elif resp.status_code == 403:
+            return JSONResponse(
+                content={
+                    "status": f"{resp.status_code} forbidden",
+                    "message": "Access to Azure Translator is forbidden. Verify subscription and permissions."
+                }
+            )
+
+        elif resp.status_code == 429:
+            return JSONResponse(
+                content={
+                    "status": f"{resp.status_code} rate_limited",
+                    "message": "Azure Translator rate limit exceeded. Try again later or optimize request volume."
+                }
+            )
+
+        elif resp.status_code == 503:
+            return JSONResponse(
+                content={
+                    "status": f"{resp.status_code} service_unavailable",
+                    "message": "Azure Translator service temporarily unavailable."
+                }
+            )
+
+        else:
+            return JSONResponse(
+                status_code=resp.status_code,
+                content={
+                    "status": "error",
+                    "message": f"Unexpected error occurred. Azure response code: {resp.status_code}"
+                }
+            )
+
+    except Exception as e:
+        return JSONResponse(
+            content={
+                "status": "internal_error",
+                "message": f"Health check failed due to: {str(e)}"
+            }
+        )
+
 
 # Uploading the .srt or .vtt file and selecting the source and target language
 @router.post("/upload-file")
 async def upload_file(
     file: UploadFile = File(...),
-    source_language: str = Form(...),
     target_language: str = Form(...),
-    db: Session = Depends(get_db)
+    censor_profanity: bool = Form(...)
 ):
     try:
         input_path = os.path.join(temp_dir, file.filename)
         base_name, file_ext = os.path.splitext(file.filename)
-        output_filename = f"{base_name} (Translated to {target_language.upper()}){file_ext}"
+        tag = " and Censored" if censor_profanity else ""
+        output_filename = f"{base_name} (Translated to {target_language.upper()}{tag}){file_ext}"
         output_path = os.path.join(temp_dir, output_filename)
 
         with open(input_path, "wb") as f:
@@ -149,60 +225,26 @@ async def upload_file(
             with open(input_path, "r", encoding="utf-8") as f:
                 subtitles = list(srt.parse(f.read()))
             texts = [s.content for s in subtitles]
-            translated = detect_and_translate(texts, target_language)
+            translated = detect_and_translate(texts, target_language, censor_profanity)
             for i, s in enumerate(subtitles):
                 s.content = translated[i]
             with open(output_path, "w", encoding="utf-8") as f:
                 f.write(srt.compose(subtitles))
-                
-            subtitle_record = models.SubtitleFile(
-                user_id=None,
-                original_filename=file.name,
-                storage_path=output_path,
-                file_format="srt",
-                file_size_bytes=os.path.getsize(output_path),
-                is_original=False,
-                is_public=False,
-                has_profanity=False,
-                source_language=source_language,
-                created_at=datetime.utcnow()
-            )
-            db.add(subtitle_record)
-            db.commit()
-            db.refresh(subtitle_record)
 
         elif file_ext.lower() == ".vtt":
             vtt = webvtt.read(input_path)
             texts = [caption.text for caption in vtt.captions]
-            translated = detect_and_translate(texts, target_language)
+            translated = detect_and_translate(texts, target_language, censor_profanity)
             for i, caption in enumerate(vtt.captions):
                 caption.text = translated[i]
             vtt.save(output_path)
-
-            subtitle_record = models.SubtitleFile(
-                user_id=None,
-                original_filename=file.filename,
-                storage_path=output_path,
-                file_format="vtt",
-                file_size_bytes=os.path.getsize(output_path),
-                is_original=False,
-                is_public=False,
-                has_profanity=False,
-                source_language=source_language,
-                created_at=datetime.utcnow()
-            )
-            db.add(subtitle_record)
-            db.commit()
-            db.refresh(subtitle_record)
-
-        
         else:
             raise ValueError("Unsupported file format. Please upload .srt or .vtt")
 
         return {
             "original_filename": file.filename,
             "translated_filename": output_filename,
-            "source_language": source_language,
+            # "source_language": source_language,
             "target_language": target_language,
             "target_language_name": LANGUAGE_CODES[target_language],
             "message": "File uploaded, translated, and saved successfully."
@@ -213,6 +255,7 @@ async def upload_file(
             status_code=500,
             content={"error": f"Internal server error: {str(e)}"}
         )
+
 
 # Download subtitle file by dynamic name
 @router.get("/download-subtitle")
@@ -238,3 +281,16 @@ def download_subtitle(filename: str = Query(..., description="Name of the subtit
             status_code=500,
             content={"error": f"Download failed: {str(e)}"}
         )
+
+
+@router.get("/debug-env")
+def debug_environment():
+    """Debug endpoint to check environment variables"""
+    return {
+        "endpoint": os.getenv("AZURE_TRANSLATOR_ENDPOINT"),
+        "region": os.getenv("AZURE_REGION"),
+        "key_exists": bool(os.getenv("AZURE_SUBSCRIPTION_KEY")),
+        "key_length": len(os.getenv("AZURE_SUBSCRIPTION_KEY", "")),
+        "working_directory": os.getcwd(),
+        "env_file_exists": os.path.exists(".env")
+    }

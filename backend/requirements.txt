@@ -1,1 +1,16 @@
+fastapi
+uvicorn
+httpx
+python-dotenv
+pydantic
+sqlalchemy
+psycopg2-binary
+authlib
+srt
+webvtt-py
+passlib
+bcrypt
 
+# Database dependencies
+asyncpg    
+alembic
