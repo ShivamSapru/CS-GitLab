@@ -107,6 +107,9 @@ def detect_and_translate(texts, to_lang, no_prof):
     if no_prof:
         params += "&profanityAction=Marked"
     url = AZURE_TRANSLATOR_ENDPOINT.rstrip('/') + path + params
+    if no_prof:
+        params += "&profanityAction=Marked"
+    url = AZURE_TRANSLATOR_ENDPOINT.rstrip('/') + path + params
     headers = {
         "Ocp-Apim-Subscription-Key": AZURE_SUBSCRIPTION_KEY,
         "Ocp-Apim-Subscription-Region": AZURE_REGION,

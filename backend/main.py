@@ -1,15 +1,10 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-# from api.routes import router as api_router
-from backend.api.routes import router as api_router
+from api.routes import router as api_router
 from api.auth import router as auth_router
 from starlette.middleware.sessions import SessionMiddleware
 import os
 from api.auth_email import router as email_auth_router
-from dotenv import load_dotenv
-
-# Load environment variables from the .env file located in the storage directory
-load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), 'storage', '.env'))
 
 app = FastAPI(
     title="Subtitle Translator API",
