@@ -5,7 +5,7 @@ from starlette.config import Config
 from sqlalchemy.orm import Session
 from database.models import User
 from database.db import SessionLocal
-from datetime import datetime
+from datetime import datetime, timezone
 import uuid
 import os
 
@@ -53,9 +53,9 @@ async def auth_callback(request: Request):
                 password_hash="",  # empty since OAuth
                 role="user",
                 credits=10,
-                created_at=datetime.utcnow(),
-                updated_at=datetime.utcnow(),
-                last_login=datetime.utcnow()
+                created_at=datetime.now(timezone.utc),
+                updated_at=datetime.now(timezone.utc),
+                last_login=datetime.now(timezone.utc)
             )
             db.add(new_user)
             db.commit()

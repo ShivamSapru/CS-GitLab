@@ -10,10 +10,11 @@ from dotenv import load_dotenv
 from pydantic import BaseModel
 
 from database.models import SubtitleFile, User
+from database.models import Translation
 from database.db import SessionLocal
 from sqlalchemy.orm import Session
 from uuid import uuid4
-from datetime import datetime
+from datetime import datetime, timezone
 
 import srt
 import webvtt
@@ -253,6 +254,7 @@ async def upload_file(
         with open(input_path, "wb") as f:
             f.write(await file.read())
 
+        # Translation logic
         if file_ext.lower() == ".srt":
             with open(input_path, "r", encoding="utf-8") as f:
                 subtitles = list(srt.parse(f.read()))
@@ -273,7 +275,7 @@ async def upload_file(
         else:
             raise ValueError("Unsupported file format. Please upload .srt or .vtt")
 
-        # ✅ Retrieve user from session
+        # Get user from session
         session_user = request.session.get("user")
         if not session_user or not session_user.get("email"):
             return JSONResponse(status_code=401, content={"error": "User not authenticated"})
@@ -283,23 +285,42 @@ async def upload_file(
         if not user:
             return JSONResponse(status_code=404, content={"error": "User not found"})
 
-        # ✅ Store subtitle metadata in database
-        subtitle = SubtitleFile(
+        # Saving the metadata of subtitle files in subtitle_files table
+        translated_subtitle = SubtitleFile(
             file_id=uuid4(),
             project_id=None,
             user_id=user.user_id,
-            original_file_name=file.filename,
+            original_file_name=output_filename,
             storage_path=output_path,
             file_format=file_ext.lower().replace(".", ""),
             file_size_bytes=os.path.getsize(output_path),
-            is_original=True,
+            is_original=False,
             is_public=False,
             has_profanity=censor_profanity,
             source_language="auto",
-            created_at=datetime.utcnow()
+            created_at=datetime.now(timezone.utc)
         )
+        db.add(translated_subtitle)
+        db.commit()
 
-        db.add(subtitle)
+        # Saving the translated subtitle files metadata in translations table
+        translation = Translation(
+            translation_id=uuid4(),
+            file_id=translated_subtitle.file_id,
+            translated_file_id=translated_subtitle.file_id,
+            source_language="auto",
+            target_language=target_language,
+            translation_status="completed",
+            translation_service="azure",
+            requested_at=datetime.now(timezone.utc),
+            completed_at=datetime.now(timezone.utc),
+            has_profanity=censor_profanity,
+            translation_cost=None,
+            manual_edits_count=0,
+            last_edited_by_user_id=user.user_id,
+            last_edited_at=None
+        )
+        db.add(translation)
         db.commit()
 
         return {
@@ -313,8 +334,8 @@ async def upload_file(
     except Exception as e:
         return JSONResponse(
             status_code=500,
-            content={"error": f"Internal server error: {str(e)}"}
-        )
+            content={"error": f"Internal server error: {str(e)}"})
+
 
 # Download subtitle file by dynamic name
 @router.get("/download-subtitle")
