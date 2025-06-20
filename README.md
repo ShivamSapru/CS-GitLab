@@ -116,7 +116,41 @@ AZURE_LANGUAGES_URL=https://api.cognitive.microsofttranslator.com/languages?api-
 
 ---
 
-## ▶️ Running the Project
+## Integrating with PostgreSQL
+
+### Step 1: Install PostgreSQL:
+https://www.postgresql.org/download/
+
+Create a new database (eg. Subtitle_translator) from pgAdmin
+
+### Step 2: Update .env:
+In your .env file, add the following:
+```env
+DATABASE_URL=postgresql+psycopg2://<username>:<password>@localhost:5432/<your_db_name>
+```
+
+### Step 3: Install psycpog2:
+```bash
+pip install psycopg2-binary
+```
+
+### Step 4: Initialize the DB Tables:
+From the /backend directory, run:
+```bash
+python init_db.py
+``` 
+
+### Optional: Test DB Connection:
+You can test if your database is connected by hitting this FastAPI endpoint:
+```bash
+GET http://localhost:8000/db-test
+```
+If successful, it will return:
+```json
+{ "message": "Database connection successful" }
+```
+
+## Running the Project
 
 ### Start the Backend
 
