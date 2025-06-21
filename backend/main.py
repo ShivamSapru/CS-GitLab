@@ -1,10 +1,10 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from api.routes import router as api_router
-from api.auth import router as auth_router
+from backend.api.routes import router as api_router
+from backend.api.auth import router as auth_router
 from starlette.middleware.sessions import SessionMiddleware
 import os
-from api.auth_email import router as email_auth_router
+from backend.api.auth_email import router as email_auth_router
 
 app = FastAPI(
     title="Subtitle Translator API",

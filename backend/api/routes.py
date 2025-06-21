@@ -9,8 +9,8 @@ from typing import Dict, Optional, List
 from dotenv import load_dotenv
 from pydantic import BaseModel
 
-from database.models import SubtitleFile, User
-from database.db import SessionLocal
+from backend.database.models import SubtitleFile, User
+from backend.database.db import SessionLocal
 from sqlalchemy.orm import Session
 from uuid import uuid4
 from datetime import datetime

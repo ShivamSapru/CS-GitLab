@@ -2,8 +2,8 @@ from fastapi import APIRouter, Request, HTTPException, Depends
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from passlib.context import CryptContext
-from database.models import User
-from database.db import SessionLocal
+from backend.database.models import User
+from backend.database.db import SessionLocal
 from sqlalchemy.orm import Session
 from datetime import datetime
 import uuid
