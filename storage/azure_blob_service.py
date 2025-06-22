@@ -1,10 +1,10 @@
 import os
 from azure.storage.blob import BlobServiceClient, BlobClient, ContainerClient
 from azure.core.exceptions import ResourceExistsError
-from dotenv import load_dotenv
+# from dotenv import load_dotenv
 
 # Load environment variables from .env file (for local dev)
-load_dotenv()
+# load_dotenv()
 
 # Configuration
 AZURE_STORAGE_CONNECTION_STRING = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
