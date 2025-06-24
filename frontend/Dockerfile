@@ -19,7 +19,7 @@ RUN npm run build
 FROM nginx:alpine as production-stage
 
 # Copy the built React app from the build-stage to Nginx static directory
-COPY --from=build-stage /app/build /usr/share/nginx/html
+COPY --from=build-stage /app/dist /usr/share/nginx/html
 
 # Copy a custom Nginx configuration
 COPY ./frontend/nginx.conf /etc/nginx/conf.d/default.conf

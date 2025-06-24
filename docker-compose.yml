@@ -1,5 +1,4 @@
 # docker-compose.yml
-version: '3.8'
 
 services:
   # --- PostgreSQL Database Service ---
@@ -12,7 +11,7 @@ services:
       POSTGRES_USER: postgres     # Database username (matches backend/.env DATABASE_URL user)
       POSTGRES_PASSWORD: password # Database password (matches backend/.env DATABASE_URL password)
     volumes:
-      - db_data:/var/lib/postgresql/data
+      - cs-gitlab_db_data:/var/lib/postgresql/data
     ports:
       - "5432:5432" # Map host port 5432 to container port 5432 (default PostgreSQL port)
     healthcheck: # Ensure DB is ready before backend tries to connect
@@ -34,15 +33,15 @@ services:
     env_file:
       - ./backend/.env
       - ./storage/.env
-#    volumes:
-#      - ./backend:/app/backend # Mounts local backend code into the container
-#      - ./storage:/app/storage # Mounts local storage code into the container
+    volumes:
+      - ./backend:/app/backend # Mounts local backend code into the container
+      - ./storage:/app/storage # Mounts local storage code into the container
     depends_on:
       db:
         condition: service_healthy # Wait for DB to be healthy before starting backend
-    command: ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    # command: ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]
     # For Alembic migrations, command is:
-    # command: ["/bin/bash", "-c", "alembic upgrade head && uvicorn backend.main:app --host 0.0.0.0 --port 8000"]
+    command: ["/bin/bash", "-c", "alembic -c /app/backend/alembic.ini upgrade head && uvicorn backend.main:app --host 0.0.0.0 --port 8000"]
 
   # --- Frontend Service ---
   frontend:
@@ -62,5 +61,5 @@ services:
 
 # Define volumes at the root level to persist data
 volumes:
-  db_data:
+  cs-gitlab_db_data:
 
