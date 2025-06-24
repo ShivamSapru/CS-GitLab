@@ -8,6 +8,8 @@ import {
   ChevronDown,
   Archive,
   Eye,
+  Edit,
+  Save,
 } from "lucide-react";
 
 // API Configuration for Static Upload only
@@ -16,13 +18,18 @@ const MAX_SELECTED_LANGUAGES = 5;
 
 const apiCall = async (endpoint, options = {}) => {
   try {
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, options);
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      ...options,
+      credentials: "include",  
+    });
+
     if (!response.ok) {
       const errorData = await response.json();
       throw new Error(
-        errorData.error || `HTTP error! status: ${response.status}`,
+        errorData.error || `HTTP error! status: ${response.status}`
       );
     }
+
     return await response.json();
   } catch (error) {
     console.error("API call failed:", error);
@@ -220,6 +227,9 @@ const StaticSubtitleUpload = () => {
   const [loadingPreview, setLoadingPreview] = useState(false);
   const [originalContent, setOriginalContent] = useState("");
   const [loadingOriginal, setLoadingOriginal] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedContent, setEditedContent] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
 
   // Load languages from Microsoft Translator API
   useEffect(() => {
@@ -568,6 +578,65 @@ const StaticSubtitleUpload = () => {
     setPreviewContent("");
     setOriginalContent("");
     setLoadingOriginal(false);
+    setIsEditing(false);
+    setEditedContent("");
+    setIsSaving(false);
+  };
+
+  // Start editing mode
+  const startEditing = () => {
+    setEditedContent(previewContent);
+    setIsEditing(true);
+  };
+
+  // Cancel editing
+  const cancelEditing = () => {
+    setIsEditing(false);
+    setEditedContent("");
+    if (translatedPreviewRef.current) {
+      translatedPreviewRef.current.scrollTop = 0;
+    }
+  };
+
+  // Save edited content
+  const saveEditedFile = async () => {
+    if (!backendConnected || !previewingFile) {
+      setError("Cannot save: Backend not connected or no file selected.");
+      return;
+    }
+
+    setIsSaving(true);
+    setError(null);
+
+    try {
+      // Create a blob from the edited content
+      const blob = new Blob([editedContent], { type: "text/plain" });
+      const formData = new FormData();
+      formData.append("file", blob, previewingFile.filename);
+      formData.append("edited", "true"); // Flag to indicate this is an edited file
+
+      // You might want to create a new endpoint for saving edited files
+      // For now, we'll download the edited content directly
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = previewingFile.filename
+        .replace(".srt", "_edited.srt")
+        .replace(".vtt", "_edited.vtt");
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+
+      // Update the preview content to match edited content
+      setPreviewContent(editedContent);
+      setIsEditing(false);
+      setEditedContent("");
+    } catch (err) {
+      setError(`Save failed: ${err.message}`);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const resetComponent = () => {
@@ -585,6 +654,9 @@ const StaticSubtitleUpload = () => {
     setOriginalContent("");
     setLoadingPreview(false);
     setLoadingOriginal(false);
+    setIsEditing(false);
+    setEditedContent("");
+    setIsSaving(false);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -593,6 +665,7 @@ const StaticSubtitleUpload = () => {
   const originalPreviewRef = useRef(null);
   const translatedPreviewRef = useRef(null);
   const previewSectionRef = useRef(null);
+  const editTextareaRef = useRef(null);
 
   // Retry connection to backend
   const retryConnection = async () => {
@@ -939,14 +1012,12 @@ const StaticSubtitleUpload = () => {
                       className="text-green-600 hover:text-green-800 flex items-center space-x-1 px-3 py-1 rounded border border-green-300 hover:bg-green-50 disabled:opacity-50"
                     >
                       <Eye className="w-4 h-4" />
-                      <span>{loadingPreview ? "Loading..." : "Preview"}</span>
                     </button>
                     <button
                       onClick={() => downloadFile(file.filename)}
                       className="text-blue-500 hover:text-blue-700 flex items-center space-x-1"
                     >
                       <Download className="w-4 h-4" />
-                      <span>Download</span>
                     </button>
                   </div>
                 </div>
@@ -961,15 +1032,18 @@ const StaticSubtitleUpload = () => {
             className="mt-8 p-4 bg-gray-50 rounded-lg border"
           >
             <div className="flex items-center justify-between mb-4">
-              <div>
+              <div className="flex-1 min-w-0 pr-4">
                 <h3 className="text-lg font-semibold text-gray-900">Preview</h3>
-                <p className="text-sm text-gray-600">
+                <p
+                  className="text-sm text-gray-600 truncate"
+                  title={`${previewingFile.filename} - ${previewingFile.languageName}`}
+                >
                   {previewingFile.filename} - {previewingFile.languageName}
                 </p>
               </div>
               <button
                 onClick={closePreview}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-gray-400 hover:text-gray-600 flex-shrink-0"
               >
                 <X className="w-6 h-6" />
               </button>
@@ -996,7 +1070,10 @@ const StaticSubtitleUpload = () => {
                     <div
                       ref={originalPreviewRef}
                       onScroll={(e) =>
-                        handleScrollSync(e, translatedPreviewRef)
+                        handleScrollSync(
+                          e,
+                          isEditing ? editTextareaRef : translatedPreviewRef,
+                        )
                       }
                       className="max-h-96 overflow-auto"
                     >
@@ -1011,10 +1088,43 @@ const StaticSubtitleUpload = () => {
               {/* Translated File */}
               <div className="bg-white rounded-lg border">
                 <div className="px-4 py-2 bg-gray-100 border-b rounded-t-lg">
-                  <h4 className="font-medium text-gray-700 flex items-center">
-                    <span className="w-3 h-3 bg-green-500 rounded-full mr-2"></span>
-                    Translated ({previewingFile.languageName})
-                  </h4>
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-medium text-gray-700 flex items-center">
+                      <span className="w-3 h-3 bg-green-500 rounded-full mr-2"></span>
+                      Translated ({previewingFile.languageName})
+                    </h4>
+                    <div className="flex items-center space-x-2">
+                      {!isEditing ? (
+                        <button
+                          onClick={startEditing}
+                          disabled={loadingPreview}
+                          className="text-blue-600 hover:text-blue-800 text-sm flex items-center space-x-1"
+                        >
+                          <Edit className="w-4 h-4" />
+                          <span>Edit</span>
+                        </button>
+                      ) : (
+                        <div className="flex items-center space-x-2">
+                          <button
+                            onClick={saveEditedFile}
+                            disabled={isSaving}
+                            className="text-green-600 hover:text-green-800 text-sm flex items-center space-x-1"
+                          >
+                            <Save className="w-4 h-4" />
+                            <span>{isSaving ? "Saving..." : "Save"}</span>
+                          </button>
+                          <button
+                            onClick={cancelEditing}
+                            disabled={isSaving}
+                            className="text-gray-600 hover:text-gray-800 text-sm flex items-center space-x-1"
+                          >
+                            <X className="w-4 h-4" />
+                            <span>Cancel</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
                 <div className="p-4">
                   {loadingPreview ? (
@@ -1023,10 +1133,32 @@ const StaticSubtitleUpload = () => {
                         Loading translated content...
                       </div>
                     </div>
+                  ) : isEditing ? (
+                    <div className="space-y-2">
+                      <textarea
+                        ref={editTextareaRef}
+                        value={editedContent}
+                        onChange={(e) => setEditedContent(e.target.value)}
+                        onScroll={(e) =>
+                          handleScrollSync(e, originalPreviewRef)
+                        }
+                        className="w-full h-96 p-3 border border-gray-300 rounded font-mono text-sm resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Edit your subtitle content here..."
+                      />
+                      <div className="text-xs text-gray-400">
+                        Lines: {editedContent.split("\n").length} | Characters:{" "}
+                        {editedContent.length}
+                      </div>
+                    </div>
                   ) : (
                     <div
                       ref={translatedPreviewRef}
-                      onScroll={(e) => handleScrollSync(e, originalPreviewRef)}
+                      onScroll={(e) =>
+                        handleScrollSync(
+                          e,
+                          isEditing ? editTextareaRef : originalPreviewRef,
+                        )
+                      }
                       className="max-h-96 overflow-auto"
                     >
                       <pre className="text-sm text-gray-700 whitespace-pre-wrap font-mono">
@@ -1038,14 +1170,35 @@ const StaticSubtitleUpload = () => {
               </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-2">
-              <button
-                onClick={() => downloadFile(previewingFile.filename)}
-                className="flex items-center justify-center space-x-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-              >
-                <Download className="w-4 h-4" />
-                <span>Download Translated File</span>
-              </button>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-2">
+              {/* Left side - Edit status */}
+              <div className="flex items-center space-x-2">
+                {isEditing && (
+                  <div className="text-sm text-orange-600 bg-orange-50 px-3 py-1 rounded-full">
+                    Editing
+                  </div>
+                )}
+              </div>
+
+              {/* Right side - Action buttons */}
+              <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
+                <button
+                  onClick={() => downloadFile(previewingFile.filename)}
+                  disabled={isEditing}
+                  className={`flex items-center justify-center space-x-2 px-4 py-2 rounded-lg ${
+                    isEditing
+                      ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                      : "bg-blue-500 text-white hover:bg-blue-600"
+                  }`}
+                >
+                  <Download className="w-4 h-4" />
+                  <span>
+                    {isEditing
+                      ? "Finish Editing First"
+                      : "Download Original Translation"}
+                  </span>
+                </button>
+              </div>
             </div>
           </div>
         )}
