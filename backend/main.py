@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from api.routes import router as api_router
 from api.auth import router as auth_router
+from api.db_health import router as db_router
 from starlette.middleware.sessions import SessionMiddleware
 import os
 from api.auth_email import router as email_auth_router
@@ -29,6 +30,7 @@ app.add_middleware(
 # API Routes
 app.include_router(api_router, prefix="/api")
 app.include_router(auth_router)
+app.include_router(db_router)
 
 @app.get("/")
 def read_root():

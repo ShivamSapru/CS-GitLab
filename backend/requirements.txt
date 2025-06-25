@@ -10,6 +10,8 @@ srt
 webvtt-py
 passlib
 bcrypt
+azure-cognitiveservices-speech
+azure-storage-blob
 
 # Database dependencies
 asyncpg    
