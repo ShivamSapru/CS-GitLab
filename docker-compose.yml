@@ -1,5 +1,4 @@
 # docker-compose.yml
-
 services:
   # --- PostgreSQL Database Service ---
   db:

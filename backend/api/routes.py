@@ -6,7 +6,7 @@ import time
 from fastapi import APIRouter, UploadFile, File, Form, Query, Request, Depends
 from fastapi.responses import JSONResponse, FileResponse, StreamingResponse
 from typing import Dict, Optional, List
-from dotenv import load_dotenv
+# from dotenv import load_dotenv
 from pydantic import BaseModel
 
 from backend.database.models import SubtitleFile, User
@@ -24,7 +24,7 @@ import io
 class ZipRequest(BaseModel):
     filenames: List[str]
 
-load_dotenv()
+# load_dotenv()
 
 router = APIRouter()
 
@@ -43,6 +43,13 @@ AZURE_TRANSLATOR_ENDPOINT = os.getenv("AZURE_TRANSLATOR_ENDPOINT")
 AZURE_SUBSCRIPTION_KEY = os.getenv("AZURE_SUBSCRIPTION_KEY")
 AZURE_REGION = os.getenv("AZURE_REGION")
 AZURE_LANGUAGES_URL = os.getenv("AZURE_LANGUAGES_URL")
+
+# --- ADD THESE DEBUG PRINTS TO SEE WHAT'S ACTUALLY LOADED ---
+print(f"DEBUG: AZURE_TRANSLATOR_ENDPOINT: {AZURE_TRANSLATOR_ENDPOINT}")
+print(f"DEBUG: AZURE_SUBSCRIPTION_KEY (first 10 chars): {AZURE_SUBSCRIPTION_KEY[:10] if AZURE_SUBSCRIPTION_KEY else 'None'}")
+print(f"DEBUG: AZURE_REGION: {AZURE_REGION}")
+print(f"DEBUG: AZURE_LANGUAGES_URL: {AZURE_LANGUAGES_URL}")
+# --- END DEBUG PRINTS ---
 
 if not AZURE_SUBSCRIPTION_KEY or not AZURE_REGION:
     raise EnvironmentError("Missing AZURE_SUBSCRIPTION_KEY or AZURE_REGION in environment.")
