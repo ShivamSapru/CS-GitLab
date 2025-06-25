@@ -146,9 +146,68 @@ cd frontend
 npm install
 npm run dev
 ```
+
 ---
 
-## 🚀 Setup and Installation
+# ☁️ Azure Blob Storage
+
+## 1. Set Up Azure Storage Account in Azure Portal
+
+1.  **Log in to Azure Portal:** Go to [portal.azure.com](https://portal.azure.com).
+
+2.  **Create a Storage Account:**
+    * In the Azure Portal search bar, type "Storage accounts" and select it.
+    * Click `+ Create`.
+    * Fill in the required details:
+        * **Subscription:** Choose your Azure subscription.
+        * **Resource group:** Create a new one or select an existing one (e.g., `subtitle-translator-rg`).
+        * **Storage account name:** Choose a globally unique name (e.g., `subtitleappstorage123`). This name will be part of your blob URLs.
+        * **Region:** Select a region close to you or your users (e.g., `uksouth`).
+        * **Performance:** Standard.
+        * **Redundancy:** Locally-redundant storage (LRS).
+    * Click `Review + Create`, then `Create`. Wait for the deployment to complete.
+
+3.  **Create Blob Containers:**
+    Once your storage account is deployed:
+    * Navigate to your newly created Storage Account.
+    * In the left-hand menu, under "Data storage," select `Containers`.
+    * Click `+ Container` to create two new containers:
+        * **Name:** `original-subtitles`
+        * **Public access level:** `Private (no anonymous access)`
+        * Click `Create`.
+        * Repeat for the second container:
+        * **Name:** `translated-subtitles`
+        * **Public access level:** `Private (no anonymous access)`
+        * Click `Create`.
+
+4.  **Get the Connection String:**
+    Your application will use a connection string to authenticate with the Storage Account.
+    * In your Storage Account, in the left-hand menu, under "Security + networking," select `Access keys`.
+    * You will see `key1` and `key2`. Copy the **Connection string** for `key1`. This is a long string that starts with `DefaultEndpointsProtocol=https;...`. Keep this safe!
+
+## 2. Configure Environment Variables (`storage/.env`)
+
+Now, you'll create a new `.env` file specifically for your Azure Storage connection string.
+
+1.  **Create `storage/.env` file:** In the root of your project (`CS-GitLab/CS-GitLab`), create a new directory named `storage` if it doesn't exist. Inside the `storage` directory, create a new file named `.env`.
+
+2.  **Add Connection String:** Open `CS-GitLab/CS-GitLab/storage/.env` and add the following line, replacing `YOUR_AZURE_STORAGE_CONNECTION_STRING` with the value you copied from the Azure Portal:
+
+    ```
+    AZURE_STORAGE_CONNECTION_STRING=YOUR_AZURE_STORAGE_CONNECTION_STRING
+    ```
+
+    *Example:*
+
+    ```
+    AZURE_STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=https;AccountName=mysubtitlestorage123;AccountKey=AbcDeFgHiJkLmNoPqRsTuVwXyZ1234567890abcDEF/GHIJKLMN+OPQRSTUVWXY/Z==;EndpointSuffix=core.windows.net
+    ```
+
+3.  **Ensure `backend/.env` is also present:** Remember your `backend/.env` file (located in `CS-GitLab/CS-GitLab/backend/.env`)
+
+---
+
+## 🚀 Docker Deployment
 
 Follow these steps to get the application up and running on your local machine using Docker Compose.
 
