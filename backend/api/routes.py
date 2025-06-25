@@ -296,7 +296,6 @@ async def upload_file(
             file_size_bytes=os.path.getsize(output_path),
             is_original=False,
             is_public=False,
-            has_profanity=censor_profanity,
             source_language="auto",
             created_at=datetime.now(timezone.utc)
         )
@@ -308,17 +307,17 @@ async def upload_file(
             translation_id=uuid4(),
             file_id=translated_subtitle.file_id,
             translated_file_id=translated_subtitle.file_id,
-            source_language="auto",
             target_language=target_language,
             translation_status="completed",
-            translation_service="azure",
             requested_at=datetime.now(timezone.utc),
             completed_at=datetime.now(timezone.utc),
-            has_profanity=censor_profanity,
+            censor_profanity=censor_profanity,
             translation_cost=None,
             manual_edits_count=0,
             last_edited_by_user_id=user.user_id,
-            last_edited_at=None
+            last_edited_at=None,
+            is_public=False,
+            project_id=None
         )
         db.add(translation)
         db.commit()
