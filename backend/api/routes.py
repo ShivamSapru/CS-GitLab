@@ -46,7 +46,6 @@ AZURE_SPEECH_KEY = os.getenv("AZURE_SPEECH_KEY")
 AZURE_SPEECH_REGION = os.getenv("AZURE_SPEECH_REGION")
 AZURE_STORAGE_CONNECTION_STRING = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
 AZURE_BLOB_CONTAINER = os.getenv("AZURE_BLOB_CONTAINER")
-AZURE_BLOB_BASE_URL = os.getenv("AZURE_BLOB_BASE_URL")
 
 BATCH_ENDPOINT = f"https://{AZURE_SPEECH_REGION}.api.cognitive.microsoft.com/speechtotext/transcriptions:submit?api-version=2024-11-15"
 
@@ -57,7 +56,6 @@ if not AZURE_TRANSLATOR_KEY or not AZURE_TRANSLATOR_REGION or not AZURE_SPEECH_K
 ## TRANSLATOR SECTION ##
 
 MAX_CHAR_LIMIT = 20000  # Azure Translator limit is 50000 characters per request
-
 
 def fetch_language_codes() -> Dict[str, str]:
     try:
@@ -80,7 +78,6 @@ def fetch_language_codes() -> Dict[str, str]:
         print(f"Failed to fetch Azure language codes: {e}")
         return {}
 
-
 def post_with_retries(url, headers, json_body, retries=14):
     for i in range(retries):
         response = httpx.post(url, headers=headers, json=json_body)
@@ -92,7 +89,6 @@ def post_with_retries(url, headers, json_body, retries=14):
         response.raise_for_status()
         return response
     raise Exception("Exceeded retry limit for translation request.")
-
 
 def chunk_texts(texts, max_chars):
     chunks = []
@@ -113,7 +109,6 @@ def chunk_texts(texts, max_chars):
         chunks.append(current_chunk)
 
     return chunks
-
 
 def detect_and_translate(texts, to_lang, no_prof=False):
     path = "/translate?api-version=3.0"
@@ -390,17 +385,17 @@ def create_transcription_job(audio_url: str, locale="en-US") -> str:
         "contentUrls": [audio_url],
         "properties": {
             "wordLevelTimestampsEnabled": True,
-            "diarizationEnabled": False
+            "timeToLiveHours": 6
         }
     }
     headers = {
         "Ocp-Apim-Subscription-Key": AZURE_SPEECH_KEY,
         "Content-Type": "application/json"
     }
-    print(payload)
+    print(BATCH_ENDPOINT, payload)
     response = httpx.post(BATCH_ENDPOINT, headers=headers, json=payload)
     response.raise_for_status()
-    # print(response.status_code, response.text)
+    print(response.status_code, response.text)
     return response.headers["Location"]
 
 def poll_transcription_result(status_url: str, timeout_sec=300):
