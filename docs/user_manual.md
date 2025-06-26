@@ -185,20 +185,6 @@ npm run dev
     * In your Storage Account, in the left-hand menu, under "Security + networking," select `Access keys`.
     * You will see `key1` and `key2`. Copy the **Connection string** for `key1`. This is a long string that starts with `DefaultEndpointsProtocol=https;...`. Keep this safe!
 
-## 2. Configure Environment Variables (`storage/.env`) - TEMP as we will merge with ROOT ENV FILE
-
-Now, you'll create a new `.env` file specifically for your Azure Storage connection string.
-
-1.  **Create `storage/.env` file:**
-
-2.  **Add Connection String:** Open `CS-GitLab/CS-GitLab/storage/.env` and add the following line, replacing `YOUR_AZURE_STORAGE_CONNECTION_STRING` with the value you copied from the Azure Portal:
-
-    ```
-    AZURE_STORAGE_CONNECTION_STRING=YOUR_AZURE_STORAGE_CONNECTION_STRING
-    ```
-
-3.  **Ensure `backend/.env` is also present:** Remember your `backend/.env` file (located in `CS-GitLab/CS-GitLab/backend/.env`)
-
 ---
 
 ## 🚀 Docker Deployment
