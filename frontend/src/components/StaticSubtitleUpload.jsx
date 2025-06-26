@@ -10,6 +10,8 @@ import {
   Eye,
   Edit,
   Save,
+  Undo,
+  Redo,
 } from "lucide-react";
 
 // API Configuration for Static Upload only
@@ -20,13 +22,13 @@ const apiCall = async (endpoint, options = {}) => {
   try {
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       ...options,
-      credentials: "include",  
+      credentials: "include",
     });
 
     if (!response.ok) {
       const errorData = await response.json();
       throw new Error(
-        errorData.error || `HTTP error! status: ${response.status}`
+        errorData.error || `HTTP error! status: ${response.status}`,
       );
     }
 
@@ -83,12 +85,6 @@ const MultiSelectDropdown = ({
   const removeLanguage = (languageCode) => {
     onSelectionChange(
       selectedLanguages.filter((code) => code !== languageCode),
-    );
-  };
-
-  const getSelectedLanguageNames = () => {
-    return selectedLanguages.map(
-      (code) => languages.find((lang) => lang.code === code)?.name || code,
     );
   };
 
@@ -230,6 +226,9 @@ const StaticSubtitleUpload = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [editedFiles, setEditedFiles] = useState({});
+  const [editHistory, setEditHistory] = useState([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
 
   // Load languages from Microsoft Translator API
   useEffect(() => {
@@ -516,7 +515,7 @@ const StaticSubtitleUpload = () => {
     setError(null);
 
     try {
-      // Fetch translated file
+      // Always fetch the original translated file from backend
       const translatedResponse = await fetch(
         `${API_BASE_URL}/download-subtitle?filename=${encodeURIComponent(filename)}`,
       );
@@ -526,8 +525,10 @@ const StaticSubtitleUpload = () => {
         throw new Error(errorData.error || "Preview failed");
       }
 
-      const translatedContent = await translatedResponse.text();
-      setPreviewContent(translatedContent);
+      const originalTranslatedContent = await translatedResponse.text();
+
+      // Always show the original translated content in preview, not the edited version
+      setPreviewContent(originalTranslatedContent);
       setLoadingPreview(false);
 
       // Fetch original file content
@@ -546,7 +547,8 @@ const StaticSubtitleUpload = () => {
 
       setPreviewingFile({ filename, languageName });
       setShowPreview(true);
-      // Add this: Scroll to preview section after a short delay
+
+      // Scroll to preview section after a short delay
       setTimeout(() => {
         if (previewSectionRef.current) {
           previewSectionRef.current.scrollIntoView({
@@ -555,7 +557,7 @@ const StaticSubtitleUpload = () => {
             inline: "nearest",
           });
         }
-      }, 100); // Small delay to ensure the component has rendered
+      }, 100);
     } catch (err) {
       setError(`Preview failed: ${err.message}`);
       setLoadingPreview(false);
@@ -587,12 +589,15 @@ const StaticSubtitleUpload = () => {
   const startEditing = () => {
     setEditedContent(previewContent);
     setIsEditing(true);
+    initializeEditHistory(previewContent);
   };
 
   // Cancel editing
   const cancelEditing = () => {
     setIsEditing(false);
     setEditedContent("");
+    setEditHistory([]);
+    setHistoryIndex(-1);
     if (translatedPreviewRef.current) {
       translatedPreviewRef.current.scrollTop = 0;
     }
@@ -609,33 +614,112 @@ const StaticSubtitleUpload = () => {
     setError(null);
 
     try {
-      // Create a blob from the edited content
-      const blob = new Blob([editedContent], { type: "text/plain" });
-      const formData = new FormData();
-      formData.append("file", blob, previewingFile.filename);
-      formData.append("edited", "true"); // Flag to indicate this is an edited file
-
-      // You might want to create a new endpoint for saving edited files
-      // For now, we'll download the edited content directly
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = previewingFile.filename
-        .replace(".srt", "_edited.srt")
-        .replace(".vtt", "_edited.vtt");
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
-
       // Update the preview content to match edited content
       setPreviewContent(editedContent);
+
+      // Mark this file as edited and store the edited content
+      setEditedFiles((prev) => ({
+        ...prev,
+        [previewingFile.filename]: editedContent,
+      }));
+
       setIsEditing(false);
       setEditedContent("");
     } catch (err) {
       setError(`Save failed: ${err.message}`);
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  // Download edited file
+  const downloadEditedFile = async (filename) => {
+    const editedContent = editedFiles[filename];
+    if (!editedContent) {
+      setError("No edited content found for this file.");
+      return;
+    }
+
+    try {
+      const blob = new Blob([editedContent], { type: "text/plain" });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename
+        .replace(".srt", "_edited.srt")
+        .replace(".vtt", "_edited.vtt");
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(`Download failed: ${err.message}`);
+    }
+  };
+
+  // Initialize edit history when starting to edit
+  const initializeEditHistory = (content) => {
+    setEditHistory([content]);
+    setHistoryIndex(0);
+  };
+
+  // Add to edit history
+  const addToHistory = (content) => {
+    setEditHistory((prev) => {
+      // Remove any future history if we're not at the end
+      const newHistory = prev.slice(0, historyIndex + 1);
+      // Add new content
+      newHistory.push(content);
+      // Limit history to 50 entries to prevent memory issues
+      if (newHistory.length > 50) {
+        newHistory.shift();
+        setHistoryIndex(Math.min(historyIndex, newHistory.length - 1));
+        return newHistory;
+      }
+      setHistoryIndex(newHistory.length - 1);
+      return newHistory;
+    });
+  };
+
+  // Undo function
+  const handleUndo = () => {
+    if (historyIndex > 0) {
+      const newIndex = historyIndex - 1;
+      setHistoryIndex(newIndex);
+      setEditedContent(editHistory[newIndex]);
+    }
+  };
+
+  // Redo function
+  const handleRedo = () => {
+    if (historyIndex < editHistory.length - 1) {
+      const newIndex = historyIndex + 1;
+      setHistoryIndex(newIndex);
+      setEditedContent(editHistory[newIndex]);
+    }
+  };
+
+  // Handle text change with history
+  const handleTextChange = (newContent) => {
+    setEditedContent(newContent);
+    // Debounce history additions to avoid too many entries
+    clearTimeout(window.editHistoryTimeout);
+    window.editHistoryTimeout = setTimeout(() => {
+      addToHistory(newContent);
+    }, 500); // Add to history after 500ms of no typing
+  };
+
+  // Handle keyboard shortcuts
+  const handleKeyDown = (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === "z" && !e.shiftKey) {
+      e.preventDefault();
+      handleUndo();
+    } else if (
+      ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === "Z") ||
+      ((e.ctrlKey || e.metaKey) && e.key === "y")
+    ) {
+      e.preventDefault();
+      handleRedo();
     }
   };
 
@@ -657,6 +741,7 @@ const StaticSubtitleUpload = () => {
     setIsEditing(false);
     setEditedContent("");
     setIsSaving(false);
+    setEditedFiles({});
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -1135,10 +1220,44 @@ const StaticSubtitleUpload = () => {
                     </div>
                   ) : isEditing ? (
                     <div className="space-y-2">
+                      {/* Undo/Redo buttons */}
+                      <div className="flex items-center space-x-2 mb-2">
+                        <button
+                          onClick={handleUndo}
+                          disabled={historyIndex <= 0}
+                          className={`flex items-center space-x-1 px-3 py-1 rounded text-sm ${
+                            historyIndex <= 0
+                              ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                              : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                          }`}
+                          title="Undo (Ctrl+Z)"
+                        >
+                          <Undo className="w-4 h-4" />
+                          <span>Undo</span>
+                        </button>
+                        <button
+                          onClick={handleRedo}
+                          disabled={historyIndex >= editHistory.length - 1}
+                          className={`flex items-center space-x-1 px-3 py-1 rounded text-sm ${
+                            historyIndex >= editHistory.length - 1
+                              ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                              : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                          }`}
+                          title="Redo (Ctrl+Shift+Z or Ctrl+Y)"
+                        >
+                          <Redo className="w-4 h-4" />
+                          <span>Redo</span>
+                        </button>
+                        <div className="text-xs text-gray-500 ml-auto">
+                          History: {historyIndex + 1}/{editHistory.length}
+                        </div>
+                      </div>
+
                       <textarea
                         ref={editTextareaRef}
                         value={editedContent}
-                        onChange={(e) => setEditedContent(e.target.value)}
+                        onChange={(e) => handleTextChange(e.target.value)}
+                        onKeyDown={handleKeyDown}
                         onScroll={(e) =>
                           handleScrollSync(e, originalPreviewRef)
                         }
@@ -1183,7 +1302,13 @@ const StaticSubtitleUpload = () => {
               {/* Right side - Action buttons */}
               <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
                 <button
-                  onClick={() => downloadFile(previewingFile.filename)}
+                  onClick={() => {
+                    if (editedFiles[previewingFile.filename]) {
+                      downloadEditedFile(previewingFile.filename);
+                    } else {
+                      downloadFile(previewingFile.filename);
+                    }
+                  }}
                   disabled={isEditing}
                   className={`flex items-center justify-center space-x-2 px-4 py-2 rounded-lg ${
                     isEditing
@@ -1195,7 +1320,9 @@ const StaticSubtitleUpload = () => {
                   <span>
                     {isEditing
                       ? "Finish Editing First"
-                      : "Download Original Translation"}
+                      : editedFiles[previewingFile.filename]
+                        ? "Download Edited"
+                        : "Download File"}
                   </span>
                 </button>
               </div>
