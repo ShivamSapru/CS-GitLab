@@ -15,7 +15,7 @@ from backend.database import models # CRITICAL: Import your models to ensure Bas
 # Load environment variables (from project root .env or backend/.env based on your final decision)
 # If using env_file in docker-compose.yml, this load_dotenv might not be strictly needed inside container
 # but harmless for local dev.
-load_dotenv(dotenv_path=os.path.join(os.path.dirname(os.path.dirname(__file__)), 'storage', '.env'), override=True)
+# load_dotenv(dotenv_path=os.path.join(os.path.dirname(os.path.dirname(__file__)), 'storage', '.env'), override=True)
 
 app = FastAPI(
     title="Subtitle Translator API",

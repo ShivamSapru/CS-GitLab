@@ -1,0 +1,23 @@
+# Azure Translator API Credentials
+AZURE_SUBSCRIPTION_KEY=
+AZURE_REGION=
+AZURE_TRANSLATOR_ENDPOINT=https://api.cognitive.microsofttranslator.com
+AZURE_LANGUAGES_URL=https://api.cognitive.microsofttranslator.com/languages?api-version=3.0&scope=translation
+
+# Azure Storage Account Credentials
+AZURE_STORAGE_CONNECTION_STRING="<Link>"
+
+# Google OAuth Credentials
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+SESSION_SECRET_KEY=
+
+# Database Connection (PostgreSQL)
+DATABASE_URL=postgresql://postgres:password@db:5432/translator_app
+
+# Application URLs (for Dockerized environment)
+FRONTEND_URL=http://localhost:3000
+BACKEND_URL=http://localhost:8000
+
+# Debug Mode (set to true for more detailed logs)
+DEBUG=true

@@ -1,5 +1,3 @@
-# backend/Dockerfile
-
 # Use a Python base image
 FROM python:3.10-slim-buster
 
@@ -14,6 +12,9 @@ ENV PYTHONUNBUFFERED 1 \
 COPY ./backend/requirements.txt /app/backend/requirements.txt
 RUN pip install -r /app/backend/requirements.txt
 
+RUN pip install --force-reinstall bcrypt cryptography
+
+
 # Copy the entire backend and storage application code into the container
 # This copies the backend folder and storage folder into /app/
 COPY ./backend /app/backend
@@ -22,8 +23,7 @@ COPY ./storage /app/storage
 # Crucially, copy the .env files into the container at the expected locations
 # main.py expects backend/.env inside its directory
 # azure_blob_service.py expects storage/.env inside its directory
-COPY ./backend/.env /app/backend/.env
-COPY ./storage/.env /app/storage/.env
+COPY ./.env /app/.env
 
 # Expose the port Uvicorn will run on
 EXPOSE 8000

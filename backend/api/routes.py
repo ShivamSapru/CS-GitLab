@@ -20,7 +20,6 @@ import webvtt
 import zipfile
 import io
 
-
 class ZipRequest(BaseModel):
     filenames: List[str]
 

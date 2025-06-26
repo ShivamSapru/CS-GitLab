@@ -1,6 +1,6 @@
 ## 🛠️ Getting Started
 
-### Step 0: Create Your Environment File
+### Step: Create Your Environment File
 
 1. Copy the example environment configuration:
    ```bash
@@ -159,9 +159,9 @@ npm run dev
     * In the Azure Portal search bar, type "Storage accounts" and select it.
     * Click `+ Create`.
     * Fill in the required details:
-        * **Subscription:** Choose your Azure subscription.
+        * **Subscription:** Choose Azure subscription.
         * **Resource group:** Create a new one or select an existing one (e.g., `subtitle-translator-rg`).
-        * **Storage account name:** Choose a globally unique name (e.g., `subtitleappstorage123`). This name will be part of your blob URLs.
+        * **Storage account name:** Choose a globally unique name (e.g., `subtitleappstorage123`). This name will be part of blob URLs.
         * **Region:** Select a region close to you or your users (e.g., `uksouth`).
         * **Performance:** Standard.
         * **Redundancy:** Locally-redundant storage (LRS).
@@ -185,22 +185,16 @@ npm run dev
     * In your Storage Account, in the left-hand menu, under "Security + networking," select `Access keys`.
     * You will see `key1` and `key2`. Copy the **Connection string** for `key1`. This is a long string that starts with `DefaultEndpointsProtocol=https;...`. Keep this safe!
 
-## 2. Configure Environment Variables (`storage/.env`)
+## 2. Configure Environment Variables (`storage/.env`) - TEMP as we will merge with ROOT ENV FILE
 
 Now, you'll create a new `.env` file specifically for your Azure Storage connection string.
 
-1.  **Create `storage/.env` file:** In the root of your project (`CS-GitLab/CS-GitLab`), create a new directory named `storage` if it doesn't exist. Inside the `storage` directory, create a new file named `.env`.
+1.  **Create `storage/.env` file:**
 
 2.  **Add Connection String:** Open `CS-GitLab/CS-GitLab/storage/.env` and add the following line, replacing `YOUR_AZURE_STORAGE_CONNECTION_STRING` with the value you copied from the Azure Portal:
 
     ```
     AZURE_STORAGE_CONNECTION_STRING=YOUR_AZURE_STORAGE_CONNECTION_STRING
-    ```
-
-    *Example:*
-
-    ```
-    AZURE_STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=https;AccountName=mysubtitlestorage123;AccountKey=AbcDeFgHiJkLmNoPqRsTuVwXyZ1234567890abcDEF/GHIJKLMN+OPQRSTUVWXY/Z==;EndpointSuffix=core.windows.net
     ```
 
 3.  **Ensure `backend/.env` is also present:** Remember your `backend/.env` file (located in `CS-GitLab/CS-GitLab/backend/.env`)
@@ -242,27 +236,17 @@ Navigate to the root directory of your cloned repository (`CS-GitLab`) in your t
 #### a. Clean up previous runs (optional, but recommended for fresh start)
 docker compose down --volumes --rmi all
 
-This command stops and removes all containers, networks, and volumes, and removes all images built by `docker compose build`.
-
 #### b. Build the Docker images
 docker compose build --no-cache
 
-This command builds the Docker image services from scratch.
-
 #### c. Start all services
-
 docker compose up
-
-This command will start all services defined in `docker-compose.yml` file (`db`, `backend`, `frontend`). You will see logs from all services in your terminal.
 
 ---
 
 ## 🌍 Accessing the Application
 
 Once `docker compose up` is running and all services are stable:
-
 * **Frontend Application:** Open your web browser and go to `http://localhost:3000`
-
 * **Backend API Documentation (Swagger UI):** Open your web browser and go to `http://localhost:8000/docs`
-
 ---
