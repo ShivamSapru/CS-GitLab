@@ -30,8 +30,7 @@ services:
       - "8000:8000" # Map container port 8000 to host port 8000
     # Pass ALL environment variables from your separate .env files
     env_file:
-      - ./backend/.env
-      - ./storage/.env
+      - ./.env
     volumes:
       - ./backend:/app/backend # Mounts local backend code into the container
       - ./storage:/app/storage # Mounts local storage code into the container
@@ -49,6 +48,8 @@ services:
     restart: unless-stopped
     ports:
       - "3000:80" # Map host port 3000 to container port 80 (Nginx serves on 80)
+    env_file:
+      - ./.env
     depends_on:
       - backend
     environment:

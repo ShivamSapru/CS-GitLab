@@ -1,3 +1,0 @@
-# Create .env in the Storage folder
-# Add below line
-AZURE_STORAGE_CONNECTION_STRING="<YOUR_STRING>"
