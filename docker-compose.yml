@@ -1,46 +1,63 @@
-# version: '3.8'
-
+# docker-compose.yml
 services:
   # --- PostgreSQL Database Service ---
   db:
-    image: postgres:13-alpine # Using a stable PostgreSQL version
-    restart: always           # Ensures the database always restarts if it crashes
+    image: postgres:13-alpine # PostgreSQL version
+    container_name: subtitle_translator_db # Name of database containers
+    restart: unless-stopped # Always restart. Unless manually stopped
     environment:
-      POSTGRES_DB: subtitle_translator_db # Name of your database
-      POSTGRES_USER: user               # Database username (for local dev)
-      POSTGRES_PASSWORD: password       # Database password (for local dev)
+      POSTGRES_DB: translator_app # Name of your database (matches backend/.env DATABASE_URL dbname)
+      POSTGRES_USER: postgres     # Database username (matches backend/.env DATABASE_URL user)
+      POSTGRES_PASSWORD: password # Database password (matches backend/.env DATABASE_URL password)
     volumes:
-      - db_data:/var/lib/postgresql/data # Persist data outside the container
+      - cs-gitlab_db_data:/var/lib/postgresql/data
     ports:
       - "5432:5432" # Map host port 5432 to container port 5432 (default PostgreSQL port)
+    healthcheck: # Ensure DB is ready before backend tries to connect
+      test: ["CMD-SHELL", "pg_isready -U postgres -d translator_app"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
+  # --- Backend Service ---
   backend:
-    build: ./backend
+    build:
+      context: .
+      dockerfile: ./backend/Dockerfile
+    container_name: subtitle_translator_backend
+    restart: unless-stopped
     ports:
-      - "8000:8000"
-    environment:
-      PYTHONUNBUFFERED: 1
-      AZURE_TRANSLATOR_ENDPOINT: "https://dummy-endpoint.cognitiveservices.azure.com/"
-      AZURE_SUBSCRIPTION_KEY: "subscription-key-for-local-dev"
-      AZURE_REGION: "westus2"
-      # Database Connection Environment Variables for Backend
-      DATABASE_URL: postgresql://user:password@db:5432/subtitle_translator_db
+      - "8000:8000" # Map container port 8000 to host port 8000
+    # Pass ALL environment variables from your separate .env files
+    env_file:
+      - ./.env
     volumes:
-      - ./backend:/app
+      - ./backend:/app/backend # Mounts local backend code into the container
+      - ./storage:/app/storage # Mounts local storage code into the container
     depends_on:
-      - db
+      db:
+        condition: service_healthy # Wait for DB to be healthy before starting backend
+    command: ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]
 
+  # --- Frontend Service ---
   frontend:
-    build: ./frontend
+    build:
+      context: .
+      dockerfile: ./frontend/Dockerfile
+    container_name: subtitle_translator_frontend
+    restart: unless-stopped
     ports:
-      - "3000:80"
+      - "3000:80" # Map host port 3000 to container port 80 (Nginx serves on 80)
+    env_file:
+      - ./.env
     depends_on:
       - backend
     environment:
-      VITE_APP_BACKEND_URL: http://localhost:8000
-    volumes:
-      - ./frontend:/app
+      VITE_APP_BACKEND_URL: http://backend:8000
+#    volumes:
+#      - ./frontend:/app # Mounts local frontend code into the container
 
 # Define volumes at the root level to persist data
 volumes:
-  db_data:
+  cs-gitlab_db_data:
+

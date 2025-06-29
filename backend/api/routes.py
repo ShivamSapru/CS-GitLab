@@ -6,26 +6,24 @@ import time
 from fastapi import APIRouter, UploadFile, File, Form, Query, Request, Depends
 from fastapi.responses import JSONResponse, FileResponse, StreamingResponse
 from typing import Dict, Optional, List
-from dotenv import load_dotenv
+# from dotenv import load_dotenv
 from pydantic import BaseModel
 
-from database.models import SubtitleFile, User
-from database.models import Translation
-from database.db import SessionLocal
+from backend.database.models import SubtitleFile, User
+from backend.database.db import SessionLocal
 from sqlalchemy.orm import Session
 from uuid import uuid4
-from datetime import datetime, timezone
+from datetime import datetime
 
 import srt
 import webvtt
 import zipfile
 import io
 
-
 class ZipRequest(BaseModel):
     filenames: List[str]
 
-load_dotenv()
+# load_dotenv()
 
 router = APIRouter()
 
@@ -44,6 +42,13 @@ AZURE_TRANSLATOR_ENDPOINT = os.getenv("AZURE_TRANSLATOR_ENDPOINT")
 AZURE_SUBSCRIPTION_KEY = os.getenv("AZURE_SUBSCRIPTION_KEY")
 AZURE_REGION = os.getenv("AZURE_REGION")
 AZURE_LANGUAGES_URL = os.getenv("AZURE_LANGUAGES_URL")
+
+# --- ADD THESE DEBUG PRINTS TO SEE WHAT'S ACTUALLY LOADED ---
+print(f"DEBUG: AZURE_TRANSLATOR_ENDPOINT: {AZURE_TRANSLATOR_ENDPOINT}")
+print(f"DEBUG: AZURE_SUBSCRIPTION_KEY (first 10 chars): {AZURE_SUBSCRIPTION_KEY[:10] if AZURE_SUBSCRIPTION_KEY else 'None'}")
+print(f"DEBUG: AZURE_REGION: {AZURE_REGION}")
+print(f"DEBUG: AZURE_LANGUAGES_URL: {AZURE_LANGUAGES_URL}")
+# --- END DEBUG PRINTS ---
 
 if not AZURE_SUBSCRIPTION_KEY or not AZURE_REGION:
     raise EnvironmentError("Missing AZURE_SUBSCRIPTION_KEY or AZURE_REGION in environment.")
@@ -254,7 +259,6 @@ async def upload_file(
         with open(input_path, "wb") as f:
             f.write(await file.read())
 
-        # Translation logic
         if file_ext.lower() == ".srt":
             with open(input_path, "r", encoding="utf-8") as f:
                 subtitles = list(srt.parse(f.read()))
@@ -275,7 +279,7 @@ async def upload_file(
         else:
             raise ValueError("Unsupported file format. Please upload .srt or .vtt")
 
-        # Get user from session
+        # ✅ Retrieve user from session
         session_user = request.session.get("user")
         if not session_user or not session_user.get("email"):
             return JSONResponse(status_code=401, content={"error": "User not authenticated"})
@@ -285,41 +289,23 @@ async def upload_file(
         if not user:
             return JSONResponse(status_code=404, content={"error": "User not found"})
 
-        # Saving the metadata of subtitle files in subtitle_files table
-        translated_subtitle = SubtitleFile(
+        # ✅ Store subtitle metadata in database
+        subtitle = SubtitleFile(
             file_id=uuid4(),
             project_id=None,
             user_id=user.user_id,
-            original_file_name=output_filename,
+            original_file_name=file.filename,
             storage_path=output_path,
             file_format=file_ext.lower().replace(".", ""),
             file_size_bytes=os.path.getsize(output_path),
-            is_original=False,
+            is_original=True,
             is_public=False,
+            has_profanity=censor_profanity,
             source_language="auto",
-            created_at=datetime.now(timezone.utc)
+            created_at=datetime.utcnow()
         )
-        db.add(translated_subtitle)
-        db.commit()
 
-        # Saving the translated subtitle files metadata in translations table
-        translation = Translation(
-            translation_id=uuid4(),
-            file_id=translated_subtitle.file_id,
-            translated_file_id=translated_subtitle.file_id,
-            target_language=target_language,
-            translation_status="completed",
-            requested_at=datetime.now(timezone.utc),
-            completed_at=datetime.now(timezone.utc),
-            censor_profanity=censor_profanity,
-            translation_cost=None,
-            manual_edits_count=0,
-            last_edited_by_user_id=user.user_id,
-            last_edited_at=None,
-            is_public=False,
-            project_id=None
-        )
-        db.add(translation)
+        db.add(subtitle)
         db.commit()
 
         return {
@@ -333,8 +319,8 @@ async def upload_file(
     except Exception as e:
         return JSONResponse(
             status_code=500,
-            content={"error": f"Internal server error: {str(e)}"})
-
+            content={"error": f"Internal server error: {str(e)}"}
+        )
 
 # Download subtitle file by dynamic name
 @router.get("/download-subtitle")
