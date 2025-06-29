@@ -5,7 +5,7 @@ from passlib.context import CryptContext
 from backend.database.models import User
 from backend.database.db import SessionLocal
 from sqlalchemy.orm import Session
-from datetime import datetime
+from datetime import datetime, timezone
 import uuid
 
 router = APIRouter()
@@ -44,8 +44,8 @@ async def register_user(data: RegisterRequest, db: Session = Depends(get_db)):
         password_hash=hashed_pw,
         role="user",
         credits=10,
-        created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow()
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc)
     )
 
     db.add(new_user)
