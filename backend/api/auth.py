@@ -3,8 +3,8 @@ from fastapi.responses import RedirectResponse, JSONResponse
 from authlib.integrations.starlette_client import OAuth
 from starlette.config import Config
 from sqlalchemy.orm import Session
-from backend.database.models import User
-from backend.database.db import SessionLocal
+from database.models import User
+from database.db import SessionLocal
 from datetime import datetime
 import uuid
 import os

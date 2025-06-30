@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import SaveProjectModal from "./SaveProjectModal";
 import {
   Upload,
   Download,
@@ -12,6 +13,8 @@ import {
   Save,
   Undo,
   Redo,
+  FolderPlus,
+  CheckCircle,
 } from "lucide-react";
 
 // API Configuration for Static Upload only
@@ -229,6 +232,9 @@ const StaticSubtitleUpload = () => {
   const [editedFiles, setEditedFiles] = useState({});
   const [editHistory, setEditHistory] = useState([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
+  const [showSaveProjectModal, setShowSaveProjectModal] = useState(false);
+  const [isSavingProject, setIsSavingProject] = useState(false);
+  const [projectSaveSuccess, setProjectSaveSuccess] = useState(null);
 
   // Load languages from Microsoft Translator API
   useEffect(() => {
@@ -723,6 +729,44 @@ const StaticSubtitleUpload = () => {
     }
   };
 
+  const saveAsProject = async (projectData) => {
+    if (!backendConnected) {
+      setError("Backend not connected. Cannot save project.");
+      return;
+    }
+
+    setIsSavingProject(true);
+    setError(null);
+
+    try {
+      const response = await apiCall("/save-project", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(projectData),
+      });
+
+      setProjectSaveSuccess({
+        projectName: projectData.project_name,
+        projectId: response.project_id,
+        fileCount: response.files_saved,
+      });
+
+      setShowSaveProjectModal(false);
+
+      // Auto-hide success message after 5 seconds
+      setTimeout(() => {
+        setProjectSaveSuccess(null);
+      }, 5000);
+    } catch (err) {
+      setError(`Failed to save project: ${err.message}`);
+      console.error("Project save error:", err);
+    } finally {
+      setIsSavingProject(false);
+    }
+  };
+
   const resetComponent = () => {
     setUploadedFile(null);
     setTranslationProgress(0);
@@ -742,6 +786,9 @@ const StaticSubtitleUpload = () => {
     setEditedContent("");
     setIsSaving(false);
     setEditedFiles({});
+    setShowSaveProjectModal(false);
+    setIsSavingProject(false);
+    setProjectSaveSuccess(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -1055,21 +1102,33 @@ const StaticSubtitleUpload = () => {
                 </span>
               </div>
 
-              {/* Add Download All as ZIP button when multiple files */}
-              {translatedFiles.length > 1 && (
+              <div className="flex items-center space-x-2">
+                {/* Save as Project Button */}
                 <button
-                  onClick={downloadAllAsZip}
-                  disabled={isDownloadingZip}
-                  className="flex items-center space-x-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-sm"
+                  onClick={() => setShowSaveProjectModal(true)}
+                  disabled={isSavingProject}
+                  className="flex items-center space-x-2 px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-sm"
                 >
-                  <Archive className="w-4 h-4" />
-                  <span>
-                    {isDownloadingZip
-                      ? "Creating ZIP..."
-                      : "Download All as ZIP"}
-                  </span>
+                  <FolderPlus className="w-4 h-4" />
+                  <span>Save as Project</span>
                 </button>
-              )}
+
+                {/* Download All as ZIP button when multiple files */}
+                {translatedFiles.length > 1 && (
+                  <button
+                    onClick={downloadAllAsZip}
+                    disabled={isDownloadingZip}
+                    className="flex items-center space-x-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-sm"
+                  >
+                    <Archive className="w-4 h-4" />
+                    <span>
+                      {isDownloadingZip
+                        ? "Creating ZIP..."
+                        : "Download All as ZIP"}
+                    </span>
+                  </button>
+                )}
+              </div>
             </div>
             <div className="space-y-2">
               {translatedFiles.map((file) => (
@@ -1094,12 +1153,14 @@ const StaticSubtitleUpload = () => {
                         previewFile(file.filename, file.languageName)
                       }
                       disabled={loadingPreview}
+                      title="Preview"
                       className="text-green-600 hover:text-green-800 flex items-center space-x-1 px-3 py-1 rounded border border-green-300 hover:bg-green-50 disabled:opacity-50"
                     >
                       <Eye className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => downloadFile(file.filename)}
+                      title="Download"
                       className="text-blue-500 hover:text-blue-700 flex items-center space-x-1"
                     >
                       <Download className="w-4 h-4" />
@@ -1110,6 +1171,35 @@ const StaticSubtitleUpload = () => {
             </div>
           </div>
         )}
+
+        {/* Project Save Success Message */}
+        {projectSaveSuccess && (
+          <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+            <div className="flex items-start space-x-3">
+              <CheckCircle className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
+              <div className="flex-1">
+                <h4 className="text-green-800 font-medium">
+                  Project Saved Successfully!
+                </h4>
+                <p className="text-green-700 text-sm mt-1">
+                  Project "{projectSaveSuccess.projectName}" has been saved to
+                  Azure Blob Storage with {projectSaveSuccess.fileCount} file
+                  {projectSaveSuccess.fileCount > 1 ? "s" : ""}.
+                </p>
+                <p className="text-green-600 text-xs mt-1">
+                  Project ID: {projectSaveSuccess.projectId}
+                </p>
+              </div>
+              <button
+                onClick={() => setProjectSaveSuccess(null)}
+                className="text-green-400 hover:text-green-600"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Subtitle Preview Modal/Section - Side by Side */}
         {showPreview && previewingFile && (
           <div
@@ -1330,6 +1420,16 @@ const StaticSubtitleUpload = () => {
           </div>
         )}
       </div>
+      <SaveProjectModal
+        isOpen={showSaveProjectModal}
+        onClose={() => setShowSaveProjectModal(false)}
+        onSave={saveAsProject}
+        translatedFiles={translatedFiles}
+        originalFilename={uploadedFile?.name || ""}
+        targetLanguages={targetLanguages}
+        languages={languages}
+        isSaving={isSavingProject}
+      />
     </div>
   );
 };
