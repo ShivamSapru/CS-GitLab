@@ -47,7 +47,8 @@ AZURE_SPEECH_REGION = os.getenv("AZURE_SPEECH_REGION")
 AZURE_STORAGE_CONNECTION_STRING = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
 AZURE_BLOB_CONTAINER = os.getenv("AZURE_BLOB_CONTAINER")
 
-BATCH_ENDPOINT = f"https://{AZURE_SPEECH_REGION}.api.cognitive.microsoft.com/speechtotext/transcriptions:submit?api-version=2024-11-15"
+BATCH_ENDPOINT = f"{os.getenv("BATCH_ENDPOINT").replace("AZURE_SPEECH_REGION", AZURE_SPEECH_REGION)}"
+GET_ENDPOINT_TEMPLATE = f"{os.getenv("GET_ENDPOINT_TEMPLATE").replace("AZURE_SPEECH_REGION", AZURE_SPEECH_REGION)}"
 
 if not AZURE_TRANSLATOR_KEY or not AZURE_TRANSLATOR_REGION or not AZURE_SPEECH_KEY or not AZURE_SPEECH_REGION:
     raise EnvironmentError("Missing Azure Credentials in environment.")
@@ -357,7 +358,7 @@ async def download_zip(request: ZipRequest):
 
 ## TRANSCRIPTION SECTION ##
 
-# Utility: Convert audio/video to 16kHz WAV mono
+# Convert audio to mono, 16kHz WAV
 def convert_to_wav(input_path, output_path):
     (
         ffmpeg
@@ -368,41 +369,56 @@ def convert_to_wav(input_path, output_path):
     )
     return output_path
 
-# Utility: Convert recognized text to SRT
+# Format output to SRT
 def convert_to_srt(segments):
     srt_output = ""
     for i, seg in enumerate(segments, 1):
-        start = str(timedelta(seconds=seg['offset'] / 10000000)).replace('.', ',')[:12]
-        end = str(timedelta(seconds=(seg['offset'] + seg['duration']) / 10000000)).replace('.', ',')[:12]
-        srt_output += f"{i}\n{start} --> {end}\n{seg['text']}\n\n"
+        # Use numeric values
+        start_seconds = seg.get('offsetInTicks', 0) / 10**7
+        end_seconds = (seg.get('offsetInTicks', 0) + seg.get('durationInTicks', 0)) / 10**7
+
+        # Format to SRT time format
+        start = str(timedelta(seconds=start_seconds)).replace('.', ',')[:12]
+        end = str(timedelta(seconds=end_seconds)).replace('.', ',')[:12]
+
+        # Extract the display text from nBest
+        text = seg.get("nBest", [{}])[0].get("display", "")
+        srt_output += f"{i}\n{start} --> {end}\n{text}\n\n"
+
     return srt_output
 
-# Azure Speech Batch Transcription functions
-def create_transcription_job(audio_url: str, locale="en-US") -> str:
+# Create transcription job
+def create_transcription_job(audio_url: str, locale="en-US"):
     payload = {
         "displayName": f"Transcription_{uuid.uuid4()}",
         "locale": locale,
         "contentUrls": [audio_url],
         "properties": {
             "wordLevelTimestampsEnabled": True,
-            "timeToLiveHours": 6
+            "timeToLiveHours": 6,
+            "languageIdentification": {
+                "candidateLocales": ["en-US", "de-DE", "es-ES"],
+                "mode": "Continuous"
+            }
         }
     }
     headers = {
         "Ocp-Apim-Subscription-Key": AZURE_SPEECH_KEY,
         "Content-Type": "application/json"
     }
-    print(BATCH_ENDPOINT, payload)
     response = httpx.post(BATCH_ENDPOINT, headers=headers, json=payload)
     response.raise_for_status()
-    print(response.status_code, response.text)
-    return response.headers["Location"]
+    job_url = response.json()["self"]
+    job_id = job_url.split("/")[-1].split("?")[0]
+    return job_id
 
-def poll_transcription_result(status_url: str, timeout_sec=300):
+# Poll for status
+def poll_transcription_result(job_id: str, timeout_sec=300):
     headers = {"Ocp-Apim-Subscription-Key": AZURE_SPEECH_KEY}
     for _ in range(timeout_sec // 10):
-        response = httpx.get(status_url, headers=headers)
+        response = httpx.get(GET_ENDPOINT_TEMPLATE + job_id, headers=headers)
         data = response.json()
+        print("Transcription Status:", data["status"])
         if data["status"] == "Succeeded":
             return data["links"]["files"]
         elif data["status"] == "Failed":
@@ -410,40 +426,44 @@ def poll_transcription_result(status_url: str, timeout_sec=300):
         time.sleep(10)
     raise TimeoutError("Polling timed out.")
 
+# Fetch transcription JSON
 def get_transcription_file(files_url: str):
     headers = {"Ocp-Apim-Subscription-Key": AZURE_SPEECH_KEY}
-    response = httpx.get(files_url, headers=headers).json()
-    transcript_url = next((f["links"]["contentUrl"] for f in response["values"] if f["kind"] == "Detailed"), None)
+    response = httpx.get(files_url, headers=headers)
+    data = response.json()
+    # transcript_url = next((f["links"]["contentUrl"] for f in data["values"] if f["kind"] == "Detailed"), None)
+    transcript_url = next((f["links"]["contentUrl"] for f in data["values"] if f["kind"] == "Transcription"), None)
     if not transcript_url:
         raise Exception("No transcript found.")
     transcript_json = httpx.get(transcript_url).json()
     return transcript_json.get("recognizedPhrases", [])
 
-# FastAPI route
+# /transcribe route
 @router.post("/transcribe")
 async def transcribe_audio_video(
     file: UploadFile = File(...),
     output_format: str = Form("srt")
 ):
     try:
-        # Step 1: Save uploaded file
+        # Save file
         base_name, _ = os.path.splitext(file.filename)
         safe_name = re.sub(r'[^\w\-_.]', '_', base_name)
         input_path = os.path.join(temp_dir, f"{safe_name}_input.{file.filename.split('.')[-1]}")
         with open(input_path, "wb") as f:
             f.write(await file.read())
 
-        # Step 2: Convert to WAV
+        # Convert to WAV
         wav_path = os.path.join(temp_dir, f"{safe_name}_converted.wav")
         convert_to_wav(input_path, wav_path)
 
-        # Step 3: Upload to Azure Blob
+        # Upload to Blob
         blob_service = BlobServiceClient.from_connection_string(AZURE_STORAGE_CONNECTION_STRING)
         blob_name = os.path.basename(wav_path)
         blob_client = blob_service.get_blob_client(container=AZURE_BLOB_CONTAINER, blob=blob_name)
         with open(wav_path, "rb") as data:
             blob_client.upload_blob(data, overwrite=True)
 
+        # Generate SAS URL
         sas_token = generate_blob_sas(
             account_name=blob_service.account_name,
             container_name=AZURE_BLOB_CONTAINER,
@@ -452,30 +472,23 @@ async def transcribe_audio_video(
             permission=BlobSasPermissions(read=True),
             expiry=datetime.utcnow() + timedelta(hours=1)
         )
-
         audio_url = f"https://{blob_service.account_name}.blob.core.windows.net/{AZURE_BLOB_CONTAINER}/{blob_name}?{sas_token}"
 
-        # Step 4: Start Transcription Job
-        status_url = create_transcription_job(audio_url)
-
-        # Step 5: Poll for Results
-        files_url = poll_transcription_result(status_url)
-
-        # Step 6: Get Transcribed Text
+        # Create and poll job
+        job_id = create_transcription_job(audio_url)
+        files_url = poll_transcription_result(job_id)
         phrases = get_transcription_file(files_url)
 
-        # Step 7: Write to Output File
+        # Write SRT/VTT
         out_name = f"{safe_name}_transcribed.{output_format}"
         out_path = os.path.join(temp_dir, out_name)
-
-        if output_format == "srt":
-            with open(out_path, "w", encoding="utf-8") as f:
+        with open(out_path, "w", encoding="utf-8") as f:
+            if output_format == "srt":
                 f.write(convert_to_srt(phrases))
-        elif output_format == "vtt":
-            with open(out_path, "w", encoding="utf-8") as f:
+            elif output_format == "vtt":
                 f.write("WEBVTT\n\n" + convert_to_srt(phrases))
-        else:
-            return JSONResponse(status_code=400, content={"error": "Invalid output format."})
+            else:
+                return JSONResponse(status_code=400, content={"error": "Invalid output format."})
 
         return {
             "message": "Transcription completed.",
