@@ -1,5 +1,5 @@
-from database.db import engine
-from database.models import Base
+from backend.database.db import engine
+from backend.database.models import Base
 from dotenv import load_dotenv
 import os
 

@@ -15,11 +15,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
 # Now import your modules AFTER environment is loaded
-from api.routes import router as api_router
-from api.auth import router as auth_router
-from api.auth_email import router as email_auth_router
-from database.db import create_db_tables
-from database import models
+from backend.api.routes import router as api_router
+from backend.api.auth import router as auth_router
+from backend.api.auth_email import router as email_auth_router
+from backend.database.db import create_db_tables
+from backend.database import models
+from backend.api.twoFA import router as two_fa_router
 
 app = FastAPI(
     title="Subtitle Translator API",
@@ -53,6 +54,7 @@ app.add_middleware(
 app.include_router(email_auth_router)
 app.include_router(api_router, prefix="/api")
 app.include_router(auth_router)
+app.include_router(two_fa_router)
 
 @app.get("/")
 def read_root():

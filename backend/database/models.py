@@ -15,6 +15,8 @@ class User(Base):
     created_at = Column(TIMESTAMP)
     updated_at = Column(TIMESTAMP)
     last_login = Column(TIMESTAMP)
+    is_2fa_enabled = Column(Boolean, default=False)
+    two_fa_secret = Column(String(64), nullable=True)
 
 
 

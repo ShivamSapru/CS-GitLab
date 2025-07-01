@@ -12,6 +12,8 @@ import Profile from "./components/Profile";
 import Library from "./components/Library";
 import Login from "./components/Login";
 import Signup from "./components/Signup";
+import Verify2FA from "./components/Verify2FA";
+import Setup2FA from "./components/Setup2FA";
 
 const SubtitleTranslatorApp = () => {
   const [currentTemplate, setCurrentTemplate] = useState("dashboard");
@@ -76,7 +78,20 @@ const SubtitleTranslatorApp = () => {
         const res = await axios.get("http://localhost:8000/me", {
           withCredentials: true,
         });
-        setUser(res.data);
+
+        console.log("🚀 /me response:", res.data); // optional debug
+
+        // ✅ Set user before navigation to avoid null fallback
+        if (res.data?.setup_2fa_required) {
+          setUser(res.data);                // ensure it's not null
+          navigate("/setup-2fa");
+        } else if (res.data?.twofa_required) {
+          setUser(res.data);                // ensure it's not null
+          navigate("/verify-2fa");
+        } else {
+          setUser(res.data);                // normal full user object
+        }
+
       } catch {
         setUser(null);
       } finally {
@@ -85,6 +100,8 @@ const SubtitleTranslatorApp = () => {
     };
     fetchUser();
   }, []);
+
+
 
   // 🔁 Redirect to login if not authenticated
   useEffect(() => {
@@ -212,6 +229,8 @@ const SubtitleTranslatorApp = () => {
       <Routes>
         <Route path="/login" element={<Login setUser={setUser} />} />
         <Route path="/signup" element={<Signup setUser={setUser} />} />
+        <Route path="/verify-2fa" element={<Verify2FA setUser={setUser} />} />
+        <Route path="/setup-2fa" element={<Setup2FA />} />
         <Route path="*" element={getCurrentComponent()} />
       </Routes>
     </div>

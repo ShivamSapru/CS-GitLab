@@ -12,10 +12,10 @@ from typing import Dict, Optional, List
 from pydantic import BaseModel
 from azure.storage.blob import BlobServiceClient
 
-from database.models import SubtitleFile, User
-from database.models import Translation
-from database.models import TranslationProject
-from database.db import SessionLocal
+from backend.database.models import SubtitleFile, User
+from backend.database.models import Translation
+from backend.database.models import TranslationProject
+from backend.database.db import SessionLocal
 from sqlalchemy.orm import Session
 from uuid import uuid4
 from datetime import datetime, timezone

@@ -6,15 +6,15 @@ services:
     container_name: subtitle_translator_db # Name of database containers
     restart: unless-stopped # Always restart. Unless manually stopped
     environment:
-      POSTGRES_DB: translator_app # Name of your database (matches backend/.env DATABASE_URL dbname)
+      POSTGRES_DB: subtitle_translator # Name of your database (matches backend/.env DATABASE_URL dbname)
       POSTGRES_USER: postgres     # Database username (matches backend/.env DATABASE_URL user)
-      POSTGRES_PASSWORD: password # Database password (matches backend/.env DATABASE_URL password)
+      POSTGRES_PASSWORD: postgres # Database password (matches backend/.env DATABASE_URL password)
     volumes:
       - cs-gitlab_db_data:/var/lib/postgresql/data
     ports:
       - "5432:5432" # Map host port 5432 to container port 5432 (default PostgreSQL port)
     healthcheck: # Ensure DB is ready before backend tries to connect
-      test: ["CMD-SHELL", "pg_isready -U postgres -d translator_app"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d subtitle_translator"]
       interval: 5s
       timeout: 5s
       retries: 5
