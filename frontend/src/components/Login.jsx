@@ -38,12 +38,23 @@ const Login = ({ setUser }) => {
         }
       );
 
-      setUser(res.data.user); // set user globally
-      navigate('/');
+      // ✅ Fix: Set user before navigating away
+      if (res.data?.setup_2fa_required) {
+        setUser(res.data);
+        navigate("/setup-2fa");
+      } else if (res.data?.twofa_required) {
+        setUser(res.data);
+        navigate("/verify-2fa");
+      } else {
+        setUser(res.data.user); // full user returned if 2FA already done
+        navigate("/");
+      }
+
     } catch (err) {
       setError(err.response?.data?.detail ?? "Invalid credentials");
     }
   };
+
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-4">

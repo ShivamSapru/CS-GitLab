@@ -14,7 +14,9 @@ const SaveProjectModal = ({
   const [projectName, setProjectName] = useState("");
   const [description, setDescription] = useState("");
   const [error, setError] = useState("");
+
   const [isPublic, setIsPublic] = useState(false);
+
 
   const handleSave = () => {
     if (!projectName.trim()) {
@@ -35,7 +37,9 @@ const SaveProjectModal = ({
       filenames: translatedFiles.map((file) => file.filename),
       original_filename: originalFilename,
       target_languages: targetLanguages,
+
       is_public: isPublic,
+
     };
 
     onSave(projectData);
@@ -46,7 +50,9 @@ const SaveProjectModal = ({
       setProjectName("");
       setDescription("");
       setError("");
+
       setIsPublic(false);
+
       onClose();
     }
   };
@@ -151,6 +157,7 @@ const SaveProjectModal = ({
               </div>
             </div>
           </div>
+
 
           <div>
             <label className="flex items-center space-x-3">
