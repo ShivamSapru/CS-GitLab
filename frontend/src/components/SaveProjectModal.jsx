@@ -15,6 +15,9 @@ const SaveProjectModal = ({
   const [description, setDescription] = useState("");
   const [error, setError] = useState("");
 
+  const [isPublic, setIsPublic] = useState(false);
+
+
   const handleSave = () => {
     if (!projectName.trim()) {
       setError("Project name is required");
@@ -34,6 +37,9 @@ const SaveProjectModal = ({
       filenames: translatedFiles.map((file) => file.filename),
       original_filename: originalFilename,
       target_languages: targetLanguages,
+
+      is_public: isPublic,
+
     };
 
     onSave(projectData);
@@ -44,6 +50,9 @@ const SaveProjectModal = ({
       setProjectName("");
       setDescription("");
       setError("");
+
+      setIsPublic(false);
+
       onClose();
     }
   };
@@ -147,6 +156,27 @@ const SaveProjectModal = ({
                 {description.length}/500 characters
               </div>
             </div>
+          </div>
+
+
+          <div>
+            <label className="flex items-center space-x-3">
+              <input
+                type="checkbox"
+                checked={isPublic}
+                onChange={(e) => setIsPublic(e.target.checked)}
+                disabled={isSaving}
+                className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2 disabled:cursor-not-allowed"
+              />
+              <div className="flex-1">
+                <span className="text-sm font-medium text-gray-700">
+                  Make this project public
+                </span>
+                <p className="text-xs text-gray-500 mt-1">
+                  Public projects can be viewed and downloaded by other users
+                </p>
+              </div>
+            </label>
           </div>
 
           {/* Files List */}

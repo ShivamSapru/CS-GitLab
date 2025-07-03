@@ -243,26 +243,18 @@ const StaticSubtitleUpload = () => {
         setLoadingLanguages(true);
         setError(null);
 
-        // First check if backend is healthy
+        // Check if backend is healthy
         await apiCall("/health");
         setBackendConnected(true);
 
-        // Fetch languages from Microsoft Translator API
-        const response = await fetch(
-          "https://api.cognitive.microsofttranslator.com/languages?api-version=3.0&scope=translation",
-        );
-        if (!response.ok) {
-          throw new Error(`Failed to fetch languages: ${response.status}`);
-        }
+        // Fetch languages from backend
+        const languageData = await apiCall("/languages");
 
-        const data = await response.json();
-
-        // Convert Microsoft Translator format to our format
-        const languageArray = Object.entries(data.translation).map(
-          ([code, info]) => ({
+        // Convert backend format to array format
+        const languageArray = Object.entries(languageData).map(
+          ([code, name]) => ({
             code,
-            name: info.name,
-            nativeName: info.nativeName,
+            name,
           }),
         );
 
@@ -272,33 +264,11 @@ const StaticSubtitleUpload = () => {
         setLanguages(languageArray);
         setError(null);
       } catch (err) {
-        if (err.message.includes("Failed to fetch languages")) {
-          // If Microsoft API fails, try to fall back to backend
-          try {
-            const languageData = await apiCall("/languages");
-            const languageArray = Object.entries(languageData).map(
-              ([code, name]) => ({
-                code,
-                name,
-              }),
-            );
-            setLanguages(languageArray);
-            setBackendConnected(true);
-            setError(null);
-          } catch (backendErr) {
-            setBackendConnected(false);
-            setLanguages([]);
-            setError(
-              `Language loading failed: ${err.message}. Backend connection also failed: ${backendErr.message}`,
-            );
-          }
-        } else {
-          setBackendConnected(false);
-          setLanguages([]);
-          setError(
-            `Backend connection failed: ${err.message}. Please ensure your FastAPI server is running on http://localhost:8000 with Azure credentials configured.`,
-          );
-        }
+        setBackendConnected(false);
+        setLanguages([]);
+        setError(
+          `Backend connection failed: ${err.message}. Please ensure your FastAPI server is running on http://localhost:8000 with Azure credentials configured.`,
+        );
         console.error("Failed to load languages:", err);
       } finally {
         setLoadingLanguages(false);
@@ -808,32 +778,16 @@ const StaticSubtitleUpload = () => {
       await apiCall("/health");
       setBackendConnected(true);
 
-      // Try to reload languages from Microsoft API
-      const response = await fetch(
-        "https://api.cognitive.microsofttranslator.com/languages?api-version=3.0&scope=translation",
+      // Load languages from backend only
+      const languageData = await apiCall("/languages");
+      const languageArray = Object.entries(languageData).map(
+        ([code, name]) => ({
+          code,
+          name,
+        }),
       );
-      if (response.ok) {
-        const data = await response.json();
-        const languageArray = Object.entries(data.translation).map(
-          ([code, info]) => ({
-            code,
-            name: info.name,
-            nativeName: info.nativeName,
-          }),
-        );
-        languageArray.sort((a, b) => a.name.localeCompare(b.name));
-        setLanguages(languageArray);
-      } else {
-        // Fallback to backend languages
-        const languageData = await apiCall("/languages");
-        const languageArray = Object.entries(languageData).map(
-          ([code, name]) => ({
-            code,
-            name,
-          }),
-        );
-        setLanguages(languageArray);
-      }
+      languageArray.sort((a, b) => a.name.localeCompare(b.name));
+      setLanguages(languageArray);
 
       setError(null);
     } catch (err) {

@@ -27,6 +27,9 @@ class TranslationProject(Base):
     user_id = Column(pgUUID(as_uuid=True), ForeignKey("users.user_id"))
     project_name = Column(String(100))
     description = Column(Text)
+
+    is_public = Column(Boolean, default=False)
+
     created_at = Column(TIMESTAMP)
     updated_at = Column(TIMESTAMP)
 
@@ -79,4 +82,6 @@ class LiveSession(Base):
     start_time = Column(TIMESTAMP)
     end_time = Column(TIMESTAMP)
     full_transcript_path = Column(String(512))
+
     translation_log_path = Column(String(512))
+

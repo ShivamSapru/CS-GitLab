@@ -31,6 +31,7 @@ class ProjectSaveRequest(BaseModel):
     filenames: List[str]
     original_filename: str
     target_languages: List[str]
+    is_public: Optional[bool] = False
 
 
 
@@ -421,6 +422,7 @@ async def download_zip(request: ZipRequest):
             content={"error": f"Error creating ZIP file: {str(e)}"}
         )
 
+
 # Initialize Azure Blob client
 def get_blob_client():
     if not AZURE_STORAGE_CONNECTION_STRING:
@@ -432,7 +434,9 @@ async def save_project(
     request: Request,
     project_data: ProjectSaveRequest,
     db: Session = Depends(get_db)
-):
+
+    is_public = project_data.is_public
+
     try:
         # Get user from session
         session_user = request.session.get("user")
@@ -548,6 +552,9 @@ async def save_project(
             user_id=user.user_id,
             project_name=project_data.project_name,
             description=project_data.description,
+
+            is_public=is_public,
+
             created_at=datetime.now(timezone.utc),
             updated_at=datetime.now(timezone.utc)
         )
@@ -634,6 +641,9 @@ async def get_user_projects(
                 "project_id": str(project.project_id),
                 "project_name": project.project_name,
                 "description": project.description,
+
+                'is_public': project.is_public,
+
                 "created_at": project.created_at.isoformat() if project.created_at else None,
                 "updated_at": project.updated_at.isoformat() if project.updated_at else None,
                 "translations_count": translations_count,
@@ -716,6 +726,9 @@ async def get_project_files(
                 "project_id": str(project.project_id),
                 "project_name": project.project_name,
                 "description": project.description,
+
+                "is_public": project.is_public,
+
                 "created_at": project.created_at.isoformat() if project.created_at else None
             },
             "files": file_list,
@@ -858,3 +871,4 @@ async def get_project_original_file(
             status_code=500,
             content={"error": f"Failed to fetch original file: {str(e)}"}
         )
+
