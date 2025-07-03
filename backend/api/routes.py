@@ -11,12 +11,15 @@ import io
 import ffmpeg
 import re
 import uuid
+import pandas as pd
+import json
 
 from fastapi import APIRouter, UploadFile, File, Form, Query
 from fastapi.responses import JSONResponse, FileResponse, StreamingResponse
 from typing import Dict, List
 from dotenv import load_dotenv
 from pydantic import BaseModel
+from pathlib import Path
 
 # import azure.cognitiveservices.speech as speechsdk
 from azure.storage.blob import BlobServiceClient, generate_blob_sas, BlobSasPermissions
@@ -30,8 +33,6 @@ load_dotenv()
 
 router = APIRouter()
 
-# temp_dir = "./temp"
-# os.makedirs(temp_dir, exist_ok=True)
 temp_dir = tempfile.mkdtemp()
 
 
@@ -358,6 +359,26 @@ async def download_zip(request: ZipRequest):
 
 ## TRANSCRIPTION SECTION ##
 
+DATA_DIR = Path(__file__).resolve().parent.parent / "data"
+
+# Load the CSV file
+df = pd.read_csv(DATA_DIR / "locale_language_table.csv")
+
+# Create dictionary in the format {"locale": "Language (Country)"}
+LOCALE_LANGUAGES = dict(zip(df['Locale (BCP-47)'], df['Language']))
+
+# Load locale-language mapping from a JSON file
+with open(DATA_DIR / "candidate_locales.json", "r", encoding="utf-8") as f:
+    candidate_locales = json.load(f)
+
+# Extract just the locale codes into a list
+CANDIDATE_LOCALES = list(candidate_locales.keys())
+
+# Endpoint to get the supported locales
+@router.get("/locales")
+def get_locales() -> Dict[str, str]:
+    return LOCALE_LANGUAGES
+
 # Convert audio to mono, 16kHz WAV
 def convert_to_wav(input_path, output_path):
     (
@@ -370,16 +391,22 @@ def convert_to_wav(input_path, output_path):
     return output_path
 
 # Format output to SRT
-def convert_to_srt(segments):
+def convert_to_srt(segments, output_format):
     srt_output = ""
+    if output_format == "vtt":
+        srt_output = "WEBVTT\n\n"
+
     for i, seg in enumerate(segments, 1):
         # Use numeric values
         start_seconds = seg.get('offsetInTicks', 0) / 10**7
         end_seconds = (seg.get('offsetInTicks', 0) + seg.get('durationInTicks', 0)) / 10**7
 
         # Format to SRT time format
-        start = str(timedelta(seconds=start_seconds)).replace('.', ',')[:12]
-        end = str(timedelta(seconds=end_seconds)).replace('.', ',')[:12]
+        start = str(timedelta(seconds=start_seconds))[:11]
+        end = str(timedelta(seconds=end_seconds))[:11]
+        if output_format == "srt":
+            start = start.replace('.', ',')
+            end = end.replace('.', ',')
 
         # Extract the display text from nBest
         text = seg.get("nBest", [{}])[0].get("display", "")
@@ -388,20 +415,27 @@ def convert_to_srt(segments):
     return srt_output
 
 # Create transcription job
-def create_transcription_job(audio_url: str, locale="en-US"):
+def create_transcription_job(audio_url: str, censor_profanity="False", max_speakers=2, locale="en-US"):
     payload = {
         "displayName": f"Transcription_{uuid.uuid4()}",
         "locale": locale,
         "contentUrls": [audio_url],
         "properties": {
             "wordLevelTimestampsEnabled": True,
+            "punctuationMode": "DictatedAndAutomatic",
             "timeToLiveHours": 6,
             "languageIdentification": {
-                "candidateLocales": ["en-US", "de-DE", "es-ES"],
+                "candidateLocales": CANDIDATE_LOCALES,
                 "mode": "Continuous"
+            },
+            "diarization": {
+                "enabled": True,
+                "maxSpeakers": max_speakers
             }
         }
     }
+    if censor_profanity:
+        payload["properties"]["profanityFilterMode"] = "Masked"
     headers = {
         "Ocp-Apim-Subscription-Key": AZURE_SPEECH_KEY,
         "Content-Type": "application/json"
@@ -442,7 +476,10 @@ def get_transcription_file(files_url: str):
 @router.post("/transcribe")
 async def transcribe_audio_video(
     file: UploadFile = File(...),
-    output_format: str = Form("srt")
+    locale: str = Form(...),
+    max_speakers: int = Form(...),
+    censor_profanity: bool = Form(...),
+    output_format: str = Form("srt"),
 ):
     try:
         # Save file
@@ -475,18 +512,16 @@ async def transcribe_audio_video(
         audio_url = f"https://{blob_service.account_name}.blob.core.windows.net/{AZURE_BLOB_CONTAINER}/{blob_name}?{sas_token}"
 
         # Create and poll job
-        job_id = create_transcription_job(audio_url)
+        job_id = create_transcription_job(audio_url, censor_profanity, max_speakers, locale)
         files_url = poll_transcription_result(job_id)
         phrases = get_transcription_file(files_url)
 
         # Write SRT/VTT
-        out_name = f"{safe_name}_transcribed.{output_format}"
+        out_name = f"{base_name}_transcribed.{locale}.{output_format}"
         out_path = os.path.join(temp_dir, out_name)
         with open(out_path, "w", encoding="utf-8") as f:
-            if output_format == "srt":
-                f.write(convert_to_srt(phrases))
-            elif output_format == "vtt":
-                f.write("WEBVTT\n\n" + convert_to_srt(phrases))
+            if output_format in ["srt", "vtt"]:
+                f.write(convert_to_srt(phrases, output_format))
             else:
                 return JSONResponse(status_code=400, content={"error": "Invalid output format."})
 

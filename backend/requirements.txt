@@ -12,6 +12,7 @@ passlib
 bcrypt
 azure-cognitiveservices-speech
 azure-storage-blob
+pandas
 
 # Database dependencies
 asyncpg    
