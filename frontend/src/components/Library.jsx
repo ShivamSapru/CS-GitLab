@@ -47,7 +47,6 @@ const apiCall = async (endpoint, options = {}) => {
   }
 };
 
-
 const Library = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterLanguage, setFilterLanguage] = useState("all");
@@ -70,11 +69,6 @@ const Library = () => {
   const [editedFiles, setEditedFiles] = useState({});
   const [editHistory, setEditHistory] = useState([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
-
-  const originalPreviewRef = useRef(null);
-  const translatedPreviewRef = useRef(null);
-  const previewSectionRef = useRef(null);
-  const editTextareaRef = useRef(null);
 
   // Load user projects on component mount
   useEffect(() => {
@@ -107,17 +101,6 @@ const Library = () => {
       console.error("Error loading project files:", err);
     } finally {
       setLoadingFiles(false);
-    }
-  };
-
-  const handleProjectClick = (project) => {
-    if (selectedProject?.project_id === project.project_id) {
-      // Close if clicking the same project
-      setSelectedProject(null);
-      setProjectFiles([]);
-    } else {
-      // Load files for the selected project
-      loadProjectFiles(project.project_id);
     }
   };
 
@@ -418,24 +401,12 @@ const Library = () => {
     }
   };
 
-
   const originalPreviewRef = useRef(null);
   const translatedPreviewRef = useRef(null);
   const previewSectionRef = useRef(null);
   const editTextareaRef = useRef(null);
   const [viewingProject, setViewingProject] = useState(null);
   const [showProjects, setShowProjects] = useState(false);
-
-
-  const handleDelete = (id) => {
-    setSavedTranslations(savedTranslations.filter((item) => item.id !== id));
-  };
-
-  const handleDownload = (filename) => {
-    // Implement download logic here
-    console.log(`Downloading: ${filename}`);
-  };
-
 
   const handleProjectClick = (project) => {
     setViewingProject(project.project_id);
@@ -447,6 +418,7 @@ const Library = () => {
     setViewingProject(null);
     // Refresh the library when coming back
     loadProjects();
+  };
 
   // Get unique languages from all projects for filter
   const getUniqueLanguages = () => {
@@ -457,6 +429,7 @@ const Library = () => {
     return Array.from(languages).sort();
   };
 
+  const filteredProjects = projects.filter((project) => {
     const matchesSearch =
       project.project_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       project.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -470,7 +443,6 @@ const Library = () => {
     return matchesSearch && matchesFilter;
   });
 
-
   // Sort projects
   const sortedProjects = [...filteredProjects].sort((a, b) => {
     switch (sortBy) {
@@ -480,299 +452,6 @@ const Library = () => {
         return b.files_count - a.files_count;
       case "translations":
         return b.translations_count - a.translations_count;
-      default: // date
-        return new Date(b.created_at) - new Date(a.created_at);
-    }
-  });
-
-  const formatDate = (dateString) => {
-    if (!dateString) return "Unknown";
-    return new Date(dateString).toLocaleDateString();
-  };
-
-  const formatFileSize = (bytes) => {
-    if (!bytes) return "0 B";
-    const sizes = ["B", "KB", "MB", "GB"];
-    const i = Math.floor(Math.log(bytes) / Math.log(1024));
-    return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${sizes[i]}`;
-  };
-
-
-  return (
-    <div className="max-w-6xl mx-auto p-6">
-      <div className="bg-white rounded-xl shadow-lg p-8">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4 sm:mb-0">
-            Translation Library
-          </h2>
-          <div className="flex items-center space-x-4">
-            <button
-              onClick={loadProjects}
-              disabled={loading}
-              className="flex items-center space-x-2 px-3 py-2 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
-            >
-              <RefreshCw
-                className={`w-4 h-4 ${loading ? "animate-spin" : ""}`}
-              />
-              <span>Refresh</span>
-            </button>
-            <div className="text-sm text-gray-500">
-              {sortedProjects.length} project
-              {sortedProjects.length !== 1 ? "s" : ""} found
-            </div>
-          </div>
-        </div>
-
-        {/* Error Display */}
-        {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-            <div className="flex items-start">
-              <AlertCircle className="w-5 h-5 text-red-500 mr-2 mt-0.5 flex-shrink-0" />
-              <div className="text-red-800">
-                <div className="font-medium mb-1">Error</div>
-                <div className="text-sm">{error}</div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Search and Filter Controls */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          {/* Search */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-            <input
-              type="text"
-              placeholder="Search projects..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            />
-          </div>
-
-          {/* Language Filter */}
-          <div className="relative">
-            <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-            <select
-              value={filterLanguage}
-              onChange={(e) => setFilterLanguage(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none"
-            >
-              <option value="all">All Languages</option>
-              {getUniqueLanguages().map((langName) => (
-                <option key={langName} value={langName}>
-                  {langName}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Sort By */}
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          >
-            <option value="date">Sort by Date</option>
-            <option value="name">Sort by Name</option>
-            <option value="files">Sort by File Count</option>
-            <option value="translations">Sort by Translations</option>
-          </select>
-        </div>
-
-        {/* Loading State */}
-        {loading ? (
-          <div className="text-center py-12">
-            <Loader2 className="w-8 h-8 text-blue-500 mx-auto mb-4 animate-spin" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
-              Loading Projects
-            </h3>
-            <p className="text-gray-500">
-              Please wait while we fetch your translation projects...
-            </p>
-          </div>
-        ) : sortedProjects.length === 0 ? (
-          <div className="text-center py-12">
-            <FolderOpen className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
-              No projects found
-            </h3>
-            <p className="text-gray-500">
-              {searchTerm || filterLanguage !== "all"
-                ? "Try adjusting your search or filter criteria"
-                : "Start by uploading and translating your first subtitle file, then save it as a project"}
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {sortedProjects.map((project) => (
-              <div
-                key={project.project_id}
-                className="border border-gray-200 rounded-lg overflow-hidden"
-              >
-                {/* Project Header */}
-                <div
-                  className="p-4 hover:bg-gray-50 cursor-pointer transition-colors"
-                  onClick={() => handleProjectClick(project)}
-                >
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex-1 min-w-0 mb-4 sm:mb-0">
-                      <div className="flex items-center space-x-3 mb-2">
-                        <FolderOpen className="w-5 h-5 text-blue-500 flex-shrink-0" />
-                        <h3 className="text-lg font-medium text-gray-900 truncate">
-                          {project.project_name}
-                        </h3>
-                        {selectedProject?.project_id === project.project_id && (
-                          <span className="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full">
-                            Expanded
-                          </span>
-                        )}
-                      </div>
-
-                      {project.description && (
-                        <p className="text-sm text-gray-600 mb-2">
-                          {project.description}
-                        </p>
-                      )}
-
-                      <div className="flex flex-wrap items-center text-sm text-gray-500 space-x-4">
-                        <span className="flex items-center">
-                          <Calendar className="w-4 h-4 mr-1" />
-                          {formatDate(project.created_at)}
-                        </span>
-                        <span className="flex items-center">
-                          <FileText className="w-4 h-4 mr-1" />
-                          {project.files_count} files
-                        </span>
-                        <span className="flex items-center">
-                          <Globe className="w-4 h-4 mr-1" />
-                          {project.translations_count} translations
-                        </span>
-                        {project.languages && project.languages.length > 0 && (
-                          <span className="text-xs bg-gray-100 px-2 py-1 rounded-full">
-                            {project.languages.join(", ")}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Action Buttons */}
-                    <div className="flex items-center space-x-2">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDelete(project.project_id);
-                        }}
-                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        title="Delete Project"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Project Files (Expanded) */}
-                {selectedProject?.project_id === project.project_id && (
-                  <div className="border-t border-gray-200 bg-gray-50">
-                    {loadingFiles ? (
-                      <div className="p-6 text-center">
-                        <Loader2 className="w-6 h-6 text-blue-500 mx-auto mb-2 animate-spin" />
-                        <p className="text-sm text-gray-500">
-                          Loading project files...
-                        </p>
-                      </div>
-                    ) : projectFiles.length === 0 ? (
-                      <div className="p-6 text-center">
-                        <FileText className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-                        <p className="text-sm text-gray-500">
-                          No files found in this project
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="p-4">
-                        <h4 className="text-sm font-medium text-gray-700 mb-3">
-                          Project Files ({projectFiles.length})
-                        </h4>
-                        <div className="space-y-2">
-                          {projectFiles.map((file) => (
-                            <div
-                              key={file.file_id}
-                              className="flex items-center justify-between bg-white p-3 rounded-lg border"
-                            >
-                              <div className="flex-1 min-w-0 pr-4">
-                                <div className="text-sm font-medium text-gray-900 truncate">
-                                  {file.filename}
-                                </div>
-                                <div className="flex items-center text-xs text-gray-500 space-x-3">
-                                  <span>{file.file_format.toUpperCase()}</span>
-                                  <span>
-                                    {formatFileSize(file.file_size_bytes)}
-                                  </span>
-                                  {file.target_language && (
-                                    <span className="flex items-center">
-                                      <Globe className="w-3 h-3 mr-1" />
-                                      {file.source_language} →{" "}
-                                      {file.target_language}
-                                    </span>
-                                  )}
-                                  <span
-                                    className={`px-2 py-0.5 rounded-full text-xs ${
-                                      file.translation_status === "completed"
-                                        ? "bg-green-100 text-green-800"
-                                        : "bg-yellow-100 text-yellow-800"
-                                    }`}
-                                  >
-                                    {file.translation_status || "Unknown"}
-                                  </span>
-                                </div>
-                              </div>
-
-                              <div className="flex items-center space-x-2">
-                                <button
-                                  onClick={() =>
-                                    handlePreview(
-                                      file.filename,
-                                      file.target_language,
-                                      file.source_language,
-                                    )
-                                  }
-                                  className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                                  title="Preview"
-                                >
-                                  <Eye className="w-4 h-4" />
-                                </button>
-                                <button
-                                  onClick={() => handleDownload(file.filename)}
-                                  disabled={
-                                    file.translation_status !== "completed"
-                                  }
-                                  className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors disabled:text-gray-400 disabled:cursor-not-allowed"
-                                  title="Download"
-                                >
-                                  <Download className="w-4 h-4" />
-                                </button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-  // Sort projects
-  const sortedProjects = [...filteredProjects].sort((a, b) => {
-    switch (sortBy) {
-      case "name":
-        return a.project_name.localeCompare(b.project_name);
-      case "files":
-        return b.files_count - a.files_count;
       default: // date
         return new Date(b.created_at) - new Date(a.created_at);
     }
@@ -1192,7 +871,6 @@ const Library = () => {
           </div>
         </div>
       )}
-
     </div>
   );
 };

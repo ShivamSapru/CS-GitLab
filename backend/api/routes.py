@@ -434,7 +434,7 @@ async def save_project(
     request: Request,
     project_data: ProjectSaveRequest,
     db: Session = Depends(get_db)
-
+):
     is_public = project_data.is_public
 
     try:
@@ -871,4 +871,3 @@ async def get_project_original_file(
             status_code=500,
             content={"error": f"Failed to fetch original file: {str(e)}"}
         )
-
