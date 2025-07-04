@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import SaveProjectModal from "./SaveProjectModal";
 import {
   Upload,
   Download,
@@ -10,6 +11,10 @@ import {
   Eye,
   Edit,
   Save,
+  Undo,
+  Redo,
+  FolderPlus,
+  CheckCircle,
 } from "lucide-react";
 
 // API Configuration for Static Upload only
@@ -20,13 +25,13 @@ const apiCall = async (endpoint, options = {}) => {
   try {
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       ...options,
-      credentials: "include",  
+      credentials: "include",
     });
 
     if (!response.ok) {
       const errorData = await response.json();
       throw new Error(
-        errorData.error || `HTTP error! status: ${response.status}`
+        errorData.error || `HTTP error! status: ${response.status}`,
       );
     }
 
@@ -83,12 +88,6 @@ const MultiSelectDropdown = ({
   const removeLanguage = (languageCode) => {
     onSelectionChange(
       selectedLanguages.filter((code) => code !== languageCode),
-    );
-  };
-
-  const getSelectedLanguageNames = () => {
-    return selectedLanguages.map(
-      (code) => languages.find((lang) => lang.code === code)?.name || code,
     );
   };
 
@@ -230,6 +229,12 @@ const StaticSubtitleUpload = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [editedFiles, setEditedFiles] = useState({});
+  const [editHistory, setEditHistory] = useState([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+  const [showSaveProjectModal, setShowSaveProjectModal] = useState(false);
+  const [isSavingProject, setIsSavingProject] = useState(false);
+  const [projectSaveSuccess, setProjectSaveSuccess] = useState(null);
 
   // Load languages from Microsoft Translator API
   useEffect(() => {
@@ -238,26 +243,18 @@ const StaticSubtitleUpload = () => {
         setLoadingLanguages(true);
         setError(null);
 
-        // First check if backend is healthy
+        // Check if backend is healthy
         await apiCall("/health");
         setBackendConnected(true);
 
-        // Fetch languages from Microsoft Translator API
-        const response = await fetch(
-          "https://api.cognitive.microsofttranslator.com/languages?api-version=3.0&scope=translation",
-        );
-        if (!response.ok) {
-          throw new Error(`Failed to fetch languages: ${response.status}`);
-        }
+        // Fetch languages from backend
+        const languageData = await apiCall("/languages");
 
-        const data = await response.json();
-
-        // Convert Microsoft Translator format to our format
-        const languageArray = Object.entries(data.translation).map(
-          ([code, info]) => ({
+        // Convert backend format to array format
+        const languageArray = Object.entries(languageData).map(
+          ([code, name]) => ({
             code,
-            name: info.name,
-            nativeName: info.nativeName,
+            name,
           }),
         );
 
@@ -267,33 +264,11 @@ const StaticSubtitleUpload = () => {
         setLanguages(languageArray);
         setError(null);
       } catch (err) {
-        if (err.message.includes("Failed to fetch languages")) {
-          // If Microsoft API fails, try to fall back to backend
-          try {
-            const languageData = await apiCall("/languages");
-            const languageArray = Object.entries(languageData).map(
-              ([code, name]) => ({
-                code,
-                name,
-              }),
-            );
-            setLanguages(languageArray);
-            setBackendConnected(true);
-            setError(null);
-          } catch (backendErr) {
-            setBackendConnected(false);
-            setLanguages([]);
-            setError(
-              `Language loading failed: ${err.message}. Backend connection also failed: ${backendErr.message}`,
-            );
-          }
-        } else {
-          setBackendConnected(false);
-          setLanguages([]);
-          setError(
-            `Backend connection failed: ${err.message}. Please ensure your FastAPI server is running on http://localhost:8000 with Azure credentials configured.`,
-          );
-        }
+        setBackendConnected(false);
+        setLanguages([]);
+        setError(
+          `Backend connection failed: ${err.message}. Please ensure your FastAPI server is running on http://localhost:8000 with Azure credentials configured.`,
+        );
         console.error("Failed to load languages:", err);
       } finally {
         setLoadingLanguages(false);
@@ -516,7 +491,7 @@ const StaticSubtitleUpload = () => {
     setError(null);
 
     try {
-      // Fetch translated file
+      // Always fetch the original translated file from backend
       const translatedResponse = await fetch(
         `${API_BASE_URL}/download-subtitle?filename=${encodeURIComponent(filename)}`,
       );
@@ -526,8 +501,10 @@ const StaticSubtitleUpload = () => {
         throw new Error(errorData.error || "Preview failed");
       }
 
-      const translatedContent = await translatedResponse.text();
-      setPreviewContent(translatedContent);
+      const originalTranslatedContent = await translatedResponse.text();
+
+      // Always show the original translated content in preview, not the edited version
+      setPreviewContent(originalTranslatedContent);
       setLoadingPreview(false);
 
       // Fetch original file content
@@ -546,7 +523,8 @@ const StaticSubtitleUpload = () => {
 
       setPreviewingFile({ filename, languageName });
       setShowPreview(true);
-      // Add this: Scroll to preview section after a short delay
+
+      // Scroll to preview section after a short delay
       setTimeout(() => {
         if (previewSectionRef.current) {
           previewSectionRef.current.scrollIntoView({
@@ -555,7 +533,7 @@ const StaticSubtitleUpload = () => {
             inline: "nearest",
           });
         }
-      }, 100); // Small delay to ensure the component has rendered
+      }, 100);
     } catch (err) {
       setError(`Preview failed: ${err.message}`);
       setLoadingPreview(false);
@@ -587,12 +565,15 @@ const StaticSubtitleUpload = () => {
   const startEditing = () => {
     setEditedContent(previewContent);
     setIsEditing(true);
+    initializeEditHistory(previewContent);
   };
 
   // Cancel editing
   const cancelEditing = () => {
     setIsEditing(false);
     setEditedContent("");
+    setEditHistory([]);
+    setHistoryIndex(-1);
     if (translatedPreviewRef.current) {
       translatedPreviewRef.current.scrollTop = 0;
     }
@@ -609,33 +590,150 @@ const StaticSubtitleUpload = () => {
     setError(null);
 
     try {
-      // Create a blob from the edited content
-      const blob = new Blob([editedContent], { type: "text/plain" });
-      const formData = new FormData();
-      formData.append("file", blob, previewingFile.filename);
-      formData.append("edited", "true"); // Flag to indicate this is an edited file
-
-      // You might want to create a new endpoint for saving edited files
-      // For now, we'll download the edited content directly
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = previewingFile.filename
-        .replace(".srt", "_edited.srt")
-        .replace(".vtt", "_edited.vtt");
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
-
       // Update the preview content to match edited content
       setPreviewContent(editedContent);
+
+      // Mark this file as edited and store the edited content
+      setEditedFiles((prev) => ({
+        ...prev,
+        [previewingFile.filename]: editedContent,
+      }));
+
       setIsEditing(false);
       setEditedContent("");
     } catch (err) {
       setError(`Save failed: ${err.message}`);
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  // Download edited file
+  const downloadEditedFile = async (filename) => {
+    const editedContent = editedFiles[filename];
+    if (!editedContent) {
+      setError("No edited content found for this file.");
+      return;
+    }
+
+    try {
+      const blob = new Blob([editedContent], { type: "text/plain" });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename
+        .replace(".srt", "_edited.srt")
+        .replace(".vtt", "_edited.vtt");
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(`Download failed: ${err.message}`);
+    }
+  };
+
+  // Initialize edit history when starting to edit
+  const initializeEditHistory = (content) => {
+    setEditHistory([content]);
+    setHistoryIndex(0);
+  };
+
+  // Add to edit history
+  const addToHistory = (content) => {
+    setEditHistory((prev) => {
+      // Remove any future history if we're not at the end
+      const newHistory = prev.slice(0, historyIndex + 1);
+      // Add new content
+      newHistory.push(content);
+      // Limit history to 50 entries to prevent memory issues
+      if (newHistory.length > 50) {
+        newHistory.shift();
+        setHistoryIndex(Math.min(historyIndex, newHistory.length - 1));
+        return newHistory;
+      }
+      setHistoryIndex(newHistory.length - 1);
+      return newHistory;
+    });
+  };
+
+  // Undo function
+  const handleUndo = () => {
+    if (historyIndex > 0) {
+      const newIndex = historyIndex - 1;
+      setHistoryIndex(newIndex);
+      setEditedContent(editHistory[newIndex]);
+    }
+  };
+
+  // Redo function
+  const handleRedo = () => {
+    if (historyIndex < editHistory.length - 1) {
+      const newIndex = historyIndex + 1;
+      setHistoryIndex(newIndex);
+      setEditedContent(editHistory[newIndex]);
+    }
+  };
+
+  // Handle text change with history
+  const handleTextChange = (newContent) => {
+    setEditedContent(newContent);
+    // Debounce history additions to avoid too many entries
+    clearTimeout(window.editHistoryTimeout);
+    window.editHistoryTimeout = setTimeout(() => {
+      addToHistory(newContent);
+    }, 500); // Add to history after 500ms of no typing
+  };
+
+  // Handle keyboard shortcuts
+  const handleKeyDown = (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === "z" && !e.shiftKey) {
+      e.preventDefault();
+      handleUndo();
+    } else if (
+      ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === "Z") ||
+      ((e.ctrlKey || e.metaKey) && e.key === "y")
+    ) {
+      e.preventDefault();
+      handleRedo();
+    }
+  };
+
+  const saveAsProject = async (projectData) => {
+    if (!backendConnected) {
+      setError("Backend not connected. Cannot save project.");
+      return;
+    }
+
+    setIsSavingProject(true);
+    setError(null);
+
+    try {
+      const response = await apiCall("/save-project", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(projectData),
+      });
+
+      setProjectSaveSuccess({
+        projectName: projectData.project_name,
+        projectId: response.project_id,
+        fileCount: response.files_saved,
+      });
+
+      setShowSaveProjectModal(false);
+
+      // Auto-hide success message after 5 seconds
+      setTimeout(() => {
+        setProjectSaveSuccess(null);
+      }, 5000);
+    } catch (err) {
+      setError(`Failed to save project: ${err.message}`);
+      console.error("Project save error:", err);
+    } finally {
+      setIsSavingProject(false);
     }
   };
 
@@ -657,6 +755,10 @@ const StaticSubtitleUpload = () => {
     setIsEditing(false);
     setEditedContent("");
     setIsSaving(false);
+    setEditedFiles({});
+    setShowSaveProjectModal(false);
+    setIsSavingProject(false);
+    setProjectSaveSuccess(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -676,32 +778,16 @@ const StaticSubtitleUpload = () => {
       await apiCall("/health");
       setBackendConnected(true);
 
-      // Try to reload languages from Microsoft API
-      const response = await fetch(
-        "https://api.cognitive.microsofttranslator.com/languages?api-version=3.0&scope=translation",
+      // Load languages from backend only
+      const languageData = await apiCall("/languages");
+      const languageArray = Object.entries(languageData).map(
+        ([code, name]) => ({
+          code,
+          name,
+        }),
       );
-      if (response.ok) {
-        const data = await response.json();
-        const languageArray = Object.entries(data.translation).map(
-          ([code, info]) => ({
-            code,
-            name: info.name,
-            nativeName: info.nativeName,
-          }),
-        );
-        languageArray.sort((a, b) => a.name.localeCompare(b.name));
-        setLanguages(languageArray);
-      } else {
-        // Fallback to backend languages
-        const languageData = await apiCall("/languages");
-        const languageArray = Object.entries(languageData).map(
-          ([code, name]) => ({
-            code,
-            name,
-          }),
-        );
-        setLanguages(languageArray);
-      }
+      languageArray.sort((a, b) => a.name.localeCompare(b.name));
+      setLanguages(languageArray);
 
       setError(null);
     } catch (err) {
@@ -970,21 +1056,33 @@ const StaticSubtitleUpload = () => {
                 </span>
               </div>
 
-              {/* Add Download All as ZIP button when multiple files */}
-              {translatedFiles.length > 1 && (
+              <div className="flex items-center space-x-2">
+                {/* Save as Project Button */}
                 <button
-                  onClick={downloadAllAsZip}
-                  disabled={isDownloadingZip}
-                  className="flex items-center space-x-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-sm"
+                  onClick={() => setShowSaveProjectModal(true)}
+                  disabled={isSavingProject}
+                  className="flex items-center space-x-2 px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-sm"
                 >
-                  <Archive className="w-4 h-4" />
-                  <span>
-                    {isDownloadingZip
-                      ? "Creating ZIP..."
-                      : "Download All as ZIP"}
-                  </span>
+                  <FolderPlus className="w-4 h-4" />
+                  <span>Save as Project</span>
                 </button>
-              )}
+
+                {/* Download All as ZIP button when multiple files */}
+                {translatedFiles.length > 1 && (
+                  <button
+                    onClick={downloadAllAsZip}
+                    disabled={isDownloadingZip}
+                    className="flex items-center space-x-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-sm"
+                  >
+                    <Archive className="w-4 h-4" />
+                    <span>
+                      {isDownloadingZip
+                        ? "Creating ZIP..."
+                        : "Download All as ZIP"}
+                    </span>
+                  </button>
+                )}
+              </div>
             </div>
             <div className="space-y-2">
               {translatedFiles.map((file) => (
@@ -1009,12 +1107,14 @@ const StaticSubtitleUpload = () => {
                         previewFile(file.filename, file.languageName)
                       }
                       disabled={loadingPreview}
+                      title="Preview"
                       className="text-green-600 hover:text-green-800 flex items-center space-x-1 px-3 py-1 rounded border border-green-300 hover:bg-green-50 disabled:opacity-50"
                     >
                       <Eye className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => downloadFile(file.filename)}
+                      title="Download"
                       className="text-blue-500 hover:text-blue-700 flex items-center space-x-1"
                     >
                       <Download className="w-4 h-4" />
@@ -1025,6 +1125,35 @@ const StaticSubtitleUpload = () => {
             </div>
           </div>
         )}
+
+        {/* Project Save Success Message */}
+        {projectSaveSuccess && (
+          <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+            <div className="flex items-start space-x-3">
+              <CheckCircle className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
+              <div className="flex-1">
+                <h4 className="text-green-800 font-medium">
+                  Project Saved Successfully!
+                </h4>
+                <p className="text-green-700 text-sm mt-1">
+                  Project "{projectSaveSuccess.projectName}" has been saved to
+                  Azure Blob Storage with {projectSaveSuccess.fileCount} file
+                  {projectSaveSuccess.fileCount > 1 ? "s" : ""}.
+                </p>
+                <p className="text-green-600 text-xs mt-1">
+                  Project ID: {projectSaveSuccess.projectId}
+                </p>
+              </div>
+              <button
+                onClick={() => setProjectSaveSuccess(null)}
+                className="text-green-400 hover:text-green-600"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Subtitle Preview Modal/Section - Side by Side */}
         {showPreview && previewingFile && (
           <div
@@ -1135,10 +1264,44 @@ const StaticSubtitleUpload = () => {
                     </div>
                   ) : isEditing ? (
                     <div className="space-y-2">
+                      {/* Undo/Redo buttons */}
+                      <div className="flex items-center space-x-2 mb-2">
+                        <button
+                          onClick={handleUndo}
+                          disabled={historyIndex <= 0}
+                          className={`flex items-center space-x-1 px-3 py-1 rounded text-sm ${
+                            historyIndex <= 0
+                              ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                              : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                          }`}
+                          title="Undo (Ctrl+Z)"
+                        >
+                          <Undo className="w-4 h-4" />
+                          <span>Undo</span>
+                        </button>
+                        <button
+                          onClick={handleRedo}
+                          disabled={historyIndex >= editHistory.length - 1}
+                          className={`flex items-center space-x-1 px-3 py-1 rounded text-sm ${
+                            historyIndex >= editHistory.length - 1
+                              ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                              : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                          }`}
+                          title="Redo (Ctrl+Shift+Z or Ctrl+Y)"
+                        >
+                          <Redo className="w-4 h-4" />
+                          <span>Redo</span>
+                        </button>
+                        <div className="text-xs text-gray-500 ml-auto">
+                          History: {historyIndex + 1}/{editHistory.length}
+                        </div>
+                      </div>
+
                       <textarea
                         ref={editTextareaRef}
                         value={editedContent}
-                        onChange={(e) => setEditedContent(e.target.value)}
+                        onChange={(e) => handleTextChange(e.target.value)}
+                        onKeyDown={handleKeyDown}
                         onScroll={(e) =>
                           handleScrollSync(e, originalPreviewRef)
                         }
@@ -1183,7 +1346,13 @@ const StaticSubtitleUpload = () => {
               {/* Right side - Action buttons */}
               <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
                 <button
-                  onClick={() => downloadFile(previewingFile.filename)}
+                  onClick={() => {
+                    if (editedFiles[previewingFile.filename]) {
+                      downloadEditedFile(previewingFile.filename);
+                    } else {
+                      downloadFile(previewingFile.filename);
+                    }
+                  }}
                   disabled={isEditing}
                   className={`flex items-center justify-center space-x-2 px-4 py-2 rounded-lg ${
                     isEditing
@@ -1195,7 +1364,9 @@ const StaticSubtitleUpload = () => {
                   <span>
                     {isEditing
                       ? "Finish Editing First"
-                      : "Download Original Translation"}
+                      : editedFiles[previewingFile.filename]
+                        ? "Download Edited"
+                        : "Download File"}
                   </span>
                 </button>
               </div>
@@ -1203,6 +1374,16 @@ const StaticSubtitleUpload = () => {
           </div>
         )}
       </div>
+      <SaveProjectModal
+        isOpen={showSaveProjectModal}
+        onClose={() => setShowSaveProjectModal(false)}
+        onSave={saveAsProject}
+        translatedFiles={translatedFiles}
+        originalFilename={uploadedFile?.name || ""}
+        targetLanguages={targetLanguages}
+        languages={languages}
+        isSaving={isSavingProject}
+      />
     </div>
   );
 };

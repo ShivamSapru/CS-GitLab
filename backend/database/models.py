@@ -15,6 +15,8 @@ class User(Base):
     created_at = Column(TIMESTAMP)
     updated_at = Column(TIMESTAMP)
     last_login = Column(TIMESTAMP)
+    is_2fa_enabled = Column(Boolean, default=False)
+    two_fa_secret = Column(String(64), nullable=True)
 
 
 
@@ -25,6 +27,9 @@ class TranslationProject(Base):
     user_id = Column(pgUUID(as_uuid=True), ForeignKey("users.user_id"))
     project_name = Column(String(100))
     description = Column(Text)
+
+    is_public = Column(Boolean, default=False)
+
     created_at = Column(TIMESTAMP)
     updated_at = Column(TIMESTAMP)
 
@@ -41,7 +46,6 @@ class SubtitleFile(Base):
     file_size_bytes = Column(BigInteger)
     is_original = Column(Boolean, default=True)
     is_public = Column(Boolean, default=False)
-    has_profanity = Column(Boolean, default=False)
     source_language = Column(String(10))  # BCP-47 tag
     created_at = Column(TIMESTAMP)
 
@@ -53,17 +57,17 @@ class Translation(Base):
     translation_id = Column(pgUUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     file_id = Column(pgUUID(as_uuid=True), ForeignKey("subtitle_files.file_id"), nullable=False)  # original file
     translated_file_id = Column(pgUUID(as_uuid=True), ForeignKey("subtitle_files.file_id"), nullable=True)  # translated version
-    source_language = Column(String(20))
     target_language = Column(String(20))
     translation_status = Column(String(20))  # e.g., 'pending', 'completed'
-    translation_service = Column(String(50))
     requested_at = Column(TIMESTAMP)
     completed_at = Column(TIMESTAMP)
-    has_profanity = Column(Boolean, default=False)
+    censor_profanity = Column(Boolean, default=False)
     translation_cost = Column(DECIMAL(10, 4))
     manual_edits_count = Column(Integer, default=0)
     last_edited_by_user_id = Column(pgUUID(as_uuid=True), ForeignKey("users.user_id"), nullable=True)
     last_edited_at = Column(TIMESTAMP)
+    is_public = Column(Boolean, default=False)
+    project_id = Column(pgUUID(as_uuid=True), ForeignKey('translation_projects.project_id'), nullable=True)
 
 
 class LiveSession(Base):
@@ -78,4 +82,6 @@ class LiveSession(Base):
     start_time = Column(TIMESTAMP)
     end_time = Column(TIMESTAMP)
     full_transcript_path = Column(String(512))
+
     translation_log_path = Column(String(512))
+

@@ -1,11 +1,14 @@
-from fastapi import APIRouter
-from fastapi.responses import JSONResponse
 import os
 import httpx
 
-from dotenv import load_dotenv
+from fastapi import APIRouter, Depends
+from fastapi.responses import JSONResponse
+from sqlalchemy.orm import Session
+from sqlalchemy import text  
+from backend.database.db import SessionLocal
+# from dotenv import load_dotenv
 
-load_dotenv()
+# load_dotenv()
 
 router = APIRouter()
 
@@ -13,6 +16,22 @@ router = APIRouter()
 AZURE_TRANSLATOR_KEY = os.getenv("AZURE_TRANSLATOR_KEY")
 AZURE_TRANSLATOR_REGION = os.getenv("AZURE_TRANSLATOR_REGION")
 AZURE_TRANSLATOR_ENDPOINT = os.getenv("AZURE_TRANSLATOR_ENDPOINT")
+
+# Dependency to get DB session
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+@router.get("/db-test")
+def test_db_connection(db: Session = Depends(get_db)):
+    try:
+        db.execute(text("SELECT 1"))  
+        return {"message": "Database connection successful"}
+    except Exception as e:
+        return {"error": str(e)}
 
 # Check internal environment setup, not make external calls
 @router.get("/health")
@@ -36,17 +55,14 @@ def debug_translator():
     }
     json_body = [{"Text": "Hello, world!!"}]
     # print(url, headers, json_body)
-
     try:
         resp = httpx.post(url, headers=headers, json=json_body)
         # print(resp.status_code, resp.json())
-
         if resp.status_code == 200:
             return {
                 "status": f"{resp.status_code} healthy",
                 "message": "Backend server is running and Azure Translator is reachable."
             }
-
         elif resp.status_code == 401:
             return JSONResponse(
                 content={
@@ -54,7 +70,6 @@ def debug_translator():
                     "message": "Invalid or missing Azure credentials. Check API key and region."
                 }
             )
-
         elif resp.status_code == 403:
             return JSONResponse(
                 content={
@@ -62,7 +77,6 @@ def debug_translator():
                     "message": "Access to Azure Translator is forbidden. Verify subscription and permissions."
                 }
             )
-
         elif resp.status_code == 429:
             return JSONResponse(
                 content={
@@ -70,7 +84,6 @@ def debug_translator():
                     "message": "Azure Translator rate limit exceeded. Try again later or optimize request volume."
                 }
             )
-
         elif resp.status_code == 503:
             return JSONResponse(
                 content={
@@ -78,7 +91,6 @@ def debug_translator():
                     "message": "Azure Translator service temporarily unavailable."
                 }
             )
-
         else:
             return JSONResponse(
                 status_code=resp.status_code,
@@ -87,7 +99,6 @@ def debug_translator():
                     "message": f"Unexpected error occurred. Azure response code: {resp.status_code}"
                 }
             )
-
     except Exception as e:
         return JSONResponse(
             content={

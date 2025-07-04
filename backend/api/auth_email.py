@@ -2,8 +2,8 @@ from fastapi import APIRouter, Request, HTTPException, Depends
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from passlib.context import CryptContext
-from database.models import User
-from database.db import SessionLocal
+from backend.database.models import User
+from backend.database.db import SessionLocal
 from sqlalchemy.orm import Session
 from datetime import datetime, timezone
 import uuid
@@ -61,5 +61,26 @@ async def login_user(request: Request, data: LoginRequest, db: Session = Depends
     if not user or not pwd_context.verify(data.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
-    request.session["user"] = {"email": user.email}
-    return {"message": "Login successful", "user": {"email": user.email}}
+    # STEP 1: Store minimal session for now
+    request.session["user"] = {
+        "email": user.email,
+        "display_name": user.display_name
+    }
+
+    # STEP 2: Decide what to return to frontend
+    if not user.is_2fa_enabled:
+        return {
+            "setup_2fa_required": True,
+            "email": user.email,
+            "display_name": user.display_name
+        }
+
+    if user.is_2fa_enabled:
+        return {
+            "twofa_required": True,
+            "email": user.email,
+            "display_name": user.display_name
+        }
+
+    # Fallback — if something went wrong
+    return JSONResponse(status_code=500, content={"detail": "2FA status could not be determined"})

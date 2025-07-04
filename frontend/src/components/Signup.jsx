@@ -61,12 +61,23 @@ const Signup = ({ setUser }) => {
         withCredentials: true,
       });
 
-      setUser(res.data.user);
-      navigate('/');
+      // ✅ Handle 2FA logic
+      if (res.data?.setup_2fa_required) {
+        setUser(res.data); // Partial user object
+        navigate("/setup-2fa");
+      } else if (res.data?.twofa_required) {
+        setUser(res.data);
+        navigate("/verify-2fa");
+      } else {
+        setUser(res.data.user);  // Full user object
+        navigate('/');
+      }
+
     } catch (err) {
       setError(err.response?.data?.detail ?? "Registration failed");
     }
   };
+
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-4">

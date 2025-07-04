@@ -3,9 +3,9 @@ from fastapi.responses import RedirectResponse, JSONResponse
 from authlib.integrations.starlette_client import OAuth
 from starlette.config import Config
 from sqlalchemy.orm import Session
-from database.models import User
-from database.db import SessionLocal
-from datetime import datetime, timezone
+from backend.database.models import User
+from backend.database.db import SessionLocal
+from datetime import datetime
 import uuid
 import os
 
@@ -53,20 +53,20 @@ async def auth_callback(request: Request):
                 password_hash="",  # empty since OAuth
                 role="user",
                 credits=10,
-                created_at=datetime.now(timezone.utc),
-                updated_at=datetime.now(timezone.utc),
-                last_login=datetime.now(timezone.utc)
+                created_at=datetime.utcnow(),
+                updated_at=datetime.utcnow(),
+                last_login=datetime.utcnow()
             )
             db.add(new_user)
             db.commit()
             db.refresh(new_user)
             user = new_user
 
-        # ✅ Store user_id in session
+        # ✅ Store minimal session (do not include user_id yet)
+        # This allows frontend /me endpoint to detect if 2FA setup is needed
         request.session["user"] = {
             "email": user.email,
-            "display_name": user.display_name,
-            "user_id": str(user.user_id)
+            "display_name": user.display_name
         }
 
         return RedirectResponse(os.getenv("FRONTEND_URL"))
@@ -84,6 +84,22 @@ async def me(request: Request, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == session_user["email"]).first()
     if not user:
         return JSONResponse({"error": "User not found in database"}, status_code=404)
+
+    # If user has not enabled 2FA, inform frontend
+    if not user.is_2fa_enabled:
+        return {
+            "setup_2fa_required": True,
+            "email": user.email,
+            "display_name": user.display_name
+        }
+
+    # If 2FA is enabled but not yet verified in session
+    if user.is_2fa_enabled and "user_id" not in session_user:
+         return {
+            "twofa_required": True,
+            "email": user.email,
+            "display_name": user.display_name
+        }
 
     return {
         "user_id": str(user.user_id),
