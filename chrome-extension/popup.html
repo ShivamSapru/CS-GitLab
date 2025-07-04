@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 <!DOCTYPE html>
 <html>
 <head>
@@ -97,3 +98,104 @@
     <script src="popup.js"></script>
 </body>
 </html>
+=======
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Subtitle Translator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            width: 300px; /* Fixed width for the popup */
+            padding: 15px;
+            background-color: #f4f7f6;
+            color: #333;
+        }
+        h2 {
+            color: #2c3e50;
+            margin-top: 0;
+            font-size: 1.2em;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .section {
+            border: 1px solid #ddd;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            background-color: #fff;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1em;
+            width: 100%;
+            box-sizing: border-box;
+            margin-top: 10px;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        button.signup-button {
+            background-color: #2ecc71; /* Green for signup */
+        }
+        button.signup-button:hover {
+            background-color: #27ae60;
+        }
+        button.temp-login-button { /* New style for temp login */
+            background-color: #f39c12; /* Orange for temp login */
+        }
+        button.temp-login-button:hover {
+            background-color: #e67e22;
+        }
+        button.stop-button {
+            background-color: #e74c3c; /* Red for stop */
+        }
+        button.stop-button:hover {
+            background-color: #c0392b;
+        }
+        #statusMessage {
+            text-align: center;
+            margin-top: 10px;
+            font-size: 0.9em;
+            color: #555;
+        }
+        #logoutButton {
+            background-color: #95a5a6; /* Grey for logout */
+            margin-top: 15px;
+        }
+        #logoutButton:hover {
+            background-color: #7f8c8d;
+        }
+    </style>
+</head>
+<body>
+    <h2>Subtitle Translator</h2>
+
+    <div id="authSection" class="section">
+        <h3>Welcome!</h3>
+        <p>Please log in or sign up to use the translator.</p>
+        <button id="loginButton">Login</button>
+        <button id="signupButton" class="signup-button">Sign Up</button>
+        <hr style="margin: 15px 0; border-color: #eee;">
+        <p>Or for development:</p>
+        <button id="tempLoginButton" class="temp-login-button">Temp Login (Dev Only)</button>
+    </div>
+
+    <div id="translationSection" class="section" style="display: none;">
+        <h3>Real-time Translation</h3>
+        <p>Control live caption translation for the current tab.</p>
+        <button id="translateButton">Start Translation</button>
+        <div id="statusMessage"></div>
+        <button id="logoutButton">Logout</button>
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+</html>
+>>>>>>> d756f1031f021480d22dc393b7c041f5a05c4e87
