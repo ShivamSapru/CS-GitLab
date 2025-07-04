@@ -33,7 +33,6 @@ from backend.api.transcription import router as transcription_router
 
 from backend.api.auth import router as auth_router
 from backend.api.auth_email import router as email_auth_router
-# from backend.api.db_health import router as db_router
 from backend.database.db import create_db_tables
 from backend.database import models
 from backend.api.twoFA import router as two_fa_router
@@ -72,7 +71,6 @@ app.include_router(email_auth_router)
 app.include_router(health_router)
 app.include_router(translation_router)
 app.include_router(auth_router)
-# app.include_router(db_router)
 app.include_router(two_fa_router)
 
 @app.get("/")
