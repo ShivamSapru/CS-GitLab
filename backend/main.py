@@ -67,8 +67,8 @@ app.add_middleware(
 
 # Include routers
 # app.include_router(api_router, prefix="/api")
-app.include_router(health_router)
-app.include_router(translation_router)
+app.include_router(health_router, prefix="/api")
+app.include_router(translation_router, prefix="/api")
 app.include_router(email_auth_router)
 app.include_router(auth_router)
 app.include_router(two_fa_router)
