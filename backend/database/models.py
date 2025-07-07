@@ -46,7 +46,7 @@ class SubtitleFile(Base):
     file_size_bytes = Column(BigInteger)
     is_original = Column(Boolean, default=True)
     is_public = Column(Boolean, default=False)
-    source_language = Column(String(10))  # BCP-47 tag
+    source_language = Column(String(50))  # BCP-47 tag
     created_at = Column(TIMESTAMP)
 
 
@@ -57,7 +57,7 @@ class Translation(Base):
     translation_id = Column(pgUUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     file_id = Column(pgUUID(as_uuid=True), ForeignKey("subtitle_files.file_id"), nullable=False)  # original file
     translated_file_id = Column(pgUUID(as_uuid=True), ForeignKey("subtitle_files.file_id"), nullable=True)  # translated version
-    target_language = Column(String(20))
+    target_language = Column(String(50))
     translation_status = Column(String(20))  # e.g., 'pending', 'completed'
     requested_at = Column(TIMESTAMP)
     completed_at = Column(TIMESTAMP)
