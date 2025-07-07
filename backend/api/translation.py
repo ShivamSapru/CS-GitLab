@@ -198,15 +198,12 @@ async def upload_file(
         translated_subtitle = SubtitleFile(
             file_id=uuid4(),
             project_id=None,
-            user_id=user.user_id,
             original_file_name=output_filename,  # Store the translated filename
             storage_path=output_path,
             file_format=ext.lower().replace(".", ""),
             file_size_bytes=os.path.getsize(output_path),
             is_original=False,  # This is a translated file, not original
-            is_public=False,
             source_language="auto",
-            created_at=datetime.now(timezone.utc)
         )
         db.add(translated_subtitle)
         db.commit()
@@ -223,9 +220,8 @@ async def upload_file(
             censor_profanity=censor_profanity,
             translation_cost=None,
             manual_edits_count=0,
-            last_edited_by_user_id=user.user_id,
+            last_updated=user.user_id,
             last_edited_at=None,
-            is_public=False,
             project_id=None
         )
         db.add(translation)

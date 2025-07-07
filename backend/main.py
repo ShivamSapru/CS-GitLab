@@ -1,10 +1,15 @@
 # backend/main.py
 import os
-# from dotenv import load_dotenv
+from dotenv import load_dotenv
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.cron import CronTrigger
+from sqlalchemy.orm import Session
+from backend.database.db import SessionLocal
+from backend.database.models import User
 
 # CRITICAL: Load environment variables FIRST, before any other imports
 # This ensures DATABASE_URL is available when models.py imports db.py
-# load_dotenv()
+load_dotenv()
 
 # Verify DATABASE_URL is loaded
 POSTGRES_DB = os.getenv("POSTGRES_DB")
@@ -42,6 +47,25 @@ app = FastAPI(
     description="Translate .srt and .vtt subtitle files using Azure AI Translator.",
     version="1.0.0"
 )
+
+#Scheduler
+scheduler = BackgroundScheduler()
+ 
+def reset_user_credits():
+    db: Session = SessionLocal()
+    try:
+        users = db.query(User).all()
+        for user in users:
+            user.credits = 5  # Reset credits to 5
+            db.commit()
+            print("User credits reset.")
+    except Exception as e:
+        print(f"Error resetting user credits: {e}")
+    finally:
+        db.close()
+ 
+scheduler.add_job(reset_user_credits, CronTrigger(hour=0, minute=0))
+scheduler.start()
 
 @app.on_event("startup")
 async def startup_event():

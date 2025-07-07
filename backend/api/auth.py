@@ -52,7 +52,7 @@ async def auth_callback(request: Request):
                 display_name=userinfo.get("name", userinfo["email"].split("@")[0]),
                 password_hash="",  # empty since OAuth
                 role="user",
-                credits=10,
+                credits=5,
                 created_at=datetime.utcnow(),
                 updated_at=datetime.utcnow(),
                 last_login=datetime.utcnow()

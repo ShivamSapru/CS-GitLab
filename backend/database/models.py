@@ -39,15 +39,12 @@ class SubtitleFile(Base):
 
     file_id = Column(pgUUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     project_id = Column(pgUUID(as_uuid=True), ForeignKey("translation_projects.project_id"), nullable=True)
-    user_id = Column(pgUUID(as_uuid=True), ForeignKey("users.user_id"), nullable=False)
     original_file_name= Column(String(255))
     storage_path = Column(String(512))
     file_format = Column(String(10))
     file_size_bytes = Column(BigInteger)
     is_original = Column(Boolean, default=True)
-    is_public = Column(Boolean, default=False)
     source_language = Column(String(10))  # BCP-47 tag
-    created_at = Column(TIMESTAMP)
 
 
 
@@ -64,9 +61,8 @@ class Translation(Base):
     censor_profanity = Column(Boolean, default=False)
     translation_cost = Column(DECIMAL(10, 4))
     manual_edits_count = Column(Integer, default=0)
-    last_edited_by_user_id = Column(pgUUID(as_uuid=True), ForeignKey("users.user_id"), nullable=True)
+    last_updated = Column(pgUUID(as_uuid=True), ForeignKey("users.user_id"), nullable=True)
     last_edited_at = Column(TIMESTAMP)
-    is_public = Column(Boolean, default=False)
     project_id = Column(pgUUID(as_uuid=True), ForeignKey('translation_projects.project_id'), nullable=True)
 
 

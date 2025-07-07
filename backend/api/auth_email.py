@@ -43,7 +43,7 @@ async def register_user(data: RegisterRequest, db: Session = Depends(get_db)):
         display_name=data.email.split('@')[0],
         password_hash=hashed_pw,
         role="user",
-        credits=10,
+        credits=5,
         created_at=datetime.now(timezone.utc),
         updated_at=datetime.now(timezone.utc)
     )
