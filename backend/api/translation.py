@@ -22,6 +22,7 @@ from backend.database.db import SessionLocal
 from sqlalchemy.orm import Session
 from uuid import uuid4
 from datetime import datetime, timezone
+from collections import Counter
 
 # load_dotenv()
 
@@ -113,16 +114,17 @@ def detect_and_translate(texts, to_lang, no_prof=False):
         "Content-Type": "application/json; charset=UTF-8",
     }
     translated = []
+    detected_langs = []
     count = 1
     total_chunks = chunk_texts(texts, MAX_CHAR_LIMIT)
     for chunk in total_chunks:
         body = [{"Text": t} for t in chunk]
         try:
-            # print("\nSource Chunk", count, ":", body)
             print("Translating Chunk", count, "of", len(total_chunks))
             response = post_with_retries(url, headers, body)
             data = response.json()
             translated.extend([item["translations"][0]["text"] for item in data])
+            detected_langs.extend([item["detectedLanguage"]["language"] for item in data])
             count += 1
         except httpx.HTTPStatusError as e:
             print("Status Code:", e.response.status_code)
@@ -131,8 +133,11 @@ def detect_and_translate(texts, to_lang, no_prof=False):
         except Exception as ex:
             print("Translation Error:", ex)
             raise ex
-    # print("\nTranslated Output:", translated)
-    return translated
+    # Count detected language occurrences and return the most common one
+    lang_counter = Counter(detected_langs)
+    detected_language = lang_counter.most_common(1)[0][0] if detected_langs else None
+    detected_language = LANGUAGE_CODES.get(detected_language, "Unknown")
+    return translated, detected_language
 
 
 # List of Languages present for translation
@@ -167,7 +172,7 @@ async def upload_file(
             with open(input_path, "r", encoding="utf-8") as f:
                 subtitles = list(srt.parse(f.read()))
             texts = [s.content for s in subtitles]
-            translated = detect_and_translate(texts, target_language, censor_profanity)
+            translated, source_language = detect_and_translate(texts, target_language, censor_profanity)
             for i, s in enumerate(subtitles):
                 s.content = translated[i]
             with open(output_path, "w", encoding="utf-8") as f:
@@ -176,7 +181,7 @@ async def upload_file(
         elif ext.lower() == ".vtt":
             vtt = webvtt.read(input_path)
             texts = [c.text for c in vtt.captions]
-            translated = detect_and_translate(texts, target_language, censor_profanity)
+            translated, source_language = detect_and_translate(texts, target_language, censor_profanity)
             for i, c in enumerate(vtt.captions):
                 c.text = translated[i]
             vtt.save(output_path)
@@ -205,7 +210,8 @@ async def upload_file(
             file_size_bytes=os.path.getsize(output_path),
             is_original=False,  # This is a translated file, not original
             is_public=False,
-            source_language="auto",
+            # source_language="auto",
+            source_language=source_language,
             created_at=datetime.now(timezone.utc)
         )
         db.add(translated_subtitle)
