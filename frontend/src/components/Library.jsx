@@ -472,7 +472,11 @@ const Library = () => {
   return (
     <div>
       {showProjects ? (
-        <Projects projectId={viewingProject} onBack={handleBackToLibrary} />
+        <Projects
+          projectId={viewingProject}
+          onBack={handleBackToLibrary}
+          origin="library"
+        />
       ) : (
         <div className="max-w-6xl mx-auto p-6">
           <div className="bg-white rounded-xl shadow-lg p-8">
@@ -618,14 +622,15 @@ const Library = () => {
                               {formatDate(project.created_at)}
                             </span>
 
-                            <span className="flex items-center">
-                              <Languages className="w-4 h-4 mr-1" />
-                              {project.translations_count} translations
-                            </span>
                             {project.languages &&
                               project.languages.length > 0 && (
-                                <span className="text-xs bg-gray-100 px-2 py-1 rounded-full">
-                                  {project.languages.join(", ")}
+                                <span className="flex items-center">
+                                  <Languages className="w-4 h-4 mr-1" />
+                                  <span className="text-xs bg-gray-100 px-2 py-1 rounded-full">
+                                    {project.languages.length > 2
+                                      ? `${project.languages.slice(0, 2).join(", ")}...`
+                                      : project.languages.join(", ")}
+                                  </span>
                                 </span>
                               )}
                           </div>
@@ -640,9 +645,7 @@ const Library = () => {
                             }}
                             className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                             title="Delete Project"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          ></button>
                         </div>
                       </div>
                     </div>
