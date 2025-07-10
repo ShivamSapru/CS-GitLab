@@ -12,7 +12,7 @@ from fastapi import APIRouter, UploadFile, File, Form, Query, Request, Depends
 from fastapi.responses import JSONResponse, FileResponse, StreamingResponse
 from typing import Dict, Optional, List
 from pydantic import BaseModel
-# from dotenv import load_dotenv
+from dotenv import load_dotenv
 from azure.storage.blob import BlobServiceClient
 
 from backend.database.models import SubtitleFile, User
@@ -23,7 +23,7 @@ from sqlalchemy.orm import Session
 from uuid import uuid4
 from datetime import datetime, timezone
 
-# load_dotenv()
+load_dotenv()
 
 router = APIRouter()
 temp_dir = tempfile.mkdtemp()
@@ -143,7 +143,7 @@ LANGUAGE_CODES = fetch_language_codes()
 def get_languages() -> Dict[str, str]:
     return LANGUAGE_CODES
 
-# Uploading the .srt or .vtt file and selecting target language(s)
+# Updated upload-file endpoint with proper user_id handling
 @router.post("/upload-file")
 async def upload_file(
     request: Request,
@@ -153,6 +153,16 @@ async def upload_file(
     db: Session = Depends(get_db)
 ):
     try:
+        # Retrieve user from session FIRST
+        session_user = request.session.get("user")
+        if not session_user or not session_user.get("email"):
+            return JSONResponse(status_code=401, content={"error": "User not authenticated"})
+
+        user_email = session_user["email"]
+        user = db.query(User).filter(User.email == user_email).first()
+        if not user:
+            return JSONResponse(status_code=404, content={"error": "User not found"})
+
         input_path = os.path.join(temp_dir, file.filename)
         base, ext = os.path.splitext(file.filename)
         tag = " and Censored" if censor_profanity else ""
@@ -183,20 +193,12 @@ async def upload_file(
 
         else:
             raise ValueError("Unsupported file format. Please upload .srt or .vtt")
-        
-        # Retrieve user from session
-        session_user = request.session.get("user")
-        if not session_user or not session_user.get("email"):
-            return JSONResponse(status_code=401, content={"error": "User not authenticated"})
-
-        user_email = session_user["email"]
-        user = db.query(User).filter(User.email == user_email).first()
-        if not user:
-            return JSONResponse(status_code=404, content={"error": "User not found"})
 
         # Saving the metadata of translated subtitle files in subtitle_files table
+        # NOW WITH user_id included!
         translated_subtitle = SubtitleFile(
             file_id=uuid4(),
+            user_id=user.user_id,  # ADD THIS LINE - This was missing!
             project_id=None,
             original_file_name=output_filename,  # Store the translated filename
             storage_path=output_path,
@@ -204,6 +206,8 @@ async def upload_file(
             file_size_bytes=os.path.getsize(output_path),
             is_original=False,  # This is a translated file, not original
             source_language="auto",
+            created_at=datetime.now(timezone.utc),  # Set timestamps
+            updated_at=datetime.now(timezone.utc)   # Set timestamps
         )
         db.add(translated_subtitle)
         db.commit()
@@ -236,6 +240,7 @@ async def upload_file(
         }
 
     except Exception as e:
+        db.rollback()  # Add rollback on error
         return JSONResponse(status_code=500, content={"error": f"Translation failed: {str(e)}"})
 
 # Download subtitle file by dynamic name
@@ -751,4 +756,56 @@ async def get_project_original_file(
         return JSONResponse(
             status_code=500,
             content={"error": f"Failed to fetch original file: {str(e)}"}
+        )
+
+@router.patch("/project/{project_id}/toggle-public")
+async def toggle_project_public(
+    project_id: str,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """Toggle project public/private status"""
+    try:
+        # Get user from session
+        session_user = request.session.get("user")
+        if not session_user or not session_user.get("email"):
+            return JSONResponse(status_code=401, content={"error": "User not authenticated"})
+
+        user_email = session_user["email"]
+        user = db.query(User).filter(User.email == user_email).first()
+        if not user:
+            return JSONResponse(status_code=404, content={"error": "User not found"})
+
+        # Get request body
+        body = await request.json()
+        is_public = body.get("is_public", False)
+
+        # Verify project belongs to user
+        project = db.query(TranslationProject).filter(
+            TranslationProject.project_id == project_id,
+            TranslationProject.user_id == user.user_id
+        ).first()
+
+        if not project:
+            return JSONResponse(status_code=404, content={"error": "Project not found"})
+
+        # Update project visibility
+        project.is_public = is_public
+        project.updated_at = datetime.now(timezone.utc)
+
+        db.commit()
+
+        return {
+            "success": True,
+            "project_id": str(project.project_id),
+            "is_public": project.is_public,
+            "message": f"Project visibility updated to {'public' if is_public else 'private'}"
+        }
+
+    except Exception as e:
+        db.rollback()
+        print(f"Error updating project visibility: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={"error": f"Failed to update project visibility: {str(e)}"}
         )

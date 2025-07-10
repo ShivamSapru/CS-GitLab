@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { FileText, Zap, Users, FolderOpen } from "lucide-react";
+import { FileText, Zap, Users, FolderOpen, Mic } from "lucide-react";
 
 const Dashboard = ({ onNavigate, isDarkMode }) => {
   const [activeFeature, setActiveFeature] = useState("static");
@@ -22,20 +22,20 @@ const Dashboard = ({ onNavigate, isDarkMode }) => {
       route: "library",
     },
     {
+      id: "transcription",
+      title: "Audio/Video Transcription",
+      icon: Mic,
+      description: "Generate subtitle files from your audio/video content",
+      color: "bg-yellow-500",
+      route: "review",
+    },
+    {
       id: "realtime",
       title: "Real-time Translation",
       icon: Zap,
       description: "Live subtitle translation during events",
       color: "bg-green-500",
       route: "realtime",
-    },
-    {
-      id: "transcription",
-      title: "Post-Event Transcription",
-      icon: Users,
-      description: "Process and translate meeting transcripts",
-      color: "bg-yellow-500",
-      route: "review",
     },
   ];
 

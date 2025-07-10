@@ -15,11 +15,161 @@ import {
   Redo,
   FolderPlus,
   CheckCircle,
+  Timer,
+  Settings,
 } from "lucide-react";
 
 // API Configuration for Static Upload only
 const API_BASE_URL = "http://localhost:8000/api";
 const MAX_SELECTED_LANGUAGES = 5;
+
+// Auto-Save Countdown Component
+const AutoSaveCountdown = ({
+  isVisible,
+  onAutoSave,
+  onCustomize,
+  onCancel,
+  originalFilename,
+  duration = 10000, // 10 seconds in milliseconds
+}) => {
+  const [timeLeft, setTimeLeft] = useState(duration);
+  const [isActive, setIsActive] = useState(false);
+
+  useEffect(() => {
+    if (isVisible) {
+      setTimeLeft(duration);
+      setIsActive(true);
+    } else {
+      setIsActive(false);
+    }
+  }, [isVisible, duration]);
+
+  useEffect(() => {
+    let interval = null;
+
+    if (isActive && timeLeft > 0) {
+      interval = setInterval(() => {
+        setTimeLeft((timeLeft) => {
+          const newTime = timeLeft - 100; // Update every 100ms for smooth animation
+
+          if (newTime <= 0) {
+            setIsActive(false);
+            onAutoSave(); // Auto-save when countdown reaches 0
+            return 0;
+          }
+
+          return newTime;
+        });
+      }, 100);
+    } else if (timeLeft <= 0) {
+      setIsActive(false);
+    }
+
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isActive, timeLeft, onAutoSave]);
+
+  const handleCustomize = () => {
+    setIsActive(false);
+    onCustomize();
+  };
+
+  const handleCancel = () => {
+    setIsActive(false);
+    onCancel();
+  };
+
+  const progressPercentage = (timeLeft / duration) * 100;
+  const secondsLeft = Math.ceil(timeLeft / 1000);
+
+  if (!isVisible) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+        {/* Header */}
+        <div className="flex items-center space-x-3 mb-6">
+          <div className="relative">
+            <Timer className="w-6 h-6 text-blue-500" />
+            {isActive && (
+              <div className="absolute -inset-1 border-2 border-blue-500 rounded-full animate-pulse"></div>
+            )}
+          </div>
+          <h2 className="text-xl font-semibold text-gray-900">
+            Auto-Save Project
+          </h2>
+        </div>
+
+        {/* Countdown Content */}
+        <div className="text-center mb-6">
+          <div className="text-3xl font-bold text-blue-600 mb-2">
+            {secondsLeft}
+          </div>
+          <p className="text-gray-600 mb-4">
+            Project will be automatically saved as:
+          </p>
+          <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
+            <p className="font-medium text-blue-900 truncate">
+              {originalFilename?.replace(/\.[^/.]+$/, "") || "Untitled Project"}
+            </p>
+          </div>
+        </div>
+
+        {/* Progress Bar - Reverse countdown */}
+        <div className="mb-6">
+          <div className="w-full bg-gray-200 rounded-full h-3">
+            <div
+              className="bg-gradient-to-r from-blue-500 to-blue-600 h-3 rounded-full transition-all duration-100 ease-linear"
+              style={{ width: `${progressPercentage}%` }}
+            ></div>
+          </div>
+          <div className="flex justify-between text-xs text-gray-500 mt-1">
+            <span>Auto-saving...</span>
+            <span>{secondsLeft}s remaining</span>
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex flex-col space-y-3">
+          <button
+            onClick={handleCustomize}
+            className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+          >
+            <Settings className="w-4 h-4" />
+            <span>Customize Project Details</span>
+          </button>
+
+          <div className="flex space-x-3">
+            <button
+              onClick={() => {
+                setIsActive(false);
+                onAutoSave();
+              }}
+              className="flex-1 flex items-center justify-center space-x-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
+            >
+              <Save className="w-4 h-4" />
+              <span>Save Now</span>
+            </button>
+
+            <button
+              onClick={handleCancel}
+              className="flex-1 flex items-center justify-center space-x-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              <X className="w-4 h-4" />
+              <span>Don't Save</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Info Text */}
+        <p className="text-xs text-gray-500 text-center mt-4">
+          Click any button to interact and stop auto-save
+        </p>
+      </div>
+    </div>
+  );
+};
 
 const apiCall = async (endpoint, options = {}) => {
   try {
@@ -236,6 +386,10 @@ const StaticSubtitleUpload = () => {
   const [isSavingProject, setIsSavingProject] = useState(false);
   const [projectSaveSuccess, setProjectSaveSuccess] = useState(null);
 
+  // Auto-save countdown states
+  const [showAutoSaveCountdown, setShowAutoSaveCountdown] = useState(false);
+  const [autoSaveTriggered, setAutoSaveTriggered] = useState(false);
+
   // Load languages from Microsoft Translator API
   useEffect(() => {
     const loadLanguages = async () => {
@@ -322,7 +476,7 @@ const StaticSubtitleUpload = () => {
     }
   };
 
-  // Enhanced translation function with better progress tracking
+  // Enhanced translation function with better progress tracking and auto-save trigger
   const startTranslation = async () => {
     if (!backendConnected) {
       setError("Backend not connected. Please start your FastAPI server.");
@@ -335,6 +489,7 @@ const StaticSubtitleUpload = () => {
     setTranslationProgress(0);
     setTranslatedFiles([]);
     setError(null);
+    setAutoSaveTriggered(false);
 
     try {
       const totalLanguages = targetLanguages.length;
@@ -387,12 +542,47 @@ const StaticSubtitleUpload = () => {
 
       setTranslatedFiles(translatedResults);
       setCurrentTranslatingLanguage("");
+
+      // Show auto-save countdown after successful translation
+      if (translatedResults.length > 0) {
+        setShowAutoSaveCountdown(true);
+      }
     } catch (err) {
       setError(`Translation failed: ${err.message}`);
       setCurrentTranslatingLanguage("");
     } finally {
       setIsTranslating(false);
     }
+  };
+
+  // Auto-save function
+  const handleAutoSave = async () => {
+    const autoProjectName =
+      uploadedFile?.name.replace(/\.[^/.]+$/, "") || "Untitled Project";
+
+    const projectData = {
+      project_name: autoProjectName,
+      description: `Auto-saved project from translation of ${uploadedFile?.name}`,
+      filenames: translatedFiles.map((file) => file.filename),
+      original_filename: uploadedFile?.name || "",
+      target_languages: targetLanguages,
+      is_public: false, // Auto-saved projects are private by default
+    };
+
+    await saveAsProject(projectData);
+    setShowAutoSaveCountdown(false);
+    setAutoSaveTriggered(true);
+  };
+
+  // Handle customize project (open modal)
+  const handleCustomizeProject = () => {
+    setShowAutoSaveCountdown(false);
+    setShowSaveProjectModal(true);
+  };
+
+  // Handle cancel auto-save
+  const handleCancelAutoSave = () => {
+    setShowAutoSaveCountdown(false);
   };
 
   // Download translated file from backend
@@ -759,6 +949,8 @@ const StaticSubtitleUpload = () => {
     setShowSaveProjectModal(false);
     setIsSavingProject(false);
     setProjectSaveSuccess(null);
+    setShowAutoSaveCountdown(false);
+    setAutoSaveTriggered(false);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -803,36 +995,31 @@ const StaticSubtitleUpload = () => {
 
   return (
     <div className="max-w-4xl mx-auto p-6">
+      {/* Auto-Save Countdown Modal */}
+      <AutoSaveCountdown
+        isVisible={showAutoSaveCountdown}
+        onAutoSave={handleAutoSave}
+        onCustomize={handleCustomizeProject}
+        onCancel={handleCancelAutoSave}
+        originalFilename={uploadedFile?.name}
+        duration={10000} // 10 seconds
+      />
+
       <div className="bg-white rounded-xl shadow-lg p-8">
         <h2 className="text-2xl font-bold text-gray-900 mb-6">
-          Azure Powered Subtitle Translation
+          Subtitle Translation
         </h2>
 
-        {/* Backend Connection Status */}
-        <div
-          className={`mb-6 p-4 rounded-lg ${
-            backendConnected
-              ? "bg-green-50 border border-green-200"
-              : "bg-red-50 border border-red-200"
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <div
-                className={`w-3 h-3 rounded-full mr-3 ${
-                  backendConnected ? "bg-green-500" : "bg-red-500"
-                }`}
-              ></div>
-              <span
-                className={`font-medium ${
-                  backendConnected ? "text-green-800" : "text-red-800"
-                }`}
-              >
-                Azure Translation Service:{" "}
-                {backendConnected ? "Connected" : "Disconnected"}
-              </span>
-            </div>
-            {!backendConnected && (
+        {/* Backend Connection Status - Only show when disconnected */}
+        {!backendConnected && (
+          <div className="mb-6 p-4 rounded-lg bg-red-50 border border-red-200">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <div className="w-3 h-3 rounded-full mr-3 bg-red-500"></div>
+                <span className="font-medium text-red-800">
+                  Azure Translation Service: Disconnected
+                </span>
+              </div>
               <button
                 onClick={retryConnection}
                 disabled={loadingLanguages}
@@ -840,9 +1027,9 @@ const StaticSubtitleUpload = () => {
               >
                 {loadingLanguages ? "Connecting..." : "Retry Connection"}
               </button>
-            )}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Error Display */}
         {error && (
@@ -1044,8 +1231,9 @@ const StaticSubtitleUpload = () => {
             </div>
           )}
         </div>
-        {/* Download Results */}
-        {translatedFiles.length > 0 && (
+
+        {/* Download Results - Only show if not in auto-save countdown and translation is complete */}
+        {translatedFiles.length > 0 && !showAutoSaveCountdown && (
           <div className="mt-8 p-4 bg-green-50 rounded-lg">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center">
@@ -1054,18 +1242,25 @@ const StaticSubtitleUpload = () => {
                   Translation Complete! ({translatedFiles.length} file
                   {translatedFiles.length > 1 ? "s" : ""} ready)
                 </span>
+                {autoSaveTriggered && (
+                  <span className="ml-2 text-sm text-green-600 bg-green-100 px-2 py-1 rounded-full">
+                    Auto-saved
+                  </span>
+                )}
               </div>
 
               <div className="flex items-center space-x-2">
-                {/* Save as Project Button */}
-                <button
-                  onClick={() => setShowSaveProjectModal(true)}
-                  disabled={isSavingProject}
-                  className="flex items-center space-x-2 px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-sm"
-                >
-                  <FolderPlus className="w-4 h-4" />
-                  <span>Save as Project</span>
-                </button>
+                {/* Save as Project Button - Only show if not auto-saved */}
+                {!autoSaveTriggered && (
+                  <button
+                    onClick={() => setShowSaveProjectModal(true)}
+                    disabled={isSavingProject}
+                    className="flex items-center space-x-2 px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-sm"
+                  >
+                    <FolderPlus className="w-4 h-4" />
+                    <span>Save as Project</span>
+                  </button>
+                )}
 
                 {/* Download All as ZIP button when multiple files */}
                 {translatedFiles.length > 1 && (
@@ -1374,6 +1569,7 @@ const StaticSubtitleUpload = () => {
           </div>
         )}
       </div>
+
       <SaveProjectModal
         isOpen={showSaveProjectModal}
         onClose={() => setShowSaveProjectModal(false)}
