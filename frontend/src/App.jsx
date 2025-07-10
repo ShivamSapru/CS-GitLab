@@ -60,6 +60,10 @@ const SubtitleTranslatorApp = () => {
     setIsMenuOpen(false);
   };
 
+  const handleUserInfoClick = () => {
+    handleNavigation("profile");
+  };
+
   const getCurrentComponent = () => {
     const template = templates.find((t) => t.id === currentTemplate);
     if (!template) return <Dashboard onNavigate={handleNavigation} />;
@@ -83,15 +87,14 @@ const SubtitleTranslatorApp = () => {
 
         // ✅ Set user before navigation to avoid null fallback
         if (res.data?.setup_2fa_required) {
-          setUser(res.data);                // ensure it's not null
+          setUser(res.data); // ensure it's not null
           navigate("/setup-2fa");
         } else if (res.data?.twofa_required) {
-          setUser(res.data);                // ensure it's not null
+          setUser(res.data); // ensure it's not null
           navigate("/verify-2fa");
         } else {
-          setUser(res.data);                // normal full user object
+          setUser(res.data); // normal full user object
         }
-
       } catch {
         setUser(null);
       } finally {
@@ -100,8 +103,6 @@ const SubtitleTranslatorApp = () => {
     };
     fetchUser();
   }, []);
-
-
 
   // 🔁 Redirect to login if not authenticated
   useEffect(() => {
@@ -171,10 +172,15 @@ const SubtitleTranslatorApp = () => {
                 )}
               </button>
 
-              {/* User info moved into header */}
+              {/* User info */}
               {!loadingUser && user && (
                 <div
-                  className={`text-sm px-3 py-1 rounded shadow flex items-center space-x-2 ${isDarkMode ? "text-gray-300 bg-gray-700" : "text-gray-700 bg-white"}`}
+                  onClick={handleUserInfoClick}
+                  className={`text-sm px-3 py-1 rounded shadow flex items-center space-x-2 cursor-pointer transition-colors ${
+                    isDarkMode
+                      ? "text-gray-300 bg-gray-700 hover:bg-gray-600"
+                      : "text-gray-700 bg-white hover:bg-gray-50"
+                  }`}
                 >
                   <User className="w-4 h-4" />
                   <div className="flex flex-col items-end">
@@ -182,7 +188,10 @@ const SubtitleTranslatorApp = () => {
                       <strong>{user.name || user.email || "User"}</strong>
                     </div>
                     <button
-                      onClick={handleLogout}
+                      onClick={(e) => {
+                        e.stopPropagation(); // Prevent triggering the parent click
+                        handleLogout();
+                      }}
                       className="text-red-500 hover:underline text-xs"
                     >
                       Log out

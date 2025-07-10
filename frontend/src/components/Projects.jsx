@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+
 import {
   Download,
   Eye,
@@ -42,7 +43,7 @@ const apiCall = async (endpoint, options = {}) => {
   }
 };
 
-const Projects = ({ projectId, onBack }) => {
+const Projects = ({ projectId, onBack, origin = "library" }) => {
   const [project, setProject] = useState(null);
   const [projectFiles, setProjectFiles] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -395,6 +396,64 @@ const Projects = ({ projectId, onBack }) => {
     return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${sizes[i]}`;
   };
 
+  const ToggleSwitch = ({ enabled, onChange, disabled = false }) => {
+    return (
+      <button
+        type="button"
+        onClick={() => !disabled && onChange()}
+        disabled={disabled}
+        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+          disabled
+            ? "bg-gray-200 cursor-not-allowed"
+            : enabled
+              ? "bg-green-600"
+              : "bg-gray-200"
+        }`}
+      >
+        <span
+          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+            enabled ? "translate-x-6" : "translate-x-1"
+          }`}
+        />
+      </button>
+    );
+  };
+
+  const handleTogglePublic = async () => {
+    if (!project) return;
+
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/project/${projectId}/toggle-public`,
+        {
+          method: "PATCH",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            is_public: !project.is_public,
+          }),
+        },
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(
+          errorData.error || "Failed to update project visibility",
+        );
+      }
+
+      // Update the project state locally
+      setProject((prev) => ({
+        ...prev,
+        is_public: !prev.is_public,
+      }));
+    } catch (err) {
+      setError(`Failed to update project visibility: ${err.message}`);
+    }
+  };
+
   if (loading) {
     return (
       <div className="max-w-6xl mx-auto p-6">
@@ -474,7 +533,9 @@ const Projects = ({ projectId, onBack }) => {
                 className="flex items-center space-x-2 px-3 py-2 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50 flex-shrink-0"
               >
                 <ArrowLeft className="w-4 h-4" />
-                <span>Back to Library</span>
+                <span>
+                  Back to {origin === "profile" ? "Profile" : "Library"}
+                </span>
               </button>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center space-x-3">
@@ -532,20 +593,42 @@ const Projects = ({ projectId, onBack }) => {
 
         {/* Project Info and Files Header */}
         <div className="mb-6">
-          <div className="flex items-center space-x-8 mb-4">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center space-x-8">
+              {project && (
+                <div className="flex items-center space-x-2">
+                  <Calendar className="w-4 h-4 text-gray-500" />
+                  <span className="text-sm text-gray-600">
+                    Created: {formatDate(project.created_at)}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Public/Private Toggle */}
             {project && (
-              <div className="flex items-center space-x-2">
-                <Calendar className="w-4 h-4 text-gray-500" />
-                <span className="text-sm text-gray-600">
-                  Created: {formatDate(project.created_at)}
+              <div className="flex items-center space-x-3">
+                <span className="text-sm text-gray-700">
+                  {project.is_public ? "Public" : "Private"}
                 </span>
+                <ToggleSwitch
+                  enabled={project.is_public}
+                  onChange={handleTogglePublic}
+                  disabled={loading}
+                />
+                <div className="flex items-center text-xs text-gray-500">
+                  <Globe className="w-3 h-3 mr-1" />
+                  <span>
+                    {project.is_public
+                      ? "Visible to everyone"
+                      : "Only visible to you"}
+                  </span>
+                </div>
               </div>
             )}
-            <h3 className="text-lg font-semibold text-gray-900">
-              Project Files ({projectFiles.length})
-            </h3>
           </div>
 
+          {/* Files List */}
           {projectFiles.length === 0 ? (
             <div className="text-center py-8">
               <FileText className="w-12 h-12 text-gray-300 mx-auto mb-4" />
