@@ -30,7 +30,7 @@ class TranslationProject(Base):
 class SubtitleFile(Base):
     __tablename__ = "subtitle_files"
     file_id = Column(pgUUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id = Column(pgUUID(as_uuid=True), ForeignKey("users.user_id"), nullable=False)  # Added missing user_id
+    # user_id = Column(pgUUID(as_uuid=True), ForeignKey("users.user_id"), nullable=False)  # Added missing user_id
     project_id = Column(pgUUID(as_uuid=True), ForeignKey("translation_projects.project_id"), nullable=True)
     original_file_name = Column(String(255))
     storage_path = Column(String(512))
@@ -38,8 +38,8 @@ class SubtitleFile(Base):
     file_size_bytes = Column(BigInteger)
     is_original = Column(Boolean, default=True)
     source_language = Column(String(10))  # BCP-47 tag
-    created_at = Column(TIMESTAMP, nullable=True)
-    updated_at = Column(TIMESTAMP, nullable=True)
+    # created_at = Column(TIMESTAMP, nullable=True)
+    # updated_at = Column(TIMESTAMP, nullable=True)
 
 class Translation(Base):
     __tablename__ = "translations"

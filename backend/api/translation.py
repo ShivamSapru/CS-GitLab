@@ -198,7 +198,7 @@ async def upload_file(
         # NOW WITH user_id included!
         translated_subtitle = SubtitleFile(
             file_id=uuid4(),
-            user_id=user.user_id,  # ADD THIS LINE - This was missing!
+            # user_id=user.user_id,  # ADD THIS LINE - This was missing!
             project_id=None,
             original_file_name=output_filename,  # Store the translated filename
             storage_path=output_path,
@@ -206,8 +206,8 @@ async def upload_file(
             file_size_bytes=os.path.getsize(output_path),
             is_original=False,  # This is a translated file, not original
             source_language="auto",
-            created_at=datetime.now(timezone.utc),  # Set timestamps
-            updated_at=datetime.now(timezone.utc)   # Set timestamps
+            # created_at=datetime.now(timezone.utc),  # Set timestamps
+            # updated_at=datetime.now(timezone.utc)   # Set timestamps
         )
         db.add(translated_subtitle)
         db.commit()
@@ -451,7 +451,7 @@ async def save_project(
         for filename in project_data.filenames:
             subtitle_file = db.query(SubtitleFile).filter(
                 SubtitleFile.original_file_name == filename,
-                SubtitleFile.user_id == user.user_id
+                # SubtitleFile.user_id == user.user_id
             ).first()
 
             if subtitle_file:
@@ -600,7 +600,7 @@ async def get_project_files(
                 "file_size_bytes": file.file_size_bytes,
                 "is_original": file.is_original,
                 "source_language": file.source_language,
-                "created_at": file.created_at.isoformat() if file.created_at else None,
+                # "created_at": file.created_at.isoformat() if file.created_at else None,
                 "target_language": translation.target_language if translation else None,
                 "translation_status": translation.translation_status if translation else None,
                 "censor_profanity": translation.censor_profanity if translation else None
@@ -615,7 +615,7 @@ async def get_project_files(
 
                 "is_public": project.is_public,
 
-                "created_at": project.created_at.isoformat() if project.created_at else None
+                # "created_at": project.created_at.isoformat() if project.created_at else None
             },
             "files": file_list,
             "total_files": len(file_list)
