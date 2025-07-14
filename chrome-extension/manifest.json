@@ -1,37 +1,45 @@
 {
-  "manifest_version": 3,
-  "name": "Real-time Subtitle Translator",
-  "version": "1.0",
-  "description": "Translate live captions and subtitles in real-time using your Subtitle Translator App backend.",
-  "icons": {
-    "16": "icons/icon16.png",
-    "48": "icons/icon48.png",
-    "128": "icons/icon128.png"
-  },
-  "action": {
-    "default_popup": "popup.html",
-    "default_icon": {
-      "16": "icons/icon16.png",
-      "48": "icons/icon48.png"
+    "manifest_version": 3,
+    "name": "Real-Time Caption Translator",
+    "version": "1.0",
+    "description": "Detects captions/transcripts from YouTube/Zoom/Teams and displays translated overlays in real-time.",
+    "permissions": ["scripting", "tabs", "storage"],
+    "host_permissions": [
+        "*://*.youtube.com/*",
+        "*://*.zoom.us/*",
+        "*://*.teams.microsoft.com/*"
+    ],
+    "background": {
+        "service_worker": "background.js"
+    },
+    "action": {
+        "default_popup": "popup.html",
+        "default_icon": {
+            "16": "icons/icon.png",
+            "48": "icons/icon.png",
+            "128": "icons/icon.png"
+        }
+    },
+    "content_scripts": [
+        {
+            "matches": ["*://*.youtube.com/*"],
+            "js": ["content/youtube.js"],
+            "run_at": "document_idle"
+        },
+        {
+            "matches": ["*://*.zoom.us/*"],
+            "js": ["content/zoom.js"],
+            "run_at": "document_idle"
+        },
+        {
+            "matches": ["*://*.teams.microsoft.com/*", "*://*.teams.live.com/*"],
+            "js": ["content/teams.js"],
+            "run_at": "document_idle"
+        }
+    ],
+    "icons": {
+        "16": "icons/icon.png",
+        "48": "icons/icon.png",
+        "128": "icons/icon.png"
     }
-  },
-  "permissions": [
-    "activeTab",
-    "scripting",
-    "storage",
-    "webRequest",
-    "declarativeNetRequest"
-  ],
-  "host_permissions": [
-    "<all_urls>"
-  ],
-  "background": {
-    "service_worker": "background.js"
-  },
-  "content_scripts": [
-    {
-      "matches": ["<all_urls>"],
-      "js": ["content.js"]
-    }
-  ]
 }
