@@ -552,7 +552,7 @@ async def save_project(
                 subtitle_file = db.query(SubtitleFile).filter(
                     and_(
                         SubtitleFile.original_file_name == filename,
-                        SubtitleFile.user_id == user.user_id,
+                        #SubtitleFile.user_id == user.user_id,
                         SubtitleFile.project_id.is_(None)  # Only update files not already assigned to a project
                     )
                 ).first()
