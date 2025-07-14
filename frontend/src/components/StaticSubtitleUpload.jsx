@@ -30,10 +30,11 @@ const AutoSaveCountdown = ({
   onCustomize,
   onCancel,
   originalFilename,
-  duration = 10000, // 10 seconds in milliseconds
+  duration = 10000,
 }) => {
   const [timeLeft, setTimeLeft] = useState(duration);
   const [isActive, setIsActive] = useState(false);
+  const intervalRef = useRef(null);
 
   useEffect(() => {
     if (isVisible) {
@@ -41,19 +42,29 @@ const AutoSaveCountdown = ({
       setIsActive(true);
     } else {
       setIsActive(false);
+      // Clear interval when not visible
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
     }
   }, [isVisible, duration]);
 
   useEffect(() => {
-    let interval = null;
+    // Clear any existing interval
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+    }
 
     if (isActive && timeLeft > 0) {
-      interval = setInterval(() => {
-        setTimeLeft((timeLeft) => {
-          const newTime = timeLeft - 100; // Update every 100ms for smooth animation
+      intervalRef.current = setInterval(() => {
+        setTimeLeft((prevTimeLeft) => {
+          const newTime = prevTimeLeft - 100;
 
           if (newTime <= 0) {
             setIsActive(false);
+            clearInterval(intervalRef.current);
+            intervalRef.current = null;
             onAutoSave(); // Auto-save when countdown reaches 0
             return 0;
           }
@@ -61,22 +72,32 @@ const AutoSaveCountdown = ({
           return newTime;
         });
       }, 100);
-    } else if (timeLeft <= 0) {
-      setIsActive(false);
     }
 
+    // Cleanup function
     return () => {
-      if (interval) clearInterval(interval);
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
     };
   }, [isActive, timeLeft, onAutoSave]);
 
   const handleCustomize = () => {
     setIsActive(false);
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
     onCustomize();
   };
 
   const handleCancel = () => {
     setIsActive(false);
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
     onCancel();
   };
 
@@ -103,9 +124,6 @@ const AutoSaveCountdown = ({
 
         {/* Countdown Content */}
         <div className="text-center mb-6">
-          <div className="text-3xl font-bold text-blue-600 mb-2">
-            {secondsLeft}
-          </div>
           <p className="text-gray-600 mb-4">
             Project will be automatically saved as:
           </p>
@@ -385,6 +403,12 @@ const StaticSubtitleUpload = () => {
   const [showSaveProjectModal, setShowSaveProjectModal] = useState(false);
   const [isSavingProject, setIsSavingProject] = useState(false);
   const [projectSaveSuccess, setProjectSaveSuccess] = useState(null);
+  const [isViewingEditedFile, setIsViewingEditedFile] = useState(false);
+  const [projectSaved, setProjectSaved] = useState(false);
+  const [hasAutoSaved, setHasAutoSaved] = useState(false);
+  const [autoSaveInProgress, setAutoSaveInProgress] = useState(false);
+  const [projectSaveAttempted, setProjectSaveAttempted] = useState(false);
+  const [pendingRequests, setPendingRequests] = useState(new Set());
 
   // Auto-save countdown states
   const [showAutoSaveCountdown, setShowAutoSaveCountdown] = useState(false);
@@ -489,7 +513,12 @@ const StaticSubtitleUpload = () => {
     setTranslationProgress(0);
     setTranslatedFiles([]);
     setError(null);
+
+    // Reset auto-save states at the start of translation
     setAutoSaveTriggered(false);
+    setProjectSaveAttempted(false);
+    setHasAutoSaved(false);
+    setAutoSaveInProgress(false);
 
     try {
       const totalLanguages = targetLanguages.length;
@@ -543,8 +572,12 @@ const StaticSubtitleUpload = () => {
       setTranslatedFiles(translatedResults);
       setCurrentTranslatingLanguage("");
 
-      // Show auto-save countdown after successful translation
-      if (translatedResults.length > 0) {
+      // Show auto-save countdown only if translation was successful and no save attempted yet
+      if (
+        translatedResults.length > 0 &&
+        !projectSaveAttempted &&
+        !hasAutoSaved
+      ) {
         setShowAutoSaveCountdown(true);
       }
     } catch (err) {
@@ -557,32 +590,170 @@ const StaticSubtitleUpload = () => {
 
   // Auto-save function
   const handleAutoSave = async () => {
-    const autoProjectName =
-      uploadedFile?.name.replace(/\.[^/.]+$/, "") || "Untitled Project";
+    // Prevent duplicate auto-saves
+    if (autoSaveInProgress || hasAutoSaved || projectSaveAttempted) {
+      console.log("Auto-save already in progress or completed, skipping...");
+      setShowAutoSaveCountdown(false);
+      return;
+    }
 
-    const projectData = {
-      project_name: autoProjectName,
-      description: `Auto-saved project from translation of ${uploadedFile?.name}`,
-      filenames: translatedFiles.map((file) => file.filename),
-      original_filename: uploadedFile?.name || "",
-      target_languages: targetLanguages,
-      is_public: false, // Auto-saved projects are private by default
-    };
+    // Verify we have files to save
+    if (!translatedFiles || translatedFiles.length === 0) {
+      console.log("No translated files available for auto-save");
+      setShowAutoSaveCountdown(false);
+      return;
+    }
 
-    await saveAsProject(projectData);
-    setShowAutoSaveCountdown(false);
-    setAutoSaveTriggered(true);
+    // Check if any files are empty or invalid
+    const validFiles = translatedFiles.filter(
+      (file) =>
+        file.filename &&
+        file.filename.trim() !== "" &&
+        (editedFiles[file.filename] || true), // Either has edited content or assume original is valid
+    );
+
+    if (validFiles.length === 0) {
+      console.log("No valid files available for auto-save");
+      setShowAutoSaveCountdown(false);
+      setError(
+        "No valid translated files found. Please ensure translation completed successfully.",
+      );
+      return;
+    }
+
+    setAutoSaveInProgress(true);
+    setProjectSaveAttempted(true);
+
+    try {
+      // Add a small delay to ensure all files are properly processed
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      const autoProjectName =
+        uploadedFile?.name.replace(/\.[^/.]+$/, "") || "Untitled Project";
+
+      // Add timestamp to prevent duplicate project names
+      const timestamp = new Date()
+        .toISOString()
+        .slice(0, 19)
+        .replace(/[:-]/g, "");
+      const uniqueProjectName = `${autoProjectName}_autosaved_${timestamp}`;
+
+      const projectData = {
+        project_name: uniqueProjectName,
+        description: `Auto-saved project from translation of ${uploadedFile?.name} at ${new Date().toLocaleString()}`,
+        filenames: validFiles.map((file) => file.filename),
+        original_filename: uploadedFile?.name || "",
+        target_languages: targetLanguages,
+        is_public: false,
+        edited_files: editedFiles,
+        auto_saved: true, // Flag to indicate this was auto-saved
+      };
+
+      console.log("Attempting auto-save with data:", projectData);
+
+      await saveAsProject(projectData);
+      setAutoSaveTriggered(true);
+      setProjectSaved(true);
+      setHasAutoSaved(true);
+
+      console.log("Auto-save completed successfully");
+    } catch (error) {
+      console.error("Auto-save failed:", error);
+      setError(`Auto-save failed: ${error.message}`);
+      // Reset states on failure so user can try again
+      setProjectSaveAttempted(false);
+    } finally {
+      setShowAutoSaveCountdown(false);
+      setAutoSaveInProgress(false);
+    }
   };
 
-  // Handle customize project (open modal)
+  // Enhanced customize project function
   const handleCustomizeProject = () => {
     setShowAutoSaveCountdown(false);
+    setProjectSaveAttempted(true); // Mark as attempted to prevent auto-save
     setShowSaveProjectModal(true);
   };
 
-  // Handle cancel auto-save
+  // Enhanced cancel auto-save function
   const handleCancelAutoSave = () => {
     setShowAutoSaveCountdown(false);
+    setProjectSaveAttempted(true); // Mark as attempted to prevent auto-save from showing again
+  };
+
+  // Enhanced saveAsProject function with duplicate prevention
+  const saveAsProject = async (projectData) => {
+    if (!backendConnected) {
+      setError("Backend not connected. Cannot save project.");
+      return;
+    }
+
+    // Create a unique request key based on project data
+    const requestKey = `save_${projectData.project_name}_${JSON.stringify(projectData.filenames)}`;
+
+    // Check if this exact request is already pending
+    if (pendingRequests.has(requestKey)) {
+      console.log("Duplicate save request detected, ignoring...");
+      return;
+    }
+
+    // Prevent duplicate saves with more specific logging
+    if (isSavingProject) {
+      console.log("Save already in progress, skipping duplicate request");
+      return;
+    }
+
+    console.log("Starting project save with data:", {
+      projectName: projectData.project_name,
+      fileCount: projectData.filenames?.length || 0,
+      hasEditedFiles: Object.keys(projectData.edited_files || {}).length > 0,
+    });
+
+    // Mark request as pending
+    setPendingRequests((prev) => new Set([...prev, requestKey]));
+    setIsSavingProject(true);
+    setError(null);
+
+    try {
+      const response = await apiCall("/save-project", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(projectData),
+      });
+
+      console.log("Project save response:", response);
+
+      setProjectSaveSuccess({
+        projectName: projectData.project_name,
+        projectId: response.project_id,
+        fileCount: response.files_saved,
+      });
+
+      setShowSaveProjectModal(false);
+      setProjectSaved(true);
+      setProjectSaveAttempted(true);
+
+      // Auto-hide success message after 5 seconds
+      setTimeout(() => {
+        setProjectSaveSuccess(null);
+      }, 5000);
+    } catch (err) {
+      console.error("Project save error:", err);
+
+      // Handle specific duplicate error
+
+      // Don't reset projectSaveAttempted on error to prevent auto-save from triggering
+    } finally {
+      setIsSavingProject(false);
+      // Remove request from pending set
+      setPendingRequests((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(requestKey);
+        return newSet;
+      });
+    }
   };
 
   // Download translated file from backend
@@ -758,12 +929,12 @@ const StaticSubtitleUpload = () => {
     initializeEditHistory(previewContent);
   };
 
-  // Cancel editing
   const cancelEditing = () => {
     setIsEditing(false);
     setEditedContent("");
     setEditHistory([]);
     setHistoryIndex(-1);
+    setIsViewingEditedFile(false);
     if (translatedPreviewRef.current) {
       translatedPreviewRef.current.scrollTop = 0;
     }
@@ -889,44 +1060,6 @@ const StaticSubtitleUpload = () => {
     }
   };
 
-  const saveAsProject = async (projectData) => {
-    if (!backendConnected) {
-      setError("Backend not connected. Cannot save project.");
-      return;
-    }
-
-    setIsSavingProject(true);
-    setError(null);
-
-    try {
-      const response = await apiCall("/save-project", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(projectData),
-      });
-
-      setProjectSaveSuccess({
-        projectName: projectData.project_name,
-        projectId: response.project_id,
-        fileCount: response.files_saved,
-      });
-
-      setShowSaveProjectModal(false);
-
-      // Auto-hide success message after 5 seconds
-      setTimeout(() => {
-        setProjectSaveSuccess(null);
-      }, 5000);
-    } catch (err) {
-      setError(`Failed to save project: ${err.message}`);
-      console.error("Project save error:", err);
-    } finally {
-      setIsSavingProject(false);
-    }
-  };
-
   const resetComponent = () => {
     setUploadedFile(null);
     setTranslationProgress(0);
@@ -951,6 +1084,11 @@ const StaticSubtitleUpload = () => {
     setProjectSaveSuccess(null);
     setShowAutoSaveCountdown(false);
     setAutoSaveTriggered(false);
+    setProjectSaved(false);
+    setHasAutoSaved(false);
+    setAutoSaveInProgress(false);
+    setProjectSaveAttempted(false);
+    setPendingRequests(new Set());
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -1195,12 +1333,14 @@ const StaticSubtitleUpload = () => {
 
         {/* Action Buttons */}
         <div className="mt-8 flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4">
-          <button
-            onClick={resetComponent}
-            className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 w-full sm:w-auto"
-          >
-            Reset
-          </button>
+          {uploadedFile && (
+            <button
+              onClick={resetComponent}
+              className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 w-full sm:w-auto"
+            >
+              Reset
+            </button>
+          )}
 
           {uploadedFile && backendConnected && (
             <div className="flex items-center space-x-6">
@@ -1250,8 +1390,8 @@ const StaticSubtitleUpload = () => {
               </div>
 
               <div className="flex items-center space-x-2">
-                {/* Save as Project Button - Only show if not auto-saved */}
-                {!autoSaveTriggered && (
+                {/* Save as Project Button - Only show if not auto-saved and not manually saved */}
+                {!autoSaveTriggered && !hasAutoSaved && !projectSaved && (
                   <button
                     onClick={() => setShowSaveProjectModal(true)}
                     disabled={isSavingProject}
@@ -1261,7 +1401,6 @@ const StaticSubtitleUpload = () => {
                     <span>Save as Project</span>
                   </button>
                 )}
-
                 {/* Download All as ZIP button when multiple files */}
                 {translatedFiles.length > 1 && (
                   <button
@@ -1417,36 +1556,52 @@ const StaticSubtitleUpload = () => {
                       <span className="w-3 h-3 bg-green-500 rounded-full mr-2"></span>
                       Translated ({previewingFile.languageName})
                     </h4>
-                    <div className="flex items-center space-x-2">
-                      {!isEditing ? (
-                        <button
-                          onClick={startEditing}
-                          disabled={loadingPreview}
-                          className="text-blue-600 hover:text-blue-800 text-sm flex items-center space-x-1"
-                        >
-                          <Edit className="w-4 h-4" />
-                          <span>Edit</span>
-                        </button>
-                      ) : (
+                    <div className="flex items-center justify-end space-x-4">
+                      {/* Undo/Redo buttons - closer to Edit/View */}
+                      {isEditing && (
                         <div className="flex items-center space-x-2">
                           <button
-                            onClick={saveEditedFile}
-                            disabled={isSaving}
-                            className="text-green-600 hover:text-green-800 text-sm flex items-center space-x-1"
+                            onClick={handleUndo}
+                            disabled={historyIndex <= 0}
+                            className={`flex items-center space-x-1 px-2 py-1 rounded text-xs ${
+                              historyIndex <= 0
+                                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                                : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                            }`}
+                            title="Undo (Ctrl+Z)"
                           >
-                            <Save className="w-4 h-4" />
-                            <span>{isSaving ? "Saving..." : "Save"}</span>
+                            <Undo className="w-3 h-3" />
                           </button>
                           <button
-                            onClick={cancelEditing}
-                            disabled={isSaving}
-                            className="text-gray-600 hover:text-gray-800 text-sm flex items-center space-x-1"
+                            onClick={handleRedo}
+                            disabled={historyIndex >= editHistory.length - 1}
+                            className={`flex items-center space-x-1 px-2 py-1 rounded text-xs ${
+                              historyIndex >= editHistory.length - 1
+                                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                                : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                            }`}
+                            title="Redo (Ctrl+Shift+Z or Ctrl+Y)"
                           >
-                            <X className="w-4 h-4" />
-                            <span>Cancel</span>
+                            <Redo className="w-3 h-3" />
                           </button>
                         </div>
                       )}
+
+                      {/* Edit/View button */}
+                      <button
+                        onClick={
+                          isEditing ? () => setIsEditing(false) : startEditing
+                        }
+                        disabled={loadingPreview}
+                        className="text-blue-600 hover:text-blue-800 text-sm flex items-center space-x-1"
+                      >
+                        {isEditing ? (
+                          <Eye className="w-4 h-4" />
+                        ) : (
+                          <Edit className="w-4 h-4" />
+                        )}
+                        <span>{isEditing ? "View" : "Edit"}</span>
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -1459,39 +1614,6 @@ const StaticSubtitleUpload = () => {
                     </div>
                   ) : isEditing ? (
                     <div className="space-y-2">
-                      {/* Undo/Redo buttons */}
-                      <div className="flex items-center space-x-2 mb-2">
-                        <button
-                          onClick={handleUndo}
-                          disabled={historyIndex <= 0}
-                          className={`flex items-center space-x-1 px-3 py-1 rounded text-sm ${
-                            historyIndex <= 0
-                              ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                              : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                          }`}
-                          title="Undo (Ctrl+Z)"
-                        >
-                          <Undo className="w-4 h-4" />
-                          <span>Undo</span>
-                        </button>
-                        <button
-                          onClick={handleRedo}
-                          disabled={historyIndex >= editHistory.length - 1}
-                          className={`flex items-center space-x-1 px-3 py-1 rounded text-sm ${
-                            historyIndex >= editHistory.length - 1
-                              ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                              : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                          }`}
-                          title="Redo (Ctrl+Shift+Z or Ctrl+Y)"
-                        >
-                          <Redo className="w-4 h-4" />
-                          <span>Redo</span>
-                        </button>
-                        <div className="text-xs text-gray-500 ml-auto">
-                          History: {historyIndex + 1}/{editHistory.length}
-                        </div>
-                      </div>
-
                       <textarea
                         ref={editTextareaRef}
                         value={editedContent}
@@ -1533,35 +1655,67 @@ const StaticSubtitleUpload = () => {
               <div className="flex items-center space-x-2">
                 {isEditing && (
                   <div className="text-sm text-orange-600 bg-orange-50 px-3 py-1 rounded-full">
-                    Editing
+                    Editing Mode
                   </div>
                 )}
               </div>
 
               {/* Right side - Action buttons */}
               <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
+                {isEditing && !hasAutoSaved && !projectSaved && (
+                  <button
+                    onClick={() => {
+                      // Save the edited content to state
+                      setPreviewContent(editedContent);
+                      setEditedFiles((prev) => ({
+                        ...prev,
+                        [previewingFile.filename]: editedContent,
+                      }));
+                      setShowSaveProjectModal(true);
+                    }}
+                    disabled={isSaving}
+                    className="flex items-center justify-center space-x-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:bg-gray-400"
+                  >
+                    <Save className="w-4 h-4" />
+                    <span>Save Project</span>
+                  </button>
+                )}
+
                 <button
                   onClick={() => {
-                    if (editedFiles[previewingFile.filename]) {
+                    if (
+                      editedFiles[previewingFile.filename] &&
+                      !projectSaved &&
+                      !hasAutoSaved
+                    ) {
+                      // Has edits but project not saved yet - open save modal
+                      setShowSaveProjectModal(true);
+                    } else if (editedFiles[previewingFile.filename]) {
+                      // Has edits and project is saved - download edited file
                       downloadEditedFile(previewingFile.filename);
                     } else {
+                      // No edits - download original file
                       downloadFile(previewingFile.filename);
                     }
                   }}
-                  disabled={isEditing}
+                  disabled={isEditing && !editedFiles[previewingFile.filename]}
                   className={`flex items-center justify-center space-x-2 px-4 py-2 rounded-lg ${
-                    isEditing
+                    isEditing && !editedFiles[previewingFile.filename]
                       ? "bg-gray-300 text-gray-500 cursor-not-allowed"
                       : "bg-blue-500 text-white hover:bg-blue-600"
                   }`}
                 >
                   <Download className="w-4 h-4" />
                   <span>
-                    {isEditing
-                      ? "Finish Editing First"
-                      : editedFiles[previewingFile.filename]
-                        ? "Download Edited"
-                        : "Download File"}
+                    {isEditing && !editedFiles[previewingFile.filename]
+                      ? "Save Project First"
+                      : editedFiles[previewingFile.filename] &&
+                          !projectSaved &&
+                          !hasAutoSaved
+                        ? "Save & Download"
+                        : editedFiles[previewingFile.filename]
+                          ? "Download Edited"
+                          : "Download File"}
                   </span>
                 </button>
               </div>
@@ -1579,6 +1733,7 @@ const StaticSubtitleUpload = () => {
         targetLanguages={targetLanguages}
         languages={languages}
         isSaving={isSavingProject}
+        editedFiles={editedFiles}
       />
     </div>
   );

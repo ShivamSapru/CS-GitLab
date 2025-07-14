@@ -78,11 +78,8 @@ const AutoSaveCountdown = ({
           </h2>
         </div>
 
-        {/* Countdown Content */}
+        {/* Content without countdown number */}
         <div className="text-center mb-6">
-          <div className="text-3xl font-bold text-blue-600 mb-2">
-            {secondsLeft}
-          </div>
           <p className="text-gray-600 mb-4">
             Project will be automatically saved as:
           </p>

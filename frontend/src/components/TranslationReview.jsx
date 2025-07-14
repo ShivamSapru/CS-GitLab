@@ -366,7 +366,9 @@ const TranscriptionApp = () => {
       <div className="bg-white rounded-xl shadow-lg overflow-hidden">
         {/* Header */}
         <div className="bg-white text-black p-6 border-b">
-          <h1 className="text-3xl font-bold mb-2">AI Transcription</h1>
+          <h1 className="text-2xl font-bold text-gray-900 mb-4 sm:mb-0">
+            AI Transcription
+          </h1>
         </div>
 
         {/* Navigation Tabs */}
@@ -466,8 +468,8 @@ const TranscriptionApp = () => {
                       onChange={(e) => setOutputFormat(e.target.value)}
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     >
-                      <option value="srt">SRT (SubRip)</option>
-                      <option value="vtt">VTT (WebVTT)</option>
+                      <option value="srt">SRT </option>
+                      <option value="vtt">VTT </option>
                     </select>
                   </div>
 
@@ -529,7 +531,7 @@ const TranscriptionApp = () => {
                             {Object.entries(locales).map(
                               ([locale, language]) => (
                                 <option key={locale} value={locale}>
-                                  {language} ({locale})
+                                  {language}
                                 </option>
                               ),
                             )}
@@ -551,7 +553,10 @@ const TranscriptionApp = () => {
                             }
                             className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                           >
-                            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
+                            {[
+                              2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
+                              16,
+                            ].map((num) => (
                               <option key={num} value={num}>
                                 {num} {num === 1 ? "Speaker" : "Speakers"}
                               </option>

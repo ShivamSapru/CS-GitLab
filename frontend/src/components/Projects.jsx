@@ -130,10 +130,22 @@ const Projects = ({ projectId, onBack, origin = "library" }) => {
 
   const handleDownload = async (filename) => {
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/download-subtitle?filename=${encodeURIComponent(filename)}`,
+      // Try to get from project blob storage first (which contains edited content if any)
+      const projectResponse = await fetch(
+        `${API_BASE_URL}/project/${projectId}/file/${encodeURIComponent(filename)}`,
         { credentials: "include" },
       );
+
+      let response;
+      if (projectResponse.ok) {
+        response = projectResponse;
+      } else {
+        // Fallback to temp storage
+        response = await fetch(
+          `${API_BASE_URL}/download-subtitle?filename=${encodeURIComponent(filename)}`,
+          { credentials: "include" },
+        );
+      }
 
       if (!response.ok) {
         throw new Error("Download failed");
@@ -165,10 +177,19 @@ const Projects = ({ projectId, onBack, origin = "library" }) => {
 
     try {
       // Fetch the translated file content
-      const translatedResponse = await fetch(
-        `${API_BASE_URL}/download-subtitle?filename=${encodeURIComponent(filename)}`,
+      // Fetch the translated file content (try project storage first for edited content)
+      let translatedResponse = await fetch(
+        `${API_BASE_URL}/project/${projectId}/file/${encodeURIComponent(filename)}`,
         { credentials: "include" },
       );
+
+      if (!translatedResponse.ok) {
+        // Fallback to temp storage
+        translatedResponse = await fetch(
+          `${API_BASE_URL}/download-subtitle?filename=${encodeURIComponent(filename)}`,
+          { credentials: "include" },
+        );
+      }
 
       if (!translatedResponse.ok) {
         const errorData = await translatedResponse.json();
@@ -759,36 +780,52 @@ const Projects = ({ projectId, onBack, origin = "library" }) => {
                     <span className="w-3 h-3 bg-green-500 rounded-full mr-2"></span>
                     Translated ({previewingFile.languageName})
                   </h4>
-                  <div className="flex items-center space-x-2">
-                    {!isEditing ? (
-                      <button
-                        onClick={startEditing}
-                        disabled={loadingPreview}
-                        className="text-blue-600 hover:text-blue-800 text-sm flex items-center space-x-1"
-                      >
-                        <Edit className="w-4 h-4" />
-                        <span>Edit</span>
-                      </button>
-                    ) : (
+                  <div className="flex items-center justify-end space-x-4">
+                    {/* Undo/Redo buttons - closer to Edit/View */}
+                    {isEditing && (
                       <div className="flex items-center space-x-2">
                         <button
-                          onClick={saveEditedFile}
-                          disabled={isSaving}
-                          className="text-green-600 hover:text-green-800 text-sm flex items-center space-x-1"
+                          onClick={handleUndo}
+                          disabled={historyIndex <= 0}
+                          className={`flex items-center space-x-1 px-2 py-1 rounded text-xs ${
+                            historyIndex <= 0
+                              ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                              : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                          }`}
+                          title="Undo (Ctrl+Z)"
                         >
-                          <Save className="w-4 h-4" />
-                          <span>{isSaving ? "Saving..." : "Save"}</span>
+                          <Undo className="w-3 h-3" />
                         </button>
                         <button
-                          onClick={cancelEditing}
-                          disabled={isSaving}
-                          className="text-gray-600 hover:text-gray-800 text-sm flex items-center space-x-1"
+                          onClick={handleRedo}
+                          disabled={historyIndex >= editHistory.length - 1}
+                          className={`flex items-center space-x-1 px-2 py-1 rounded text-xs ${
+                            historyIndex >= editHistory.length - 1
+                              ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                              : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                          }`}
+                          title="Redo (Ctrl+Shift+Z or Ctrl+Y)"
                         >
-                          <X className="w-4 h-4" />
-                          <span>Cancel</span>
+                          <Redo className="w-3 h-3" />
                         </button>
                       </div>
                     )}
+
+                    {/* Edit/View button */}
+                    <button
+                      onClick={
+                        isEditing ? () => setIsEditing(false) : startEditing
+                      }
+                      disabled={loadingPreview}
+                      className="text-blue-600 hover:text-blue-800 text-sm flex items-center space-x-1"
+                    >
+                      {isEditing ? (
+                        <Eye className="w-4 h-4" />
+                      ) : (
+                        <Edit className="w-4 h-4" />
+                      )}
+                      <span>{isEditing ? "View" : "Edit"}</span>
+                    </button>
                   </div>
                 </div>
               </div>
@@ -801,39 +838,6 @@ const Projects = ({ projectId, onBack, origin = "library" }) => {
                   </div>
                 ) : isEditing ? (
                   <div className="space-y-2">
-                    {/* Undo/Redo buttons */}
-                    <div className="flex items-center space-x-2 mb-2">
-                      <button
-                        onClick={handleUndo}
-                        disabled={historyIndex <= 0}
-                        className={`flex items-center space-x-1 px-3 py-1 rounded text-sm ${
-                          historyIndex <= 0
-                            ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                            : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                        }`}
-                        title="Undo (Ctrl+Z)"
-                      >
-                        <Undo className="w-4 h-4" />
-                        <span>Undo</span>
-                      </button>
-                      <button
-                        onClick={handleRedo}
-                        disabled={historyIndex >= editHistory.length - 1}
-                        className={`flex items-center space-x-1 px-3 py-1 rounded text-sm ${
-                          historyIndex >= editHistory.length - 1
-                            ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                            : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                        }`}
-                        title="Redo (Ctrl+Shift+Z or Ctrl+Y)"
-                      >
-                        <Redo className="w-4 h-4" />
-                        <span>Redo</span>
-                      </button>
-                      <div className="text-xs text-gray-500 ml-auto">
-                        History: {historyIndex + 1}/{editHistory.length}
-                      </div>
-                    </div>
-
                     <textarea
                       ref={editTextareaRef}
                       value={editedContent}
@@ -869,41 +873,43 @@ const Projects = ({ projectId, onBack, origin = "library" }) => {
           </div>
 
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-2">
-            {/* Left side - Edit status */}
-            <div className="flex items-center space-x-2">
-              {isEditing && (
-                <div className="text-sm text-orange-600 bg-orange-50 px-3 py-1 rounded-full">
-                  Editing
-                </div>
-              )}
-            </div>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-2">
+              {/* Left side - Edit status */}
+              <div className="flex items-center space-x-2">
+                {isEditing && (
+                  <div className="text-sm text-orange-600 bg-orange-50 px-3 py-1 rounded-full">
+                    Editing Mode
+                  </div>
+                )}
+              </div>
 
-            {/* Right side - Action buttons */}
-            <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
-              <button
-                onClick={() => {
-                  if (editedFiles[previewingFile.filename]) {
-                    downloadEditedFile(previewingFile.filename);
-                  } else {
-                    handleDownload(previewingFile.filename);
-                  }
-                }}
-                disabled={isEditing}
-                className={`flex items-center justify-center space-x-2 px-4 py-2 rounded-lg ${
-                  isEditing
-                    ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                    : "bg-blue-500 text-white hover:bg-blue-600"
-                }`}
-              >
-                <Download className="w-4 h-4" />
-                <span>
-                  {isEditing
-                    ? "Finish Editing First"
-                    : editedFiles[previewingFile.filename]
-                      ? "Download Edited"
-                      : "Download File"}
-                </span>
-              </button>
+              {/* Right side - Action buttons */}
+              <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
+                <button
+                  onClick={() => {
+                    if (editedFiles[previewingFile.filename]) {
+                      downloadEditedFile(previewingFile.filename);
+                    } else {
+                      handleDownload(previewingFile.filename);
+                    }
+                  }}
+                  disabled={isEditing}
+                  className={`flex items-center justify-center space-x-2 px-4 py-2 rounded-lg ${
+                    isEditing
+                      ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                      : "bg-blue-500 text-white hover:bg-blue-600"
+                  }`}
+                >
+                  <Download className="w-4 h-4" />
+                  <span>
+                    {isEditing
+                      ? "Switch to View First"
+                      : editedFiles[previewingFile.filename]
+                        ? "Download Edited"
+                        : "Download File"}
+                  </span>
+                </button>
+              </div>
             </div>
           </div>
         </div>

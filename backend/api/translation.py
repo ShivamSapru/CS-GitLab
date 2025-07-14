@@ -20,6 +20,7 @@ from backend.database.models import Translation
 from backend.database.models import TranslationProject
 from backend.database.db import SessionLocal
 from sqlalchemy.orm import Session
+from sqlalchemy import and_
 from uuid import uuid4
 from datetime import datetime, timezone
 
@@ -35,6 +36,7 @@ class ProjectSaveRequest(BaseModel):
     original_filename: str
     target_languages: List[str]
     is_public: Optional[bool] = False
+    edited_files: Optional[Dict[str, str]] = {}
 
 class ZipRequest(BaseModel):
     filenames: List[str]
@@ -334,8 +336,63 @@ async def save_project(
         if not user:
             return JSONResponse(status_code=404, content={"error": "User not found"})
 
+        # Check for duplicate project names for this user (prevent duplicates)
+        existing_project = db.query(TranslationProject).filter(
+            and_(
+                TranslationProject.user_id == user.user_id,
+                TranslationProject.project_name == project_data.project_name
+            )
+        ).first()
+
+        if existing_project:
+            # If project exists and was created very recently (within 30 seconds),
+            # consider it a duplicate request
+            current_time = datetime.now(timezone.utc)
+
+            # Ensure both datetimes are timezone-aware for comparison
+            if existing_project.created_at.tzinfo is None:
+                # If stored datetime is naive, assume it's UTC
+                existing_created_at = existing_project.created_at.replace(tzinfo=timezone.utc)
+            else:
+                existing_created_at = existing_project.created_at
+
+            time_diff = current_time - existing_created_at
+            if time_diff.total_seconds() < 30:
+                return JSONResponse(
+                    status_code=409,
+                    content={
+                        "error": "Project with this name was recently saved. Please wait or use a different name.",
+                        "existing_project_id": str(existing_project.project_id)
+                    }
+                )
+            else:
+                # Add timestamp to make name unique
+                timestamp = current_time.strftime("%Y%m%d_%H%M%S")
+                project_data.project_name = f"{project_data.project_name}_{timestamp}"
+
+        # Validate that all files exist before proceeding
+        missing_files = []
+        for filename in project_data.filenames:
+            if filename not in project_data.edited_files:
+                # Check if original file exists
+                local_file_path = os.path.join(temp_dir, filename)
+                if not os.path.exists(local_file_path):
+                    missing_files.append(filename)
+
+        if missing_files:
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "error": f"Files not found: {', '.join(missing_files)}. Please ensure translation is complete before saving."
+                }
+            )
+
         # Generate project ID
         project_id = uuid4()
+
+        print(f"Starting project save: {project_data.project_name} with ID: {project_id}")
+        print(f"Files to save: {len(project_data.filenames)}")
+        print(f"Edited files: {len(project_data.edited_files)}")
 
         # Initialize Azure Blob client
         blob_client = get_blob_client()
@@ -350,65 +407,106 @@ async def save_project(
         # Upload files to Azure Blob Storage
         uploaded_files = []
         for filename in project_data.filenames:
-            local_file_path = os.path.join(temp_dir, filename)
+            try:
+                # Check if this file has edited content
+                if filename in project_data.edited_files:
+                    # Use edited content instead of the original file
+                    edited_content = project_data.edited_files[filename]
 
-            if not os.path.exists(local_file_path):
-                return JSONResponse(
-                    status_code=404,
-                    content={"error": f"File {filename} not found"}
-                )
+                    if not edited_content.strip():
+                        print(f"Warning: Edited content for {filename} is empty")
+                        continue
 
-            # Create blob path: projects/{project_id}/{filename}
-            blob_name = f"projects/{project_id}/{filename}"
+                    # Create blob path: projects/{project_id}/{filename}
+                    blob_name = f"projects/{project_id}/{filename}"
 
-            # Upload file to blob storage
-            with open(local_file_path, "rb") as file_data:
-                blob_client.get_blob_client(
-                    container=AZURE_STORAGE_CONTAINER_NAME,
-                    blob=blob_name
-                ).upload_blob(file_data, overwrite=True)
-
-            uploaded_files.append({
-                "filename": filename,
-                "blob_path": blob_name,
-                "size": os.path.getsize(local_file_path)
-            })
-
-        if project_data.original_filename:
-            # Construct original file path (should be in temp_dir)
-            original_file_path = None
-            for filename in project_data.filenames:
-                # Find the original filename pattern by removing translation markers
-                if "Translated to" in filename:
-                    # Extract original name from translated filename
-                    original_name = filename.split(" (Translated to")[0] + ".srt"  # or .vtt
-                    potential_path = os.path.join(temp_dir, original_name)
-                    if os.path.exists(potential_path):
-                        original_file_path = potential_path
-                        break
-
-            if original_file_path and os.path.exists(original_file_path):
-                # Upload original file to blob storage
-                original_blob_name = f"projects/{project_id}/original_{project_data.original_filename}"
-
-                with open(original_file_path, "rb") as file_data:
+                    # Upload edited content directly to blob storage
                     blob_client.get_blob_client(
                         container=AZURE_STORAGE_CONTAINER_NAME,
-                        blob=original_blob_name
-                    ).upload_blob(file_data, overwrite=True)
+                        blob=blob_name
+                    ).upload_blob(edited_content.encode('utf-8'), overwrite=True)
 
-                # Add original file to uploaded_files list
-                uploaded_files.append({
-                    "filename": f"original_{project_data.original_filename}",
-                    "blob_path": original_blob_name,
-                    "size": os.path.getsize(original_file_path),
-                    "is_original": True
-                })
+                    uploaded_files.append({
+                        "filename": filename,
+                        "blob_path": blob_name,
+                        "size": len(edited_content.encode('utf-8')),
+                        "is_edited": True
+                    })
+                    print(f"Uploaded edited file: {filename} ({len(edited_content)} chars)")
+                else:
+                    # Use original file from temp directory
+                    local_file_path = os.path.join(temp_dir, filename)
+
+                    if not os.path.exists(local_file_path):
+                        print(f"Skipping missing file: {filename}")
+                        continue
+
+                    # Check if file is empty
+                    if os.path.getsize(local_file_path) == 0:
+                        print(f"Warning: File {filename} is empty")
+                        continue
+
+                    # Create blob path: projects/{project_id}/{filename}
+                    blob_name = f"projects/{project_id}/{filename}"
+
+                    # Upload file to blob storage
+                    with open(local_file_path, "rb") as file_data:
+                        blob_client.get_blob_client(
+                            container=AZURE_STORAGE_CONTAINER_NAME,
+                            blob=blob_name
+                        ).upload_blob(file_data, overwrite=True)
+
+                    uploaded_files.append({
+                        "filename": filename,
+                        "blob_path": blob_name,
+                        "size": os.path.getsize(local_file_path),
+                        "is_edited": False
+                    })
+                    print(f"Uploaded original file: {filename} ({os.path.getsize(local_file_path)} bytes)")
+            except Exception as file_error:
+                print(f"Error uploading file {filename}: {file_error}")
+                # Continue with other files instead of failing completely
+                continue
+
+        # Verify we have files to save
+        if not uploaded_files:
+            return JSONResponse(
+                status_code=400,
+                content={"error": "No valid files were found to save. Please ensure translation is complete."}
+            )
+
+        # Handle original file upload (optional)
+        if project_data.original_filename:
+            try:
+                # Look for original file in temp directory
+                original_file_path = os.path.join(temp_dir, project_data.original_filename)
+
+                if os.path.exists(original_file_path) and os.path.getsize(original_file_path) > 0:
+                    # Upload original file to blob storage
+                    original_blob_name = f"projects/{project_id}/original_{project_data.original_filename}"
+
+                    with open(original_file_path, "rb") as file_data:
+                        blob_client.get_blob_client(
+                            container=AZURE_STORAGE_CONTAINER_NAME,
+                            blob=original_blob_name
+                        ).upload_blob(file_data, overwrite=True)
+
+                    # Add original file to uploaded_files list
+                    uploaded_files.append({
+                        "filename": f"original_{project_data.original_filename}",
+                        "blob_path": original_blob_name,
+                        "size": os.path.getsize(original_file_path),
+                        "is_original": True
+                    })
+                    print(f"Uploaded original file: {project_data.original_filename}")
+            except Exception as orig_error:
+                print(f"Warning: Could not upload original file: {orig_error}")
+                # Don't fail the entire operation for original file issues
 
         # Get language names from the target_language codes
         target_language_names = []
         for lang_code in project_data.target_languages:
-            lang_name = LANGUAGE_CODES.get(lang_code, lang_code)  # Fallback to code if name not found
+            lang_name = LANGUAGE_CODES.get(lang_code, lang_code)
             target_language_names.append(lang_name)
 
         # Create project metadata
@@ -420,6 +518,7 @@ async def save_project(
             "target_languages": project_data.target_languages,
             "target_language_names": target_language_names,
             "files": uploaded_files,
+            "edited_files": list(project_data.edited_files.keys()) if project_data.edited_files else [],
             "created_at": datetime.now(timezone.utc).isoformat(),
             "user_id": str(user.user_id)
         }
@@ -432,40 +531,67 @@ async def save_project(
             blob=metadata_blob_name
         ).upload_blob(metadata_json.encode('utf-8'), overwrite=True)
 
-        # Save project to database FIRST
-        project = TranslationProject(
-            project_id=project_id,
-            user_id=user.user_id,
-            project_name=project_data.project_name,
-            description=project_data.description,
+        # Use a database transaction to ensure atomicity
+        try:
+            # Save project to database FIRST
+            project = TranslationProject(
+                project_id=project_id,
+                user_id=user.user_id,
+                project_name=project_data.project_name,
+                description=project_data.description,
+                is_public=is_public,
+                created_at=datetime.now(timezone.utc),
+                updated_at=datetime.now(timezone.utc)
+            )
+            db.add(project)
+            db.flush()  # This ensures the project is inserted before we reference it
 
-            is_public=is_public,
-
-            created_at=datetime.now(timezone.utc),
-            updated_at=datetime.now(timezone.utc)
-        )
-        db.add(project)
-        db.flush()  # This ensures the project is inserted before we reference it
-
-        # Update the SubtitleFile records to link them to this project
-        for filename in project_data.filenames:
-            subtitle_file = db.query(SubtitleFile).filter(
-                SubtitleFile.original_file_name == filename,
-                # SubtitleFile.user_id == user.user_id
-            ).first()
-
-            if subtitle_file:
-                subtitle_file.project_id = project_id
-
-                # Also update the translation record
-                translation = db.query(Translation).filter(
-                    Translation.translated_file_id == subtitle_file.file_id
+            # Update the SubtitleFile records to link them to this project
+            updated_files_count = 0
+            for filename in project_data.filenames:
+                subtitle_file = db.query(SubtitleFile).filter(
+                    and_(
+                        SubtitleFile.original_file_name == filename,
+                        SubtitleFile.user_id == user.user_id,
+                        SubtitleFile.project_id.is_(None)  # Only update files not already assigned to a project
+                    )
                 ).first()
 
-                if translation:
-                    translation.project_id = project_id
+                if subtitle_file:
+                    subtitle_file.project_id = project_id
+                    updated_files_count += 1
 
-        db.commit()  # Commit everything at once
+                    # Also update the translation record
+                    translation = db.query(Translation).filter(
+                        and_(
+                            Translation.translated_file_id == subtitle_file.file_id,
+                            Translation.project_id.is_(None)  # Only update translations not already assigned
+                        )
+                    ).first()
+
+                    if translation:
+                        translation.project_id = project_id
+
+            db.commit()  # Commit everything at once
+            print(f"Database transaction completed. Updated {updated_files_count} files.")
+
+        except Exception as db_error:
+            db.rollback()
+            print(f"Database error: {db_error}")
+            # Try to clean up uploaded blobs if database save failed
+            try:
+                blob_list = container_client.list_blobs(name_starts_with=f"projects/{project_id}/")
+                for blob in blob_list:
+                    blob_client.get_blob_client(
+                        container=AZURE_STORAGE_CONTAINER_NAME,
+                        blob=blob.name
+                    ).delete_blob()
+            except Exception as cleanup_error:
+                print(f"Blob cleanup error: {cleanup_error}")
+
+            raise db_error
+
+        print(f"Project save completed successfully: {project_data.project_name}")
 
         return {
             "success": True,
@@ -809,3 +935,75 @@ async def toggle_project_public(
             status_code=500,
             content={"error": f"Failed to update project visibility: {str(e)}"}
         )
+
+@router.get("/project/{project_id}/file/{filename}")
+async def get_project_file(
+    project_id: str,
+    filename: str,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """Get a specific file from project blob storage"""
+    try:
+        # Get user from session and verify project ownership
+        session_user = request.session.get("user")
+        if not session_user or not session_user.get("email"):
+            return JSONResponse(status_code=401, content={"error": "User not authenticated"})
+
+        user_email = session_user["email"]
+        user = db.query(User).filter(User.email == user_email).first()
+        if not user:
+            return JSONResponse(status_code=404, content={"error": "User not found"})
+
+        # Verify project belongs to user or is public
+        project = db.query(TranslationProject).filter(
+            TranslationProject.project_id == project_id
+        ).filter(
+            (TranslationProject.user_id == user.user_id) |
+            (TranslationProject.is_public == True)
+        ).first()
+
+        if not project:
+            return JSONResponse(status_code=404, content={"error": "Project not found"})
+
+        # Get file from blob storage
+        blob_client = get_blob_client()
+        blob_name = f"projects/{project_id}/{filename}"
+
+        try:
+            blob_client_instance = blob_client.get_blob_client(
+                container=AZURE_STORAGE_CONTAINER_NAME,
+                blob=blob_name
+            )
+
+            file_content = blob_client_instance.download_blob().readall()
+
+            # Return as streaming response
+            return StreamingResponse(
+                io.BytesIO(file_content),
+                media_type="application/octet-stream",
+                headers={"Content-Disposition": f"attachment; filename={filename}"}
+            )
+
+        except Exception as blob_error:
+            return JSONResponse(status_code=404, content={"error": "File not found in project storage"})
+
+    except Exception as e:
+        print(f"Error fetching project file: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={"error": f"Failed to fetch file: {str(e)}"}
+        )
+
+
+@router.head("/verify-file")
+async def verify_file(filename: str = Query(...)):
+    """Verify if a file exists in temp directory"""
+    try:
+        file_path = os.path.join(temp_dir, filename)
+        if os.path.exists(file_path):
+            return Response(status_code=200)
+        else:
+            return Response(status_code=404)
+    except Exception:
+        return Response(status_code=404)
