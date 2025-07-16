@@ -1,3 +1,4 @@
+const pollingIntervalMs = 500;  // poll every 500ms
 let pollingIntervalId = null;
 let lastCaption = "";
 
@@ -22,7 +23,6 @@ function sendCaptionToBackground(caption, to_lang) {
       text: caption,
       to_lang: to_lang
     });
-    chrome.storage.local.set({ latestCaption: caption });
   } catch (error) {
     console.error("Failed to send message:", error.message);
   }
@@ -43,7 +43,7 @@ function startPollingCaptions() {
     if (video && video.paused) {
       clearInterval(interval); // stop polling if video stops
     }
-  }, 500); // poll every 500ms
+  }, pollingIntervalMs);
 }
 
 function stopPollingCaptions() {

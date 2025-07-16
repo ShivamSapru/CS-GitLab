@@ -1,3 +1,5 @@
+const pollingIntervalMs = 500;  // poll every 500ms
+
 function getZoomIframe() {
   return document.getElementById("webclient");
 }
@@ -31,7 +33,7 @@ function startZoomPolling() {
   let lastCaption = "";
   const interval = setInterval(() => {
     const caption = getZoomCaptionsFromIframe(iframe);
-    if (caption[0] && caption[0] !== lastCaption) {
+    if (caption && caption.length && caption[0] && caption[0] !== lastCaption) {
       lastCaption = caption[0];
       chrome.runtime.sendMessage({ 
         action: "captionsDetected", 
@@ -40,7 +42,7 @@ function startZoomPolling() {
         author: caption[1]
       });
     }
-  }, 500);
+  }, pollingIntervalMs);
 }
 
 window.addEventListener("load", () => {

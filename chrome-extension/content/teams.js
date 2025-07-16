@@ -1,3 +1,5 @@
+const pollingIntervalMs = 500;  // poll every 500ms
+
 function getTeamsCaptions() {
   const captionElements = document.querySelectorAll('[data-tid="closed-caption-text"]');
   const captionAuthors = document.querySelectorAll('[data-tid="author"]');
@@ -17,7 +19,7 @@ function startTeamsCaptionPolling() {
   let lastCaption = "";
   setInterval(() => {
     const caption = getTeamsCaptions();
-    if (caption[0] && caption[0] !== lastCaption) {
+    if (caption && caption.length && caption[0] && caption[0] !== lastCaption) {
       lastCaption = caption[0];
       chrome.runtime.sendMessage({ 
         action: "captionsDetected", 
@@ -26,7 +28,7 @@ function startTeamsCaptionPolling() {
         author: caption[1]
       });
     }
-  }, 500); // Adjust interval if needed
+  }, pollingIntervalMs);
 }
 
 window.addEventListener("load", () => {
