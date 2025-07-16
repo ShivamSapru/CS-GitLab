@@ -15,7 +15,7 @@ POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD")
 POSTGRES_HOSTNAME = os.getenv("POSTGRES_HOSTNAME")
 POSTGRES_PORT = os.getenv("POSTGRES_PORT")
 
-DATABASE_URL = f"postgresql+psycopg2://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOSTNAME}:{POSTGRES_PORT}/{POSTGRES_DB}"
+DATABASE_URL = f"postgresql+psycopg2://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOSTNAME}:{POSTGRES_PORT}/{POSTGRES_DB}?sslmode=require"
 
 if not POSTGRES_DB or not POSTGRES_USER or not POSTGRES_PASSWORD or not POSTGRES_HOSTNAME or not POSTGRES_PORT:
     raise ValueError("One or more required PostgreSQL environment variables are missing. Please check your .env file or system environment.")

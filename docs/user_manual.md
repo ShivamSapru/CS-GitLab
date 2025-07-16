@@ -203,24 +203,39 @@ After logging in, users will be prompted to enable 2FA for enhanced security.
 ### Step 1: Install PostgreSQL:
 https://www.postgresql.org/download/
 
-Create a new database (eg. Subtitle_translator) from pgAdmin
 
 ### Step 2: Update .env:
-In your .env file, add the following:
-```env
-DATABASE_URL=postgresql+psycopg2://<username>:<password>@localhost:5432/<your_db_name>
-```
+Copy-paste the content for the PostgreSQL as it is in youe .env file
 
-### Step 3: Install psycpog2:
+### Step 3: Integrating with Azure PostgreSQL flexible Server:
+* Login to Azure portal
+* In Sentinels group find **sentinelserver**
+* In **sentinelserver** there is an option called **Connect to VS CODE**
+* Foloow the steps and complete the conntection
+* Open the VS Code, you will get a pop up asking for the connection, accept it and enter the password given in the .env file
+* To test the connection, run the command
 ```bash
-pip install psycopg2-binary
+psql -h sentinelserver.postgres.database.azure.com -U SentinelsDB -d postgres -W
 ```
+* If successful you can run the backend.
 
-### Step 4: Initialize the DB Tables:
-From the /backend directory, run:
-```bash
-python init_db.py
-``` 
+### Step 4: Checking the schema in pgAdmin:
+* Open pgAdmin and create a new server.
+
+    ![alt text](image-1.png)
+
+    You can give any name to your server
+
+
+    ![alt text](image-2.png)
+
+    The Conntection tab should be like given in the image
+
+    ![alt text](image-3.png)
+
+    In Paramrters tab make sure that SSL mode value = require
+
+* After all this is done click save and your Azure PostgreSQL Server is created.
 
 ### Optional: Test DB Connection:
 You can test if your database is connected by hitting this FastAPI endpoint:
