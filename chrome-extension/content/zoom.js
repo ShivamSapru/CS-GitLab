@@ -16,6 +16,9 @@ function getZoomCaptionsFromIframe(iframe) {
   return null;
 }
 
+// Target language need to be set dynamically
+const to_lang = "fr";
+
 function startZoomPolling() {
   const iframe = getZoomIframe();
   if (!iframe) {
@@ -28,7 +31,11 @@ function startZoomPolling() {
     const caption = getZoomCaptionsFromIframe(iframe);
     if (caption && caption !== lastCaption) {
       lastCaption = caption;
-      chrome.runtime.sendMessage({ action: "captionsDetected", text: caption });
+      chrome.runtime.sendMessage({ 
+        action: "captionsDetected", 
+        text: caption, 
+        to_lang: to_lang
+      });
     }
   }, 500);
 }

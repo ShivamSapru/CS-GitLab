@@ -15,7 +15,7 @@ function getYouTubeCaptions() {
   return null;
 }
 
-function sendCaptionToBackground(caption) {
+function sendCaptionToBackground(caption, to_lang) {
   try {
     chrome.runtime.sendMessage({
       action: "captionsDetected",
@@ -36,7 +36,7 @@ function startPollingCaptions() {
     const caption = getYouTubeCaptions();
     if (caption && caption !== lastCaption) {
       lastCaption = caption;
-      sendCaptionToBackground(caption);
+      sendCaptionToBackground(caption, to_lang);
     }
     
     const video = document.querySelector("video");
