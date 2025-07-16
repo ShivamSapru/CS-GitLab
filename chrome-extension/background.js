@@ -33,18 +33,28 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === "captionsDetected") {
-    // Detected caption
-    console.log("Caption received:", message.text);
-    chrome.storage.local.set({ 
-        latestCaption: message.text 
-    });
+    const author = message.author?.trim() || "";
+    const captionAuthor = author ? `${author}: ` : "";
+    const originalText = message.text?.trim() || "";
+    const targetLang = message.to_lang || "en";
 
-    // Translated caption
-    translateText(message.text, message.to_lang).then((translated) => {
-      console.log("Translation received:", translated);
-      chrome.storage.local.set({ 
-        latestCaption: translated 
+    const captionText = captionAuthor + originalText;
+    console.log("Caption received:", captionText);
+
+    // Save original caption (optional)
+    chrome.storage.local.set({ latestCaption: captionText });
+
+    // Translate and store the translated caption
+    translateText(originalText, targetLang)
+      .then((translated) => {
+        const translatedCaption = captionAuthor + translated;
+        console.log("Translation received:", translatedCaption);
+
+        // Save translated caption (optional)
+        chrome.storage.local.set({ latestTranslatedCaption: translatedCaption });
+      })
+      .catch((error) => {
+        console.error("Translation error:", error);
       });
-    });
   }
 });

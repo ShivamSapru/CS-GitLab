@@ -2,11 +2,10 @@ function getTeamsCaptions() {
   const captionElements = document.querySelectorAll('[data-tid="closed-caption-text"]');
   const captionAuthors = document.querySelectorAll('[data-tid="author"]');
   if (captionElements && captionElements.length > 0) {
-      const captionAuthor = captionAuthors[captionAuthors.length - 1].innerText.trim();
-      const captionElement = captionElements[captionElements.length - 1].innerText.trim();
-      // console.log("Teams Caption:", captionAuthor, ":", captionElement);
-      captionText = captionAuthor + ": " + captionElement
-      return captionText;
+      const captionText = captionElements[captionElements.length - 1].innerText.trim();
+      const author = captionAuthors[captionAuthors.length - 1].innerText.trim();
+      // console.log(author, captionText);
+      return [captionText, author];
   }
   return null;
 }
@@ -18,12 +17,13 @@ function startTeamsCaptionPolling() {
   let lastCaption = "";
   setInterval(() => {
     const caption = getTeamsCaptions();
-    if (caption && caption !== lastCaption) {
-      lastCaption = caption;
+    if (caption[0] && caption[0] !== lastCaption) {
+      lastCaption = caption[0];
       chrome.runtime.sendMessage({ 
         action: "captionsDetected", 
-        text: caption, 
-        to_lang: to_lang
+        text: caption[0], 
+        to_lang: to_lang,
+        author: caption[1]
       });
     }
   }, 500); // Adjust interval if needed
