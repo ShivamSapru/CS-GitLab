@@ -26,7 +26,8 @@ temp_dir = tempfile.mkdtemp()
 AZURE_SPEECH_KEY = os.getenv("AZURE_SPEECH_KEY")
 AZURE_SPEECH_REGION = os.getenv("AZURE_SPEECH_REGION")
 AZURE_STORAGE_CONNECTION_STRING = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
-AZURE_BLOB_CONTAINER = os.getenv("AZURE_BLOB_CONTAINER")
+AZURE_STORAGE_CONTAINER_NAME = os.getenv("AZURE_STORAGE_CONTAINER_NAME", "audio-files")
+# AZURE_BLOB_CONTAINER = os.getenv("AZURE_BLOB_CONTAINER")
 BATCH_ENDPOINT = os.getenv("BATCH_ENDPOINT").replace("AZURE_SPEECH_REGION", AZURE_SPEECH_REGION)
 GET_ENDPOINT_TEMPLATE = os.getenv("GET_ENDPOINT_TEMPLATE").replace("AZURE_SPEECH_REGION", AZURE_SPEECH_REGION)
 
@@ -127,6 +128,12 @@ def get_transcription_file(files_url: str):
     transcript_json = httpx.get(transcript_url).json()
     return transcript_json.get("recognizedPhrases", [])
 
+# Initialize Azure Blob client
+def get_blob_client():
+    if not AZURE_STORAGE_CONNECTION_STRING:
+        raise EnvironmentError("AZURE_STORAGE_CONNECTION_STRING not configured")
+    return BlobServiceClient.from_connection_string(AZURE_STORAGE_CONNECTION_STRING)
+
 # Endpoint to transcribe audio/video
 @router.post("/transcribe")
 async def transcribe_audio_video(
@@ -146,21 +153,31 @@ async def transcribe_audio_video(
         wav_path = os.path.join(temp_dir, f"{safe_name}_converted.wav")
         convert_to_wav(input_path, wav_path)
 
+        # Initialize Azure Blob client
+        blob_client = get_blob_client()
+        container_client = blob_client.get_container_client(AZURE_STORAGE_CONTAINER_NAME)
+
+        # Create container if it doesn't exist
+        try:
+            container_client.create_container()
+        except Exception:
+            pass  # Container might already exist
+
         blob_service = BlobServiceClient.from_connection_string(AZURE_STORAGE_CONNECTION_STRING)
         blob_name = os.path.basename(wav_path)
-        blob_client = blob_service.get_blob_client(container=AZURE_BLOB_CONTAINER, blob=blob_name)
+        blob_client = blob_service.get_blob_client(container=AZURE_STORAGE_CONTAINER_NAME, blob=blob_name)
         with open(wav_path, "rb") as data:
             blob_client.upload_blob(data, overwrite=True)
 
         sas_token = generate_blob_sas(
             account_name=blob_service.account_name,
-            container_name=AZURE_BLOB_CONTAINER,
+            container_name=AZURE_STORAGE_CONTAINER_NAME,
             blob_name=blob_name,
             account_key=blob_service.credential.account_key,
             permission=BlobSasPermissions(read=True),
             expiry=datetime.utcnow() + timedelta(hours=1)
         )
-        audio_url = f"https://{blob_service.account_name}.blob.core.windows.net/{AZURE_BLOB_CONTAINER}/{blob_name}?{sas_token}"
+        audio_url = f"https://{blob_service.account_name}.blob.core.windows.net/{AZURE_STORAGE_CONTAINER_NAME}/{blob_name}?{sas_token}"
 
         job_id = create_transcription_job(audio_url, censor_profanity, max_speakers, locale)
         files_url = poll_transcription_result(job_id)

@@ -15,21 +15,30 @@ function getYouTubeCaptions() {
   return null;
 }
 
-
 function sendCaptionToBackground(caption) {
   try {
-    chrome.runtime.sendMessage({ action: "captionsDetected", text: caption });
+    chrome.runtime.sendMessage({
+      action: "captionsDetected",
+      text: caption,
+      to_lang: to_lang
+    });
     chrome.storage.local.set({ latestCaption: caption });
   } catch (error) {
     console.error("Failed to send message:", error.message);
   }
 }
 
+// Target language need to be set dynamically
+const to_lang = "fr";
+
 function startPollingCaptions() {
   const interval = setInterval(() => {
     const caption = getYouTubeCaptions();
-    if (caption) sendCaptionToBackground(caption);
-
+    if (caption && caption !== lastCaption) {
+      lastCaption = caption;
+      sendCaptionToBackground(caption);
+    }
+    
     const video = document.querySelector("video");
     if (video && video.paused) {
       clearInterval(interval); // stop polling if video stops
