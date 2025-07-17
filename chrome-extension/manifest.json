@@ -1,0 +1,48 @@
+{
+  "manifest_version": 3,
+  "name": "Real-Time Subtitle Translator",
+  "version": "1.0",
+  "description": "Captures and translates subtitles from YouTube, Zoom, and Teams",
+  "permissions": [
+    "storage",
+    "activeTab",
+    "https://*.cognitive.microsoft.com/"
+  ],
+  "host_permissions": [
+    "https://*.youtube.com/*",
+    "https://*.zoom.us/*",
+    "https://*.teams.microsoft.com/*"
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
+  },
+  "background": {
+    "service_worker": "background/background.js"
+  },
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "assets/icon16.png",
+      "48": "assets/icon48.png",
+      "128": "assets/icon128.png"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://*.youtube.com/*"],
+      "js": ["content/youtube.js"],
+      "run_at": "document_end"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["lib/*"],
+      "matches": ["<all_urls>"]
+    }
+  ],
+  "icons": {
+    "16": "assets/icon16.png",
+    "48": "assets/icon48.png",
+    "128": "assets/icon128.png"
+  }
+}
