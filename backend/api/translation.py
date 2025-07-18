@@ -104,6 +104,27 @@ def chunk_texts(texts: List[str], max_chars: int) -> List[List[str]]:
         chunks.append(current_chunk)
     return chunks
 
+def get_blob_client():
+    connection_string = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
+    if not connection_string:
+        raise EnvironmentError("AZURE_STORAGE_CONNECTION_STRING not configured")
+    return BlobServiceClient.from_connection_string(connection_string)
+
+def upload_to_blob(file_path, blob_name, container_name):
+    """
+    Uploads a file to a specified container in Azure Blob Storage.
+    """
+    blob_client = get_blob_client()
+    container_client = blob_client.get_container_client(container_name)
+    
+    try:
+        with open(file_path, "rb") as data:
+            container_client.upload_blob(blob_name, data, overwrite=True)
+        return f"https://{os.getenv('AZURE_STORAGE_ACCOUNT_NAME')}.blob.core.windows.net/{container_name}/{blob_name}"
+    except Exception as e:
+        print(f"Error uploading file {file_path} to {container_name}: {e}")
+        raise
+
 
 def detect_and_translate(texts, to_lang, no_prof=False):
     url = f"{AZURE_TRANSLATOR_ENDPOINT.rstrip('/')}/translate?api-version=3.0&to={to_lang}"
@@ -165,6 +186,7 @@ async def upload_file(
         if not user:
             return JSONResponse(status_code=404, content={"error": "User not found"})
 
+        # Set paths and file names
         input_path = os.path.join(temp_dir, file.filename)
         base, ext = os.path.splitext(file.filename)
         tag = " and Censored" if censor_profanity else ""
@@ -172,9 +194,11 @@ async def upload_file(
         output_filename = f"{base} (Translated to {target_language_name}{tag}).{target_language}{ext}"
         output_path = os.path.join(temp_dir, output_filename)
 
+        # Save the original file temporarily
         with open(input_path, "wb") as f:
             f.write(await file.read())
 
+        # Process subtitles based on file type
         if ext.lower() == ".srt":
             with open(input_path, "r", encoding="utf-8") as f:
                 subtitles = list(srt.parse(f.read()))
@@ -196,25 +220,39 @@ async def upload_file(
         else:
             raise ValueError("Unsupported file format. Please upload .srt or .vtt")
 
-        # Saving the metadata of translated subtitle files in subtitle_files table
-        # NOW WITH user_id included!
+        # Upload the original and translated files to Azure Blob Storage
+        blob_client = get_blob_client()
+        container_client = blob_client.get_container_client(AZURE_STORAGE_CONTAINER_NAME)
+
+        # Upload original file
+        original_blob_name = f"subtitles/original/{file.filename}"
+        with open(input_path, "rb") as data:
+            container_client.upload_blob(original_blob_name, data, overwrite=True)
+
+        # Upload translated file
+        translated_blob_name = f"subtitles/translated/{output_filename}"
+        with open(output_path, "rb") as data:
+            container_client.upload_blob(translated_blob_name, data, overwrite=True)
+
+        # Get Blob URLs
+        original_url = f"https://{os.getenv('AZURE_STORAGE_ACCOUNT_NAME')}.blob.core.windows.net/{os.getenv('AZURE_STORAGE_CONTAINER_NAME')}/{original_blob_name}"
+        translated_url = f"https://{os.getenv('AZURE_STORAGE_ACCOUNT_NAME')}.blob.core.windows.net/{os.getenv('AZURE_STORAGE_CONTAINER_NAME')}/{translated_blob_name}"
+
+        # Save metadata for translated subtitle file in the database
         translated_subtitle = SubtitleFile(
             file_id=uuid4(),
-            # user_id=user.user_id,  # ADD THIS LINE - This was missing!
             project_id=None,
-            original_file_name=output_filename,  # Store the translated filename
-            storage_path=output_path,
+            original_file_name=output_filename,
             file_format=ext.lower().replace(".", ""),
             file_size_bytes=os.path.getsize(output_path),
-            is_original=False,  # This is a translated file, not original
+            is_original=False,
             source_language="auto",
-            # created_at=datetime.now(timezone.utc),  # Set timestamps
-            # updated_at=datetime.now(timezone.utc)   # Set timestamps
+            blob_url=original_url  # Save Blob URL in the database
         )
         db.add(translated_subtitle)
         db.commit()
 
-        # Saving the translated subtitle files metadata in translations table
+        # Save translation metadata in the translations table
         translation = Translation(
             translation_id=uuid4(),
             file_id=translated_subtitle.file_id,
@@ -228,7 +266,8 @@ async def upload_file(
             manual_edits_count=0,
             last_updated=user.user_id,
             last_edited_at=None,
-            project_id=None
+            project_id=None,
+            blob_url=translated_url
         )
         db.add(translation)
         db.commit()
@@ -238,12 +277,15 @@ async def upload_file(
             "translated_filename": output_filename,
             "target_language": target_language,
             "target_language_name": target_language_name,
+            "original_file_url": original_url,
+            "translated_file_url": translated_url,
             "message": "File uploaded, translated, and saved successfully."
         }
 
     except Exception as e:
-        db.rollback()  # Add rollback on error
+        db.rollback()  # Rollback on error
         return JSONResponse(status_code=500, content={"error": f"Translation failed: {str(e)}"})
+
 
 # Download subtitle file by dynamic name
 @router.get("/download-subtitle")
