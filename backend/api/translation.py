@@ -18,6 +18,7 @@ from azure.storage.blob import BlobServiceClient
 from backend.database.models import SubtitleFile, User
 from backend.database.models import Translation
 from backend.database.models import TranslationProject
+from backend.database.models import TranscriptionProject, Notification
 from backend.database.db import SessionLocal
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
@@ -616,6 +617,30 @@ async def save_project(
 
             db.commit()  # Commit everything at once
             print(f"Database transaction completed. Updated {updated_files_count} files.")
+
+            # 🔄 Save TranscriptionProject and Notification
+            transcription_project = TranscriptionProject(
+                project_id=project_id,
+                user_id=user.user_id,
+                status="Pending",
+                created_at=datetime.now(timezone.utc),
+                subtitle_file_url=uploaded_files[0]["blob_path"] if uploaded_files else None,
+                media_url=None
+            )
+            db.add(transcription_project)
+            db.flush()
+
+            notification = Notification(
+                user_id=user.user_id,
+                project_id=project_id,
+                project_status="Pending",
+                creation_time=datetime.now(timezone.utc),
+                message=f"Your project '{project_data.project_name}' has been created and is pending transcription.",
+                is_read=False
+            )
+            db.add(notification)
+            db.commit()
+            print("TranscriptionProject and Notification saved successfully.")
 
         except Exception as db_error:
             db.rollback()

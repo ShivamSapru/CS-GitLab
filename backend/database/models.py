@@ -68,3 +68,24 @@ class LiveSession(Base):
     end_time = Column(TIMESTAMP)
     full_transcript_path = Column(String(512))
     translation_log_path = Column(String(512))
+
+class TranscriptionProject(Base):
+    __tablename__ = "transcription_projects"
+    project_id = Column(pgUUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(pgUUID(as_uuid=True), ForeignKey("users.user_id"), nullable=False)
+    status = Column(String(50), nullable=False)
+    created_at = Column(TIMESTAMP)
+    subtitle_file_url = Column(String(512))
+    media_url = Column(String(512))
+ 
+ 
+class Notification(Base):
+    __tablename__ = "notifications"
+ 
+    notification_id = Column(pgUUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    creation_time = Column(TIMESTAMP)
+    user_id = Column(pgUUID(as_uuid=True), ForeignKey("users.user_id"), nullable=False)
+    project_id = Column(pgUUID(as_uuid=True), ForeignKey("transcription_projects.project_id"), nullable=True)
+    project_status = Column(String(50))
+    message = Column(Text)
+    is_read = Column(Boolean, default=False)
