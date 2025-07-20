@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import srtWebVTT from "srt-webvtt";
 import {
   Upload,
   Download,
@@ -22,7 +23,542 @@ import {
 // API configuration
 const API_BASE_URL = "http://localhost:8000";
 
-const TranscriptionApp = () => {
+const convertSrtToVttManual = (srtContent) => {
+  console.log("Starting manual SRT to VTT conversion...");
+
+  let vttContent = "WEBVTT\n\n";
+
+  // Split SRT into blocks
+  const blocks = srtContent.trim().split(/\n\s*\n/);
+
+  blocks.forEach((block) => {
+    const lines = block.trim().split("\n");
+    if (lines.length >= 3) {
+      // Skip the subtitle number (first line)
+      const timeLine = lines[1];
+      const textLines = lines.slice(2);
+
+      // Convert SRT timestamp format to VTT format
+      // SRT: 00:00:01,000 --> 00:00:04,000
+      // VTT: 00:00:01.000 --> 00:00:04.000
+      if (timeLine && timeLine.includes("-->")) {
+        const vttTimeLine = timeLine.replace(/,/g, ".");
+        vttContent += vttTimeLine + "\n";
+        vttContent += textLines.join("\n") + "\n\n";
+      }
+    }
+  });
+
+  console.log(
+    "Manual conversion result (first 300 chars):",
+    vttContent.substring(0, 300),
+  );
+  return vttContent;
+};
+
+const VideoPreviewPlayer = ({
+  videoUrl,
+  videoRef,
+  parsedSubtitles,
+  convertedVttContent,
+  previewContent,
+  selectedLocale,
+  isDarkMode,
+  currentSubtitleIndex,
+  setCurrentSubtitleIndex,
+}) => {
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [maxPlayTime, setMaxPlayTime] = useState(10);
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  // Reset initialization when new subtitles are loaded
+  useEffect(() => {
+    setIsInitialized(false);
+  }, [parsedSubtitles]);
+
+  // Auto-initialize video to first subtitle when subtitles are loaded
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !parsedSubtitles.length) return;
+
+    const initializeVideoToFirstSubtitle = () => {
+      const firstSubtitle = parsedSubtitles[0];
+      if (firstSubtitle && firstSubtitle.startTime >= 0) {
+        const startTime = Math.max(0, firstSubtitle.startTime - 1);
+        console.log(
+          `Initializing video to first subtitle at: ${startTime}s (subtitle starts at ${firstSubtitle.startTime}s)`,
+        );
+
+        video.currentTime = startTime;
+        setCurrentTime(startTime);
+        setMaxPlayTime(Math.min(firstSubtitle.endTime + 3, startTime + 15));
+        setIsInitialized(true);
+      } else {
+        video.currentTime = 0;
+        setCurrentTime(0);
+        setMaxPlayTime(10);
+        setIsInitialized(true);
+      }
+    };
+
+    const handleCanPlayThrough = () => {
+      if (!isInitialized) {
+        setTimeout(initializeVideoToFirstSubtitle, 50);
+      }
+    };
+
+    const handleLoadedData = () => {
+      if (!isInitialized) {
+        setTimeout(initializeVideoToFirstSubtitle, 50);
+      }
+    };
+
+    if (video.readyState >= 2) {
+      initializeVideoToFirstSubtitle();
+    } else {
+      video.addEventListener("canplaythrough", handleCanPlayThrough);
+      video.addEventListener("loadeddata", handleLoadedData);
+    }
+
+    return () => {
+      video.removeEventListener("canplaythrough", handleCanPlayThrough);
+      video.removeEventListener("loadeddata", handleLoadedData);
+    };
+  }, [parsedSubtitles, isInitialized, videoRef]);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    const handleTimeUpdate = () => {
+      const time = video.currentTime;
+      setCurrentTime(time);
+
+      const currentIndex = parsedSubtitles.findIndex(
+        (sub) => time >= sub.startTime && time <= sub.endTime,
+      );
+      setCurrentSubtitleIndex(currentIndex);
+
+      if (time >= maxPlayTime) {
+        video.pause();
+        setIsPlaying(false);
+      }
+    };
+
+    const handlePlay = () => setIsPlaying(true);
+    const handlePause = () => setIsPlaying(false);
+
+    const handleLoadedMetadata = () => {
+      if (!isInitialized && parsedSubtitles.length > 0) {
+        const firstSubtitle = parsedSubtitles[0];
+        if (firstSubtitle && firstSubtitle.startTime >= 0) {
+          const startTime = Math.max(0, firstSubtitle.startTime - 1);
+          video.currentTime = startTime;
+          setCurrentTime(startTime);
+          setMaxPlayTime(Math.min(firstSubtitle.endTime + 3, startTime + 15));
+          setIsInitialized(true);
+        }
+      }
+    };
+
+    video.addEventListener("timeupdate", handleTimeUpdate);
+    video.addEventListener("play", handlePlay);
+    video.addEventListener("pause", handlePause);
+    video.addEventListener("loadedmetadata", handleLoadedMetadata);
+
+    return () => {
+      video.removeEventListener("timeupdate", handleTimeUpdate);
+      video.removeEventListener("play", handlePlay);
+      video.removeEventListener("pause", handlePause);
+      video.removeEventListener("loadedmetadata", handleLoadedMetadata);
+    };
+  }, [
+    videoUrl,
+    parsedSubtitles,
+    maxPlayTime,
+    isInitialized,
+    videoRef,
+    setCurrentSubtitleIndex,
+  ]);
+
+  // Handle subtitle track loading
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !convertedVttContent) return;
+
+    const enableSubtitles = () => {
+      setTimeout(() => {
+        if (video.textTracks && video.textTracks.length > 0) {
+          video.textTracks[0].mode = "showing";
+          console.log("Subtitles enabled");
+        }
+      }, 100);
+    };
+
+    if (video.readyState >= 1) {
+      enableSubtitles();
+    } else {
+      video.addEventListener("loadedmetadata", enableSubtitles);
+      return () => video.removeEventListener("loadedmetadata", enableSubtitles);
+    }
+  }, [convertedVttContent, videoUrl, videoRef]);
+
+  const createSubtitleTrack = () => {
+    try {
+      const subtitleContent = convertedVttContent || previewContent;
+      if (!subtitleContent) {
+        console.log("No subtitle content available for track");
+        return null;
+      }
+
+      console.log(
+        "Raw subtitle content (first 300 chars):",
+        subtitleContent.substring(0, 300),
+      );
+      console.log("Subtitle content length:", subtitleContent.length);
+
+      let vttContent = subtitleContent.trim();
+
+      // Check if content is SRT format and convert it manually
+      if (!vttContent.startsWith("WEBVTT") && vttContent.match(/^\d+\s*$/m)) {
+        console.log("Converting SRT to VTT manually in createSubtitleTrack");
+        vttContent = convertSrtToVttManual(vttContent);
+      }
+
+      // Ensure proper VTT format
+      if (!vttContent.startsWith("WEBVTT")) {
+        console.log("Adding WEBVTT header");
+        vttContent = `WEBVTT\n\n${vttContent}`;
+      }
+
+      // Ensure proper spacing after WEBVTT
+      if (
+        vttContent.startsWith("WEBVTT\n") &&
+        !vttContent.startsWith("WEBVTT\n\n")
+      ) {
+        vttContent = vttContent.replace("WEBVTT\n", "WEBVTT\n\n");
+      }
+
+      console.log(
+        "Final VTT content for track (first 500 chars):",
+        vttContent.substring(0, 500),
+      );
+
+      const blob = new Blob([vttContent], { type: "text/vtt; charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+
+      // Clean up previous URL
+      if (window.previousSubtitleUrl) {
+        URL.revokeObjectURL(window.previousSubtitleUrl);
+      }
+      window.previousSubtitleUrl = url;
+
+      console.log("Subtitle track URL created:", url);
+      return url;
+    } catch (error) {
+      console.error("Error creating subtitle track:", error);
+      return null;
+    }
+  };
+
+  // Debug effect to check subtitle content
+  useEffect(() => {
+    console.log("=== SUBTITLE DEBUG ===");
+    console.log("convertedVttContent exists:", !!convertedVttContent);
+    console.log("previewContent exists:", !!previewContent);
+    console.log(
+      "convertedVttContent sample:",
+      convertedVttContent?.substring(0, 200),
+    );
+    console.log("previewContent sample:", previewContent?.substring(0, 200));
+
+    if (convertedVttContent) {
+      console.log("Using convertedVttContent for subtitles");
+    } else if (previewContent) {
+      console.log("Using previewContent for subtitles");
+    } else {
+      console.log("No subtitle content available");
+    }
+  }, [convertedVttContent, previewContent]);
+
+  // Add this effect to monitor video track loading
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    const checkTracks = () => {
+      console.log("Video text tracks:", video.textTracks.length);
+      if (video.textTracks.length > 0) {
+        const track = video.textTracks[0];
+        console.log("Track mode:", track.mode);
+        console.log("Track readyState:", track.readyState);
+        console.log("Track cues:", track.cues?.length || "not loaded");
+
+        // Force enable the track
+        track.mode = "showing";
+
+        // Listen for track load events
+        track.addEventListener("load", () => {
+          console.log("Track loaded successfully, cues:", track.cues?.length);
+        });
+
+        track.addEventListener("error", (e) => {
+          console.error("Track loading error:", e);
+        });
+      }
+    };
+
+    // Check immediately and after a delay
+    checkTracks();
+    setTimeout(checkTracks, 500);
+    setTimeout(checkTracks, 1000);
+  }, [videoUrl, convertedVttContent, previewContent]);
+
+  const togglePlay = () => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    if (isPlaying) {
+      video.pause();
+    } else {
+      if (video.currentTime >= maxPlayTime) {
+        const firstSubtitle = parsedSubtitles[0];
+        const resetTime =
+          firstSubtitle && firstSubtitle.startTime >= 0
+            ? Math.max(0, firstSubtitle.startTime - 1)
+            : 0;
+        video.currentTime = resetTime;
+        setCurrentTime(resetTime);
+
+        if (firstSubtitle) {
+          const newMaxTime = Math.min(
+            firstSubtitle.endTime + 3,
+            resetTime + 15,
+          );
+          setMaxPlayTime(newMaxTime);
+        } else {
+          setMaxPlayTime(10);
+        }
+      }
+      video.play();
+    }
+  };
+
+  const resetPlayer = () => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    const firstSubtitle = parsedSubtitles[0];
+    const resetTime =
+      firstSubtitle && firstSubtitle.startTime >= 0
+        ? Math.max(0, firstSubtitle.startTime - 1)
+        : 0;
+
+    video.currentTime = resetTime;
+    setCurrentTime(resetTime);
+
+    if (firstSubtitle) {
+      const newMaxTime = Math.min(firstSubtitle.endTime + 3, resetTime + 15);
+      setMaxPlayTime(newMaxTime);
+    } else {
+      setMaxPlayTime(10);
+    }
+
+    video.pause();
+  };
+
+  const formatTime = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
+  };
+
+  const subtitleStyles = `
+      video::cue {
+        background-color: rgba(0, 0, 0, 0.8) !important;
+        color: white !important;
+        font-size: 18px !important;
+        font-family: Arial, sans-serif !important;
+        line-height: 1.4 !important;
+        padding: 4px 8px !important;
+        border-radius: 4px !important;
+      }
+    `;
+
+  return (
+    <div
+      className={`rounded-lg p-4 mb-4 transition-colors duration-300 ${
+        isDarkMode ? "bg-gray-700" : "bg-gray-50"
+      }`}
+    >
+      <h5
+        className={`font-medium mb-3 flex items-center transition-colors duration-300 ${
+          isDarkMode ? "text-gray-200" : "text-gray-700"
+        }`}
+      >
+        <Play className="w-4 h-4 mr-2" />
+        Video Preview
+      </h5>
+
+      <div className="space-y-4">
+        <div className="w-full">
+          <div
+            className="relative bg-black overflow-hidden w-full"
+            style={{ aspectRatio: "16/9" }}
+          >
+            <style>{subtitleStyles}</style>
+            <video
+              ref={videoRef}
+              src={videoUrl}
+              className="w-full h-full object-contain"
+              controls={false}
+              preload="metadata"
+              crossOrigin="anonymous"
+              onLoadedMetadata={() => {
+                console.log("Video metadata loaded");
+                const video = videoRef.current;
+                if (video && video.textTracks.length > 0) {
+                  video.textTracks[0].mode = "showing";
+                  console.log("Forced subtitle track to showing mode");
+
+                  setTimeout(() => {
+                    if (video.textTracks[0].cues) {
+                      console.log(
+                        "Subtitle cues loaded:",
+                        video.textTracks[0].cues.length,
+                      );
+                      for (
+                        let i = 0;
+                        i < Math.min(3, video.textTracks[0].cues.length);
+                        i++
+                      ) {
+                        const cue = video.textTracks[0].cues[i];
+                        console.log(
+                          `Cue ${i}:`,
+                          cue.startTime,
+                          "->",
+                          cue.endTime,
+                          ":",
+                          cue.text,
+                        );
+                      }
+                    }
+                  }, 500);
+                }
+              }}
+            >
+              {(convertedVttContent || previewContent) && (
+                <track
+                  kind="subtitles"
+                  src={createSubtitleTrack()}
+                  srcLang={selectedLocale.split("-")[0]}
+                  label="Subtitles"
+                  default
+                  onLoad={() => {
+                    console.log("Track element loaded successfully");
+                  }}
+                  onError={(e) => {
+                    console.error("Track element error:", e);
+                  }}
+                />
+              )}
+            </video>
+
+            {/* Overlay backup */}
+            {currentSubtitleIndex >= 0 &&
+              parsedSubtitles[currentSubtitleIndex] && (
+                <div className="absolute bottom-20 left-4 right-4 text-center pointer-events-none z-30">
+                  <div className="inline-block bg-blue-600/80 text-white px-4 py-2 rounded text-sm font-medium shadow-lg max-w-4xl">
+                    <div className="text-xs text-blue-200 mb-1">
+                      OVERLAY BACKUP:
+                    </div>
+                    {parsedSubtitles[currentSubtitleIndex].text}
+                  </div>
+                </div>
+              )}
+
+            {/* Your existing controls */}
+            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-3">
+              <div className="flex items-center space-x-3">
+                <button
+                  onClick={togglePlay}
+                  className="text-white hover:text-blue-300 transition-colors"
+                >
+                  {isPlaying ? (
+                    <Pause className="w-6 h-6" />
+                  ) : (
+                    <Play className="w-6 h-6" />
+                  )}
+                </button>
+                <button
+                  onClick={resetPlayer}
+                  className="text-white hover:text-blue-300 transition-colors"
+                  title="Reset to first subtitle"
+                >
+                  <Undo className="w-5 h-5" />
+                </button>
+                <div className="flex-1">
+                  <div className="bg-white/30 rounded-full h-1">
+                    <div
+                      className="bg-blue-500 h-1 rounded-full transition-all duration-100"
+                      style={{
+                        width: `${Math.max(0, Math.min(100, ((currentTime - (parsedSubtitles[0]?.startTime || 0)) / (maxPlayTime - (parsedSubtitles[0]?.startTime || 0))) * 100))}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+                <span className="text-white text-sm font-mono">
+                  {formatTime(currentTime)} / {formatTime(maxPlayTime)}
+                </span>
+              </div>
+
+              {parsedSubtitles.length > 0 && (
+                <div
+                  className={`text-xs mt-1 transition-colors duration-300 ${
+                    isDarkMode ? "text-blue-300" : "text-blue-200"
+                  }`}
+                >
+                  {parsedSubtitles[0].startTime > 0
+                    ? `First subtitle starts at ${formatTime(parsedSubtitles[0].startTime)} (playing from ${formatTime(Math.max(0, parsedSubtitles[0].startTime - 1))})`
+                    : "Playing from beginning with subtitles"}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Current subtitle display */}
+        {currentSubtitleIndex >= 0 && parsedSubtitles[currentSubtitleIndex] && (
+          <div
+            className={`w-full p-3 border rounded-lg transition-colors duration-300 ${
+              isDarkMode
+                ? "bg-blue-900/30 border-blue-700"
+                : "bg-blue-50 border-blue-200"
+            }`}
+          >
+            <div
+              className={`text-xs font-medium mb-1 transition-colors duration-300 ${
+                isDarkMode ? "text-blue-300" : "text-blue-600"
+              }`}
+            >
+              Currently Playing:
+            </div>
+            <div
+              className={`text-sm transition-colors duration-300 ${
+                isDarkMode ? "text-gray-200" : "text-gray-800"
+              }`}
+            >
+              {parsedSubtitles[currentSubtitleIndex].text}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const TranscriptionApp = ({ onTranslateTranscription, isDarkMode }) => {
   const [activeTab, setActiveTab] = useState("upload");
   const [file, setFile] = useState(null);
   const [locales, setLocales] = useState({});
@@ -48,6 +584,14 @@ const TranscriptionApp = () => {
   const editTextareaRef = useRef(null);
 
   const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
+
+  const [videoUrl, setVideoUrl] = useState(null);
+  const [showVideoPreview, setShowVideoPreview] = useState(false);
+  const videoRef = useRef(null);
+
+  const [parsedSubtitles, setParsedSubtitles] = useState([]);
+  const [currentSubtitleIndex, setCurrentSubtitleIndex] = useState(-1);
+  const [convertedVttContent, setConvertedVttContent] = useState("");
 
   // Get API URL - simple approach
   const getApiUrl = () => {
@@ -161,6 +705,19 @@ const TranscriptionApp = () => {
     }
   };
 
+  const handleTranslateTranscription = () => {
+    if (!transcriptionResult || !file) return;
+
+    const transcriptionFileData = {
+      content: isEditing ? editedContent : previewContent || "",
+      filename: transcriptionResult.transcribed_filename,
+      originalFilename: file.name,
+      format: outputFormat,
+    };
+
+    onTranslateTranscription?.(transcriptionFileData);
+  };
+
   const handleDownload = async () => {
     if (!transcriptionResult?.transcribed_filename) return;
 
@@ -197,6 +754,7 @@ const TranscriptionApp = () => {
     setActiveTab("upload");
     setShowPreview(false);
     setPreviewContent("");
+    setConvertedVttContent("");
     setIsEditing(false);
     setEditedContent("");
     setEditHistory([]);
@@ -220,14 +778,85 @@ const TranscriptionApp = () => {
 
     try {
       const baseUrl = getApiUrl();
-      const response = await fetch(
+
+      // Fetch transcription content
+      const transcriptionResponse = await fetch(
         `${baseUrl}/api/download-transcription?filename=${encodeURIComponent(transcriptionResult.transcribed_filename)}`,
       );
 
-      if (response.ok) {
-        const content = await response.text();
+      if (transcriptionResponse.ok) {
+        const content = await transcriptionResponse.text();
         setPreviewContent(content);
+
+        console.log("=== CONVERSION CHECK ===");
+        console.log("outputFormat:", outputFormat);
+        console.log("Will convert SRT?", outputFormat === "srt");
+
+        // Convert SRT to VTT for video preview if needed
+        if (outputFormat === "srt") {
+          try {
+            console.log("Starting manual SRT to VTT conversion...");
+            console.log(
+              "SRT content to convert (first 300 chars):",
+              content.substring(0, 300),
+            );
+
+            // Use manual conversion instead of npm package
+            const vttContentForVideo = convertSrtToVttManual(content);
+
+            console.log(
+              "Manual conversion complete. VTT content (first 300 chars):",
+              vttContentForVideo.substring(0, 300),
+            );
+            console.log("VTT content length:", vttContentForVideo.length);
+
+            setConvertedVttContent(vttContentForVideo);
+          } catch (conversionError) {
+            console.error(
+              "Manual SRT to VTT conversion failed:",
+              conversionError,
+            );
+            setError(
+              `Failed to convert SRT to VTT for video preview: ${conversionError.message}`,
+            );
+            setConvertedVttContent("");
+          }
+        } else {
+          // For VTT files, use original content
+          console.log(
+            "Using original VTT content (first 300 chars):",
+            content.substring(0, 300),
+          );
+          setConvertedVttContent(content);
+        }
+
         setShowPreview(true);
+
+        // Add this after the SRT to VTT conversion in handlePreview
+        console.log("=== PREVIEW DEBUG ===");
+        console.log("Output format:", outputFormat);
+        console.log("Original content sample:", content.substring(0, 200));
+        if (outputFormat === "srt") {
+          console.log(
+            "Converted VTT content sample:",
+            convertedVttContent?.substring(0, 200),
+          );
+        }
+
+        // Parse subtitles for navigation
+        const parsed = parseSubtitles(content, outputFormat);
+        setParsedSubtitles(parsed);
+        setCurrentSubtitleIndex(-1);
+
+        // Create video URL from uploaded file for preview
+        if (
+          file &&
+          (file.type.startsWith("video/") || file.type.startsWith("audio/"))
+        ) {
+          const videoObjectUrl = URL.createObjectURL(file);
+          setVideoUrl(videoObjectUrl);
+          setShowVideoPreview(true);
+        }
 
         // Scroll to preview section
         setTimeout(() => {
@@ -256,6 +885,23 @@ const TranscriptionApp = () => {
     setEditedContent("");
     setEditHistory([]);
     setHistoryIndex(-1);
+    setShowVideoPreview(false);
+    setParsedSubtitles([]);
+    setCurrentSubtitleIndex(-1);
+    setConvertedVttContent("");
+
+    // Clean up video preview
+    setShowVideoPreview(false);
+    if (videoUrl) {
+      URL.revokeObjectURL(videoUrl);
+      setVideoUrl(null);
+    }
+
+    // Clean up subtitle URL
+    if (window.previousSubtitleUrl) {
+      URL.revokeObjectURL(window.previousSubtitleUrl);
+      window.previousSubtitleUrl = null;
+    }
   };
 
   const startEditing = () => {
@@ -361,24 +1007,145 @@ const TranscriptionApp = () => {
     }
   };
 
+  // Parse timestamp to seconds
+  const parseTimestamp = (timestamp) => {
+    const parts = timestamp.split(":");
+    const seconds = parts[2].split(/[,.]/); // Handle both SRT (,) and VTT (.) formats
+    return (
+      parseInt(parts[0]) * 3600 +
+      parseInt(parts[1]) * 60 +
+      parseFloat(seconds[0] + "." + seconds[1])
+    );
+  };
+
+  // Parse SRT format subtitles
+  const parseSrtSubtitles = (content) => {
+    const blocks = content.trim().split(/\n\s*\n/);
+    const subtitles = [];
+
+    blocks.forEach((block) => {
+      const lines = block.trim().split("\n");
+      if (lines.length >= 3) {
+        const timeLine = lines[1];
+        const timeMatch = timeLine.match(
+          /(\d{2}:\d{2}:\d{2}[,.]\d{3})\s*-->\s*(\d{2}:\d{2}:\d{2}[,.]\d{3})/,
+        );
+
+        if (timeMatch) {
+          const startTime = parseTimestamp(timeMatch[1]);
+          const endTime = parseTimestamp(timeMatch[2]);
+          const text = lines.slice(2).join("\n");
+
+          subtitles.push({
+            startTime,
+            endTime,
+            text: text.trim(),
+            originalBlock: block,
+          });
+        }
+      }
+    });
+
+    return subtitles;
+  };
+
+  // Parse VTT format subtitles
+  const parseVttSubtitles = (content) => {
+    const lines = content.split("\n");
+    const subtitles = [];
+    let currentSubtitle = null;
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+
+      // Skip WEBVTT header and empty lines
+      if (line === "WEBVTT" || line === "") continue;
+
+      // Check for timestamp line
+      const timeMatch = line.match(
+        /(\d{2}:\d{2}:\d{2}\.\d{3})\s*-->\s*(\d{2}:\d{2}:\d{2}\.\d{3})/,
+      );
+
+      if (timeMatch) {
+        // If we have a previous subtitle, save it
+        if (currentSubtitle) {
+          subtitles.push(currentSubtitle);
+        }
+
+        // Start new subtitle
+        currentSubtitle = {
+          startTime: parseTimestamp(timeMatch[1]),
+          endTime: parseTimestamp(timeMatch[2]),
+          text: "",
+          originalBlock: line,
+        };
+      } else if (currentSubtitle && line) {
+        // Add text to current subtitle
+        currentSubtitle.text += (currentSubtitle.text ? "\n" : "") + line;
+        currentSubtitle.originalBlock += "\n" + line;
+      }
+    }
+
+    // Don't forget the last subtitle
+    if (currentSubtitle) {
+      subtitles.push(currentSubtitle);
+    }
+
+    return subtitles;
+  };
+
+  // Main parsing function
+  const parseSubtitles = (content, format) => {
+    if (format === "srt") {
+      return parseSrtSubtitles(content);
+    } else if (format === "vtt") {
+      return parseVttSubtitles(content);
+    }
+    return [];
+  };
+
   return (
-    <div className="max-w-4xl mx-auto p-6">
-      <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+    <div
+      className={`max-w-4xl mx-auto p-6 min-h-screen transition-colors duration-300 ${
+        isDarkMode ? "bg-gray-900" : "bg-gray-50"
+      }`}
+    >
+      <div
+        className={`rounded-xl shadow-lg overflow-hidden transition-colors duration-300 ${
+          isDarkMode ? "bg-gray-800" : "bg-white"
+        }`}
+      >
         {/* Header */}
-        <div className="bg-white text-black p-6 border-b">
-          <h1 className="text-2xl font-bold text-gray-900 mb-4 sm:mb-0">
+        <div
+          className={`p-6 border-b transition-colors duration-300 ${
+            isDarkMode
+              ? "bg-gray-800 border-gray-700"
+              : "bg-white border-gray-200"
+          }`}
+        >
+          <h1
+            className={`text-2xl font-bold mb-4 sm:mb-0 transition-colors duration-300 ${
+              isDarkMode ? "text-white" : "text-gray-900"
+            }`}
+          >
             AI Transcription
           </h1>
         </div>
 
         {/* Navigation Tabs */}
-        <div className="flex border-b">
+        <div
+          className={`flex border-b transition-colors duration-300 ${
+            isDarkMode ? "border-gray-700" : "border-gray-200"
+          }`}
+        >
           <button
             onClick={() => setActiveTab("upload")}
-            className={`px-6 py-3 font-medium ${
+            className={`px-6 py-3 font-medium transition-colors duration-300 ${
               activeTab === "upload"
                 ? "border-b-2 border-blue-500 text-blue-600"
-                : "text-gray-600 hover:text-blue-600"
+                : isDarkMode
+                  ? "text-gray-300 hover:text-blue-400"
+                  : "text-gray-600 hover:text-blue-600"
             }`}
           >
             <Upload className="w-4 h-4 inline mr-2" />
@@ -386,12 +1153,13 @@ const TranscriptionApp = () => {
           </button>
           <button
             onClick={() => setActiveTab("result")}
-            className={`px-6 py-3 font-medium ${
+            className={`px-6 py-3 font-medium transition-colors duration-300 ${
               activeTab === "result"
                 ? "border-b-2 border-blue-500 text-blue-600"
-                : "text-gray-600 hover:text-blue-600"
+                : isDarkMode
+                  ? "text-gray-300 hover:text-blue-400"
+                  : "text-gray-600 hover:text-blue-600"
             } ${!transcriptionResult ? "opacity-50 cursor-not-allowed" : ""}`}
-            disabled={!transcriptionResult}
           >
             <FileText className="w-4 h-4 inline mr-2" />
             Results
@@ -400,11 +1168,21 @@ const TranscriptionApp = () => {
 
         {/* Error Display */}
         {error && (
-          <div className="bg-red-50 border-l-4 border-red-400 p-4 m-6">
+          <div
+            className={`border-l-4 border-red-400 p-4 m-6 transition-colors duration-300 ${
+              isDarkMode ? "bg-red-900/20" : "bg-red-50"
+            }`}
+          >
             <div className="flex">
               <AlertCircle className="h-5 w-5 text-red-400" />
               <div className="ml-3">
-                <p className="text-sm text-red-700">{error}</p>
+                <p
+                  className={`text-sm transition-colors duration-300 ${
+                    isDarkMode ? "text-red-300" : "text-red-700"
+                  }`}
+                >
+                  {error}
+                </p>
               </div>
             </div>
           </div>
@@ -416,10 +1194,20 @@ const TranscriptionApp = () => {
             <div className="space-y-6">
               {/* File Upload */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label
+                  className={`block text-sm font-medium mb-2 transition-colors duration-300 ${
+                    isDarkMode ? "text-gray-200" : "text-gray-700"
+                  }`}
+                >
                   Select Audio/Video File
                 </label>
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors">
+                <div
+                  className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors duration-300 ${
+                    isDarkMode
+                      ? "border-gray-600 hover:border-blue-500 bg-gray-800"
+                      : "border-gray-300 hover:border-blue-400 bg-white"
+                  }`}
+                >
                   <input
                     type="file"
                     accept="audio/*,video/*"
@@ -428,24 +1216,50 @@ const TranscriptionApp = () => {
                     id="file-upload"
                   />
                   <label htmlFor="file-upload" className="cursor-pointer">
-                    <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                    <p className="text-gray-600">
+                    <Upload
+                      className={`mx-auto h-12 w-12 mb-4 transition-colors duration-300 ${
+                        isDarkMode ? "text-gray-500" : "text-gray-400"
+                      }`}
+                    />
+                    <p
+                      className={`transition-colors duration-300 ${
+                        isDarkMode ? "text-gray-300" : "text-gray-600"
+                      }`}
+                    >
                       Click to upload or drag and drop
                     </p>
-                    <p className="text-sm text-gray-500 mt-1">
+                    <p
+                      className={`text-sm mt-1 transition-colors duration-300 ${
+                        isDarkMode ? "text-gray-400" : "text-gray-500"
+                      }`}
+                    >
                       Supports audio and video files
                     </p>
                   </label>
                 </div>
                 {file && (
-                  <div className="mt-4 p-4 bg-green-50 rounded-lg border border-green-200">
+                  <div
+                    className={`mt-4 p-4 rounded-lg border transition-colors duration-300 ${
+                      isDarkMode
+                        ? "bg-green-900/20 border-green-800"
+                        : "bg-green-50 border-green-200"
+                    }`}
+                  >
                     <div className="flex items-center">
                       <Check className="h-5 w-5 text-green-500 mr-2" />
                       <div>
-                        <p className="text-green-800 font-medium">
+                        <p
+                          className={`font-medium transition-colors duration-300 ${
+                            isDarkMode ? "text-green-300" : "text-green-800"
+                          }`}
+                        >
                           {file.name}
                         </p>
-                        <p className="text-green-600 text-sm">
+                        <p
+                          className={`text-sm transition-colors duration-300 ${
+                            isDarkMode ? "text-green-400" : "text-green-600"
+                          }`}
+                        >
                           {formatFileSize(file.size)}
                         </p>
                       </div>
@@ -460,22 +1274,34 @@ const TranscriptionApp = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* Output Format */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label
+                      className={`block text-sm font-medium mb-2 transition-colors duration-300 ${
+                        isDarkMode ? "text-gray-200" : "text-gray-700"
+                      }`}
+                    >
                       Output Format
                     </label>
                     <select
                       value={outputFormat}
                       onChange={(e) => setOutputFormat(e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-300 ${
+                        isDarkMode
+                          ? "border-gray-600 bg-gray-700 text-gray-200"
+                          : "border-gray-300 bg-white text-gray-900"
+                      }`}
                     >
-                      <option value="srt">SRT </option>
                       <option value="vtt">VTT </option>
+                      <option value="srt">SRT </option>
                     </select>
                   </div>
 
                   {/* Profanity Filter */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label
+                      className={`block text-sm font-medium mb-2 transition-colors duration-300 ${
+                        isDarkMode ? "text-gray-200" : "text-gray-700"
+                      }`}
+                    >
                       Content Filtering
                     </label>
                     <div className="flex items-center pt-2">
@@ -488,7 +1314,9 @@ const TranscriptionApp = () => {
                       />
                       <label
                         htmlFor="censor-profanity"
-                        className="ml-2 text-gray-700"
+                        className={`ml-2 transition-colors duration-300 ${
+                          isDarkMode ? "text-gray-300" : "text-gray-700"
+                        }`}
                       >
                         Censor profanity
                       </label>
@@ -503,7 +1331,11 @@ const TranscriptionApp = () => {
                     onClick={() =>
                       setShowAdvancedSettings(!showAdvancedSettings)
                     }
-                    className="flex items-center space-x-2 text-blue-600 hover:text-blue-800 font-medium transition-colors"
+                    className={`flex items-center space-x-2 font-medium transition-colors duration-300 ${
+                      isDarkMode
+                        ? "text-blue-400 hover:text-blue-300"
+                        : "text-blue-600 hover:text-blue-800"
+                    }`}
                   >
                     <Settings className="w-4 h-4" />
                     <span>Advanced</span>
@@ -516,17 +1348,31 @@ const TranscriptionApp = () => {
 
                   {/* Advanced Settings Panel */}
                   {showAdvancedSettings && (
-                    <div className="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                    <div
+                      className={`mt-4 p-4 rounded-lg border transition-colors duration-300 ${
+                        isDarkMode
+                          ? "bg-gray-700 border-gray-600"
+                          : "bg-gray-50 border-gray-200"
+                      }`}
+                    >
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         {/* Language Selection */}
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                          <label
+                            className={`block text-sm font-medium mb-2 transition-colors duration-300 ${
+                              isDarkMode ? "text-gray-200" : "text-gray-700"
+                            }`}
+                          >
                             Language
                           </label>
                           <select
                             value={selectedLocale}
                             onChange={(e) => setSelectedLocale(e.target.value)}
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-300 ${
+                              isDarkMode
+                                ? "border-gray-600 bg-gray-700 text-gray-200"
+                                : "border-gray-300 bg-white text-gray-900"
+                            }`}
                           >
                             {Object.entries(locales).map(
                               ([locale, language]) => (
@@ -536,14 +1382,22 @@ const TranscriptionApp = () => {
                               ),
                             )}
                           </select>
-                          <p className="text-xs text-gray-500 mt-1">
+                          <p
+                            className={`text-xs mt-1 transition-colors duration-300 ${
+                              isDarkMode ? "text-gray-400" : "text-gray-500"
+                            }`}
+                          >
                             Auto-detection is used if not specified
                           </p>
                         </div>
 
                         {/* Max Speakers */}
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                          <label
+                            className={`block text-sm font-medium mb-2 transition-colors duration-300 ${
+                              isDarkMode ? "text-gray-200" : "text-gray-700"
+                            }`}
+                          >
                             Maximum Speakers
                           </label>
                           <select
@@ -551,7 +1405,11 @@ const TranscriptionApp = () => {
                             onChange={(e) =>
                               setMaxSpeakers(parseInt(e.target.value))
                             }
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-300 ${
+                              isDarkMode
+                                ? "border-gray-600 bg-gray-700 text-gray-200"
+                                : "border-gray-300 bg-white text-gray-900"
+                            }`}
                           >
                             {[
                               2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
@@ -562,7 +1420,11 @@ const TranscriptionApp = () => {
                               </option>
                             ))}
                           </select>
-                          <p className="text-xs text-gray-500 mt-1">
+                          <p
+                            className={`text-xs mt-1 transition-colors duration-300 ${
+                              isDarkMode ? "text-gray-400" : "text-gray-500"
+                            }`}
+                          >
                             For speaker identification and diarization
                           </p>
                         </div>
@@ -577,7 +1439,13 @@ const TranscriptionApp = () => {
                 <button
                   onClick={handleTranscribe}
                   disabled={!file || isTranscribing}
-                  className="w-full bg-blue-500 text-white py-3 px-6 rounded-lg hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed font-medium transition-colors flex items-center justify-center space-x-2"
+                  className={`w-full py-3 px-6 rounded-lg font-medium transition-colors duration-300 flex items-center justify-center space-x-2 ${
+                    !file || isTranscribing
+                      ? isDarkMode
+                        ? "bg-gray-600 text-gray-400 cursor-not-allowed"
+                        : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                      : "bg-blue-500 text-white hover:bg-blue-600"
+                  }`}
                 >
                   {isTranscribing ? (
                     <>
@@ -601,14 +1469,19 @@ const TranscriptionApp = () => {
           <div className="p-6">
             <div className="space-y-6">
               {/* Success Message */}
-              <div className="bg-green-50 border-l-4 border-green-400 p-4">
+              <div
+                className={`border-l-4 border-green-400 p-4 transition-colors duration-300 ${
+                  isDarkMode ? "bg-green-900/20" : "bg-green-50"
+                }`}
+              >
                 <div className="flex">
                   <Check className="h-5 w-5 text-green-400" />
                   <div className="ml-3">
-                    <h3 className="text-sm font-medium text-green-800">
-                      Transcription Completed Successfully!
-                    </h3>
-                    <p className="text-sm text-green-700 mt-1">
+                    <p
+                      className={`text-sm mt-1 transition-colors duration-300 ${
+                        isDarkMode ? "text-green-300" : "text-green-700"
+                      }`}
+                    >
                       {transcriptionResult.message}
                     </p>
                   </div>
@@ -616,52 +1489,112 @@ const TranscriptionApp = () => {
               </div>
 
               {/* File Information */}
-              <div className="bg-gray-50 rounded-lg p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              <div
+                className={`rounded-lg p-6 transition-colors duration-300 ${
+                  isDarkMode ? "bg-gray-700" : "bg-gray-50"
+                }`}
+              >
+                <h3
+                  className={`text-lg font-semibold mb-4 transition-colors duration-300 ${
+                    isDarkMode ? "text-white" : "text-gray-900"
+                  }`}
+                >
                   Transcription Details
                 </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-4">
                   <div>
-                    <span className="text-sm font-medium text-gray-500">
+                    <span
+                      className={`text-sm font-medium transition-colors duration-300 ${
+                        isDarkMode ? "text-gray-400" : "text-gray-500"
+                      }`}
+                    >
                       Original File:
                     </span>
-                    <p className="text-gray-900">{file?.name}</p>
+                    <p
+                      className={`transition-colors duration-300 ${
+                        isDarkMode ? "text-gray-200" : "text-gray-900"
+                      }`}
+                    >
+                      {file?.name}
+                    </p>
                   </div>
                   <div>
-                    <span className="text-sm font-medium text-gray-500">
+                    <span
+                      className={`text-sm font-medium transition-colors duration-300 ${
+                        isDarkMode ? "text-gray-400" : "text-gray-500"
+                      }`}
+                    >
                       Output File:
                     </span>
-                    <p className="text-gray-900">
+                    <p
+                      className={`transition-colors duration-300 ${
+                        isDarkMode ? "text-gray-200" : "text-gray-900"
+                      }`}
+                    >
                       {transcriptionResult.transcribed_filename}
                     </p>
                   </div>
                   <div>
-                    <span className="text-sm font-medium text-gray-500">
+                    <span
+                      className={`text-sm font-medium transition-colors duration-300 ${
+                        isDarkMode ? "text-gray-400" : "text-gray-500"
+                      }`}
+                    >
                       Language:
                     </span>
-                    <p className="text-gray-900">
+                    <p
+                      className={`transition-colors duration-300 ${
+                        isDarkMode ? "text-gray-200" : "text-gray-900"
+                      }`}
+                    >
                       {locales[selectedLocale]} ({selectedLocale})
                     </p>
                   </div>
                   <div>
-                    <span className="text-sm font-medium text-gray-500">
+                    <span
+                      className={`text-sm font-medium transition-colors duration-300 ${
+                        isDarkMode ? "text-gray-400" : "text-gray-500"
+                      }`}
+                    >
                       Format:
                     </span>
-                    <p className="text-gray-900">
+                    <p
+                      className={`transition-colors duration-300 ${
+                        isDarkMode ? "text-gray-200" : "text-gray-900"
+                      }`}
+                    >
                       {outputFormat.toUpperCase()}
                     </p>
                   </div>
                   <div>
-                    <span className="text-sm font-medium text-gray-500">
+                    <span
+                      className={`text-sm font-medium transition-colors duration-300 ${
+                        isDarkMode ? "text-gray-400" : "text-gray-500"
+                      }`}
+                    >
                       Max Speakers:
                     </span>
-                    <p className="text-gray-900">{maxSpeakers}</p>
+                    <p
+                      className={`transition-colors duration-300 ${
+                        isDarkMode ? "text-gray-200" : "text-gray-900"
+                      }`}
+                    >
+                      {maxSpeakers}
+                    </p>
                   </div>
                   <div>
-                    <span className="text-sm font-medium text-gray-500">
+                    <span
+                      className={`text-sm font-medium transition-colors duration-300 ${
+                        isDarkMode ? "text-gray-400" : "text-gray-500"
+                      }`}
+                    >
                       Profanity Filter:
                     </span>
-                    <p className="text-gray-900">
+                    <p
+                      className={`transition-colors duration-300 ${
+                        isDarkMode ? "text-gray-200" : "text-gray-900"
+                      }`}
+                    >
                       {censorProfanity ? "Enabled" : "Disabled"}
                     </p>
                   </div>
@@ -672,7 +1605,7 @@ const TranscriptionApp = () => {
               <div className="flex space-x-4">
                 <button
                   onClick={handleDownload}
-                  className="flex-1 bg-green-500 text-white py-3 px-6 rounded-lg hover:bg-green-600 font-medium transition-colors flex items-center justify-center space-x-2"
+                  className="flex-1 bg-green-500 text-white py-3 px-6 rounded-lg hover:bg-green-600 font-medium transition-colors duration-300 flex items-center justify-center space-x-2"
                 >
                   <Download className="w-5 h-5" />
                   <span>Download Transcription</span>
@@ -681,7 +1614,13 @@ const TranscriptionApp = () => {
                 <button
                   onClick={handlePreview}
                   disabled={loadingPreview}
-                  className="flex-1 bg-blue-500 text-white py-3 px-6 rounded-lg hover:bg-blue-600 disabled:opacity-50 font-medium transition-colors flex items-center justify-center space-x-2"
+                  className={`flex-1 py-3 px-6 rounded-lg font-medium transition-colors duration-300 flex items-center justify-center space-x-2 ${
+                    loadingPreview
+                      ? isDarkMode
+                        ? "bg-gray-600 text-gray-400"
+                        : "bg-gray-400 text-gray-600"
+                      : "bg-blue-500 text-white hover:bg-blue-600"
+                  }`}
                 >
                   {loadingPreview ? (
                     <>
@@ -697,10 +1636,23 @@ const TranscriptionApp = () => {
                 </button>
 
                 <button
-                  onClick={resetForm}
-                  className="flex-1 bg-gray-500 text-white py-3 px-6 rounded-lg hover:bg-gray-600 font-medium transition-colors"
+                  onClick={handleTranslateTranscription}
+                  className="flex-1 bg-purple-500 text-white py-3 px-6 rounded-lg hover:bg-purple-600 font-medium transition-colors duration-300 flex items-center justify-center space-x-2"
                 >
-                  New Transcription
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
+                    />
+                  </svg>
+                  <span>Translate Transcription</span>
                 </button>
               </div>
 
@@ -708,11 +1660,25 @@ const TranscriptionApp = () => {
               {showPreview && (
                 <div
                   ref={previewRef}
-                  className="bg-white rounded-lg border border-gray-200 shadow-sm"
+                  className={`rounded-lg border shadow-sm transition-colors duration-300 ${
+                    isDarkMode
+                      ? "bg-gray-800 border-gray-600"
+                      : "bg-white border-gray-200"
+                  }`}
                 >
-                  <div className="px-4 py-3 bg-gray-50 border-b rounded-t-lg">
+                  <div
+                    className={`px-4 py-3 border-b rounded-t-lg transition-colors duration-300 ${
+                      isDarkMode
+                        ? "bg-gray-700 border-gray-600"
+                        : "bg-gray-50 border-gray-200"
+                    }`}
+                  >
                     <div className="flex items-center justify-between">
-                      <h4 className="font-medium text-gray-700 flex items-center">
+                      <h4
+                        className={`font-medium flex items-center transition-colors duration-300 ${
+                          isDarkMode ? "text-gray-200" : "text-gray-700"
+                        }`}
+                      >
                         <span className="w-3 h-3 bg-blue-500 rounded-full mr-2"></span>
                         Transcribed Content ({selectedLocale}) -{" "}
                         {outputFormat.toUpperCase()}
@@ -721,7 +1687,11 @@ const TranscriptionApp = () => {
                         {!isEditing ? (
                           <button
                             onClick={startEditing}
-                            className="text-blue-600 hover:text-blue-800 text-sm flex items-center space-x-1 px-2 py-1 rounded hover:bg-blue-50"
+                            className={`text-sm flex items-center space-x-1 px-2 py-1 rounded transition-colors duration-300 ${
+                              isDarkMode
+                                ? "text-blue-400 hover:text-blue-300 hover:bg-blue-900/20"
+                                : "text-blue-600 hover:text-blue-800 hover:bg-blue-50"
+                            }`}
                           >
                             <Edit className="w-4 h-4" />
                             <span>Edit</span>
@@ -731,7 +1701,11 @@ const TranscriptionApp = () => {
                             <button
                               onClick={saveEditedFile}
                               disabled={isSaving}
-                              className="text-green-600 hover:text-green-800 text-sm flex items-center space-x-1 px-2 py-1 rounded hover:bg-green-50"
+                              className={`text-sm flex items-center space-x-1 px-2 py-1 rounded transition-colors duration-300 ${
+                                isDarkMode
+                                  ? "text-green-400 hover:text-green-300 hover:bg-green-900/20"
+                                  : "text-green-600 hover:text-green-800 hover:bg-green-50"
+                              }`}
                             >
                               <Save className="w-4 h-4" />
                               <span>{isSaving ? "Saving..." : "Save"}</span>
@@ -739,7 +1713,11 @@ const TranscriptionApp = () => {
                             <button
                               onClick={cancelEditing}
                               disabled={isSaving}
-                              className="text-gray-600 hover:text-gray-800 text-sm flex items-center space-x-1 px-2 py-1 rounded hover:bg-gray-50"
+                              className={`text-sm flex items-center space-x-1 px-2 py-1 rounded transition-colors duration-300 ${
+                                isDarkMode
+                                  ? "text-gray-400 hover:text-gray-300 hover:bg-gray-700"
+                                  : "text-gray-600 hover:text-gray-800 hover:bg-gray-50"
+                              }`}
                             >
                               <X className="w-4 h-4" />
                               <span>Cancel</span>
@@ -748,7 +1726,11 @@ const TranscriptionApp = () => {
                         )}
                         <button
                           onClick={closePreview}
-                          className="text-gray-400 hover:text-gray-600 p-1 rounded hover:bg-gray-50"
+                          className={`p-1 rounded transition-colors duration-300 ${
+                            isDarkMode
+                              ? "text-gray-500 hover:text-gray-300 hover:bg-gray-700"
+                              : "text-gray-400 hover:text-gray-600 hover:bg-gray-50"
+                          }`}
                         >
                           <X className="w-4 h-4" />
                         </button>
@@ -757,17 +1739,38 @@ const TranscriptionApp = () => {
                   </div>
 
                   <div className="p-4">
+                    {showVideoPreview && videoUrl && (
+                      <VideoPreviewPlayer
+                        videoUrl={videoUrl}
+                        videoRef={videoRef}
+                        parsedSubtitles={parsedSubtitles}
+                        convertedVttContent={convertedVttContent}
+                        previewContent={previewContent}
+                        selectedLocale={selectedLocale}
+                        isDarkMode={isDarkMode}
+                        currentSubtitleIndex={currentSubtitleIndex}
+                        setCurrentSubtitleIndex={setCurrentSubtitleIndex}
+                      />
+                    )}
                     {isEditing ? (
                       <div className="space-y-3">
                         {/* Undo/Redo buttons */}
-                        <div className="flex items-center space-x-2 pb-2 border-b border-gray-200">
+                        <div
+                          className={`flex items-center space-x-2 pb-2 border-b transition-colors duration-300 ${
+                            isDarkMode ? "border-gray-600" : "border-gray-200"
+                          }`}
+                        >
                           <button
                             onClick={handleUndo}
                             disabled={historyIndex <= 0}
-                            className={`flex items-center space-x-1 px-3 py-1 rounded text-sm ${
+                            className={`flex items-center space-x-1 px-3 py-1 rounded text-sm transition-colors duration-300 ${
                               historyIndex <= 0
-                                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                                : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                                ? isDarkMode
+                                  ? "bg-gray-700 text-gray-600 cursor-not-allowed"
+                                  : "bg-gray-100 text-gray-400 cursor-not-allowed"
+                                : isDarkMode
+                                  ? "bg-gray-600 text-gray-200 hover:bg-gray-500"
+                                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
                             }`}
                             title="Undo (Ctrl+Z)"
                           >
@@ -777,17 +1780,25 @@ const TranscriptionApp = () => {
                           <button
                             onClick={handleRedo}
                             disabled={historyIndex >= editHistory.length - 1}
-                            className={`flex items-center space-x-1 px-3 py-1 rounded text-sm ${
+                            className={`flex items-center space-x-1 px-3 py-1 rounded text-sm transition-colors duration-300 ${
                               historyIndex >= editHistory.length - 1
-                                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                                : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                                ? isDarkMode
+                                  ? "bg-gray-700 text-gray-600 cursor-not-allowed"
+                                  : "bg-gray-100 text-gray-400 cursor-not-allowed"
+                                : isDarkMode
+                                  ? "bg-gray-600 text-gray-200 hover:bg-gray-500"
+                                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
                             }`}
                             title="Redo (Ctrl+Shift+Z or Ctrl+Y)"
                           >
                             <Redo className="w-4 h-4" />
                             <span>Redo</span>
                           </button>
-                          <div className="text-xs text-gray-500 ml-auto">
+                          <div
+                            className={`text-xs ml-auto transition-colors duration-300 ${
+                              isDarkMode ? "text-gray-400" : "text-gray-500"
+                            }`}
+                          >
                             History: {historyIndex + 1}/{editHistory.length}
                           </div>
                         </div>
@@ -797,17 +1808,29 @@ const TranscriptionApp = () => {
                           value={editedContent}
                           onChange={(e) => handleTextChange(e.target.value)}
                           onKeyDown={handleKeyDown}
-                          className="w-full h-96 p-3 border border-gray-300 rounded font-mono text-sm resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          className={`w-full h-96 p-3 border rounded font-mono text-sm resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-300 ${
+                            isDarkMode
+                              ? "border-gray-600 bg-gray-800 text-gray-200"
+                              : "border-gray-300 bg-white text-gray-900"
+                          }`}
                           placeholder="Edit your subtitle content here..."
                         />
-                        <div className="flex justify-between text-xs text-gray-400">
+                        <div
+                          className={`flex justify-between text-xs transition-colors duration-300 ${
+                            isDarkMode ? "text-gray-500" : "text-gray-400"
+                          }`}
+                        >
                           <span>Lines: {editedContent.split("\n").length}</span>
                           <span>Characters: {editedContent.length}</span>
                         </div>
                       </div>
                     ) : (
                       <div className="max-h-96 overflow-auto">
-                        <pre className="text-sm text-gray-700 whitespace-pre-wrap font-mono leading-relaxed">
+                        <pre
+                          className={`text-sm whitespace-pre-wrap font-mono leading-relaxed transition-colors duration-300 ${
+                            isDarkMode ? "text-gray-300" : "text-gray-700"
+                          }`}
+                        >
                           {previewContent}
                         </pre>
                       </div>
@@ -816,11 +1839,23 @@ const TranscriptionApp = () => {
 
                   {/* Preview Action Buttons */}
                   {showPreview && (
-                    <div className="px-4 py-3 bg-gray-50 border-t rounded-b-lg">
+                    <div
+                      className={`px-4 py-3 border-t rounded-b-lg transition-colors duration-300 ${
+                        isDarkMode
+                          ? "bg-gray-700 border-gray-600"
+                          : "bg-gray-50 border-gray-200"
+                      }`}
+                    >
                       <div className="flex justify-between items-center">
                         <div className="flex items-center space-x-2">
                           {isEditing && (
-                            <div className="text-sm text-orange-600 bg-orange-100 px-3 py-1 rounded-full">
+                            <div
+                              className={`text-sm px-3 py-1 rounded-full transition-colors duration-300 ${
+                                isDarkMode
+                                  ? "text-orange-300 bg-orange-900/30"
+                                  : "text-orange-600 bg-orange-100"
+                              }`}
+                            >
                               Editing Mode
                             </div>
                           )}
@@ -835,9 +1870,11 @@ const TranscriptionApp = () => {
                               }
                             }}
                             disabled={isEditing}
-                            className={`flex items-center space-x-2 px-4 py-2 rounded-lg ${
+                            className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors duration-300 ${
                               isEditing
-                                ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                                ? isDarkMode
+                                  ? "bg-gray-600 text-gray-400 cursor-not-allowed"
+                                  : "bg-gray-300 text-gray-500 cursor-not-allowed"
                                 : "bg-green-500 text-white hover:bg-green-600"
                             }`}
                           >

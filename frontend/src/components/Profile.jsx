@@ -46,7 +46,7 @@ const apiCall = async (endpoint, options = {}) => {
   }
 };
 
-const Profile = () => {
+const Profile = ({ isDarkMode, onLogout }) => {
   const [activeTab, setActiveTab] = useState("profile");
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -205,13 +205,22 @@ const Profile = () => {
         projectId={viewingProject}
         onBack={handleBackToProfile}
         origin="profile"
+        isDarkMode={isDarkMode}
       />
     );
   }
 
   return (
-    <div className="max-w-6xl mx-auto p-6">
-      <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+    <div
+      className={`max-w-6xl mx-auto p-6 min-h-screen transition-colors duration-300 ${
+        isDarkMode ? "bg-gray-900" : "bg-gray-50"
+      }`}
+    >
+      <div
+        className={`rounded-xl shadow-lg overflow-hidden transition-colors duration-300 ${
+          isDarkMode ? "bg-gray-800" : "bg-white"
+        }`}
+      >
         {/* Header */}
         <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-8">
           <div className="flex items-center space-x-4">
@@ -230,7 +239,11 @@ const Profile = () => {
         </div>
 
         {/* Navigation Tabs */}
-        <div className="border-b border-gray-200">
+        <div
+          className={`border-b transition-colors duration-300 ${
+            isDarkMode ? "border-gray-700" : "border-gray-200"
+          }`}
+        >
           <nav className="flex space-x-8 px-6">
             {tabs.map((tab) => {
               const Icon = tab.icon;
@@ -238,10 +251,12 @@ const Profile = () => {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                  className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-300 ${
                     activeTab === tab.id
                       ? "border-blue-500 text-blue-600"
-                      : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                      : isDarkMode
+                        ? "border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-600"
+                        : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
                   }`}
                 >
                   <div className="flex items-center space-x-2">
@@ -256,10 +271,20 @@ const Profile = () => {
 
         {/* Error Display */}
         {error && (
-          <div className="m-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+          <div
+            className={`m-6 p-4 border rounded-lg transition-colors duration-300 ${
+              isDarkMode
+                ? "bg-red-900/20 border-red-800"
+                : "bg-red-50 border-red-200"
+            }`}
+          >
             <div className="flex items-start">
               <AlertCircle className="w-5 h-5 text-red-500 mr-2 mt-0.5 flex-shrink-0" />
-              <div className="text-red-800">
+              <div
+                className={`transition-colors duration-300 ${
+                  isDarkMode ? "text-red-300" : "text-red-800"
+                }`}
+              >
                 <div className="font-medium mb-1">Error</div>
                 <div className="text-sm">{error}</div>
               </div>
@@ -273,23 +298,43 @@ const Profile = () => {
           {activeTab === "profile" && (
             <div className="space-y-6">
               <div>
-                <h2 className="text-lg font-medium text-gray-900 mb-4">
+                <h2
+                  className={`text-lg font-medium mb-4 transition-colors duration-300 ${
+                    isDarkMode ? "text-white" : "text-gray-900"
+                  }`}
+                >
                   Personal Information
                 </h2>
 
                 {loading ? (
                   <div className="flex items-center justify-center py-8">
                     <Loader2 className="w-6 h-6 text-blue-500 animate-spin mr-2" />
-                    <span>Loading profile...</span>
+                    <span
+                      className={`transition-colors duration-300 ${
+                        isDarkMode ? "text-gray-300" : "text-gray-700"
+                      }`}
+                    >
+                      Loading profile...
+                    </span>
                   </div>
                 ) : (
                   <div className="space-y-4">
                     {/* Profile Picture */}
                     <div className="flex items-center space-x-4">
-                      <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center">
+                      <div
+                        className={`w-16 h-16 rounded-full flex items-center justify-center transition-colors duration-300 ${
+                          isDarkMode ? "bg-gray-600" : "bg-gray-200"
+                        }`}
+                      >
                         <User className="w-8 h-8 text-gray-500" />
                       </div>
-                      <button className="flex items-center space-x-2 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+                      <button
+                        className={`flex items-center space-x-2 px-3 py-2 border rounded-lg transition-colors duration-300 ${
+                          isDarkMode
+                            ? "border-gray-600 text-gray-300 hover:bg-gray-700"
+                            : "border-gray-300 text-gray-700 hover:bg-gray-50"
+                        }`}
+                      >
                         <Camera className="w-4 h-4" />
                         <span>Change Photo</span>
                       </button>
@@ -297,8 +342,12 @@ const Profile = () => {
 
                     {/* Name Field */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Full Name
+                      <label
+                        className={`block text-sm font-medium mb-1 transition-colors duration-300 ${
+                          isDarkMode ? "text-gray-200" : "text-gray-700"
+                        }`}
+                      >
+                        Display Name
                       </label>
                       {isEditing ? (
                         <input
@@ -307,10 +356,20 @@ const Profile = () => {
                           onChange={(e) =>
                             setEditForm({ ...editForm, name: e.target.value })
                           }
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-300 ${
+                            isDarkMode
+                              ? "border-gray-600 bg-gray-700 text-gray-200"
+                              : "border-gray-300 bg-white text-gray-900"
+                          }`}
                         />
                       ) : (
-                        <div className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg">
+                        <div
+                          className={`px-3 py-2 border rounded-lg transition-colors duration-300 ${
+                            isDarkMode
+                              ? "bg-gray-700 border-gray-600 text-gray-200"
+                              : "bg-gray-50 border-gray-200 text-gray-700"
+                          }`}
+                        >
                           {user?.name || "Not set"}
                         </div>
                       )}
@@ -318,7 +377,11 @@ const Profile = () => {
 
                     {/* Email Field */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label
+                        className={`block text-sm font-medium mb-1 transition-colors duration-300 ${
+                          isDarkMode ? "text-gray-200" : "text-gray-700"
+                        }`}
+                      >
                         Email Address
                       </label>
                       {isEditing ? (
@@ -328,47 +391,71 @@ const Profile = () => {
                           onChange={(e) =>
                             setEditForm({ ...editForm, email: e.target.value })
                           }
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-300 ${
+                            isDarkMode
+                              ? "border-gray-600 bg-gray-700 text-gray-200"
+                              : "border-gray-300 bg-white text-gray-900"
+                          }`}
                         />
                       ) : (
-                        <div className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg">
+                        <div
+                          className={`px-3 py-2 border rounded-lg transition-colors duration-300 ${
+                            isDarkMode
+                              ? "bg-gray-700 border-gray-600 text-gray-200"
+                              : "bg-gray-50 border-gray-200 text-gray-700"
+                          }`}
+                        >
                           {user?.email || "Not set"}
                         </div>
                       )}
                     </div>
 
                     {/* Action Buttons */}
-                    <div className="flex items-center space-x-3">
-                      {!isEditing ? (
-                        <button
-                          onClick={handleEdit}
-                          className="flex items-center space-x-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-                        >
-                          <Edit className="w-4 h-4" />
-                          <span>Edit Profile</span>
-                        </button>
-                      ) : (
-                        <>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        {!isEditing ? (
                           <button
-                            onClick={handleSaveProfile}
-                            disabled={isSaving}
-                            className="flex items-center space-x-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-50"
+                            onClick={handleEdit}
+                            className="flex items-center space-x-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
                           >
-                            <Save className="w-4 h-4" />
-                            <span>
-                              {isSaving ? "Saving..." : "Save Changes"}
-                            </span>
+                            <Edit className="w-4 h-4" />
+                            <span>Edit Profile</span>
                           </button>
-                          <button
-                            onClick={handleCancelEdit}
-                            disabled={isSaving}
-                            className="flex items-center space-x-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
-                          >
-                            <X className="w-4 h-4" />
-                            <span>Cancel</span>
-                          </button>
-                        </>
-                      )}
+                        ) : (
+                          <>
+                            <button
+                              onClick={handleSaveProfile}
+                              disabled={isSaving}
+                              className="flex items-center space-x-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-50"
+                            >
+                              <Save className="w-4 h-4" />
+                              <span>
+                                {isSaving ? "Saving..." : "Save Changes"}
+                              </span>
+                            </button>
+                            <button
+                              onClick={handleCancelEdit}
+                              disabled={isSaving}
+                              className={`flex items-center space-x-2 px-4 py-2 border rounded-lg transition-colors duration-300 ${
+                                isDarkMode
+                                  ? "border-gray-600 text-gray-300 hover:bg-gray-700"
+                                  : "border-gray-300 text-gray-700 hover:bg-gray-50"
+                              }`}
+                            >
+                              <X className="w-4 h-4" />
+                              <span>Cancel</span>
+                            </button>
+                          </>
+                        )}
+                      </div>
+
+                      {/* Logout Button */}
+                      <button
+                        onClick={onLogout}
+                        className="flex items-center space-x-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
+                      >
+                        <span>Log Out</span>
+                      </button>
                     </div>
                   </div>
                 )}
@@ -380,13 +467,21 @@ const Profile = () => {
           {activeTab === "projects" && (
             <div className="space-y-6">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-medium text-gray-900">
+                <h2
+                  className={`text-lg font-medium transition-colors duration-300 ${
+                    isDarkMode ? "text-white" : "text-gray-900"
+                  }`}
+                >
                   My Projects ({projects.length})
                 </h2>
                 <button
                   onClick={loadProjects}
                   disabled={loadingProjects}
-                  className="flex items-center space-x-2 px-3 py-2 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+                  className={`flex items-center space-x-2 px-3 py-2 text-sm border rounded-lg disabled:opacity-50 transition-colors duration-300 ${
+                    isDarkMode
+                      ? "text-gray-300 hover:text-gray-100 border-gray-600 hover:bg-gray-700"
+                      : "text-gray-600 hover:text-gray-800 border-gray-300 hover:bg-gray-50"
+                  }`}
                 >
                   <RefreshCw
                     className={`w-4 h-4 ${loadingProjects ? "animate-spin" : ""}`}
@@ -398,20 +493,36 @@ const Profile = () => {
               {loadingProjects ? (
                 <div className="text-center py-12">
                   <Loader2 className="w-8 h-8 text-blue-500 mx-auto mb-4 animate-spin" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  <h3
+                    className={`text-lg font-medium mb-2 transition-colors duration-300 ${
+                      isDarkMode ? "text-white" : "text-gray-900"
+                    }`}
+                  >
                     Loading Projects
                   </h3>
-                  <p className="text-gray-500">
+                  <p
+                    className={`transition-colors duration-300 ${
+                      isDarkMode ? "text-gray-400" : "text-gray-500"
+                    }`}
+                  >
                     Please wait while we fetch your projects...
                   </p>
                 </div>
               ) : projects.length === 0 ? (
                 <div className="text-center py-12">
                   <FolderOpen className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  <h3
+                    className={`text-lg font-medium mb-2 transition-colors duration-300 ${
+                      isDarkMode ? "text-white" : "text-gray-900"
+                    }`}
+                  >
                     No projects found
                   </h3>
-                  <p className="text-gray-500">
+                  <p
+                    className={`transition-colors duration-300 ${
+                      isDarkMode ? "text-gray-400" : "text-gray-500"
+                    }`}
+                  >
                     Start by uploading and translating your first subtitle file,
                     then save it as a project
                   </p>
@@ -422,13 +533,21 @@ const Profile = () => {
                     <div
                       key={project.project_id}
                       onClick={() => handleProjectClick(project)}
-                      className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow cursor-pointer group"
+                      className={`border rounded-lg p-6 hover:shadow-md transition-all duration-300 cursor-pointer group ${
+                        isDarkMode
+                          ? "bg-gray-800 border-gray-600 hover:bg-gray-750"
+                          : "bg-white border-gray-200"
+                      }`}
                     >
                       <div className="flex items-start justify-between mb-4">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center space-x-2 mb-2">
                             <FolderOpen className="w-5 h-5 text-blue-500 flex-shrink-0" />
-                            <h3 className="text-lg font-medium text-gray-900 truncate group-hover:text-blue-600">
+                            <h3
+                              className={`text-lg font-medium truncate group-hover:text-blue-600 transition-colors duration-300 ${
+                                isDarkMode ? "text-white" : "text-gray-900"
+                              }`}
+                            >
                               {project.project_name}
                             </h3>
                           </div>
@@ -445,7 +564,11 @@ const Profile = () => {
                           onClick={(e) =>
                             handleDeleteProject(project.project_id, e)
                           }
-                          className="opacity-0 group-hover:opacity-100 p-1 text-red-600 hover:bg-red-50 rounded transition-all"
+                          className={`opacity-0 group-hover:opacity-100 p-1 text-red-600 rounded transition-all duration-300 ${
+                            isDarkMode
+                              ? "hover:bg-red-900/20"
+                              : "hover:bg-red-50"
+                          }`}
                           title="Delete Project"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -453,12 +576,20 @@ const Profile = () => {
                       </div>
 
                       {project.description && (
-                        <p className="text-sm text-gray-600 mb-3 line-clamp-2">
+                        <p
+                          className={`text-sm mb-3 line-clamp-2 transition-colors duration-300 ${
+                            isDarkMode ? "text-gray-300" : "text-gray-600"
+                          }`}
+                        >
                           {project.description}
                         </p>
                       )}
 
-                      <div className="space-y-2 text-sm text-gray-500">
+                      <div
+                        className={`space-y-2 text-sm transition-colors duration-300 ${
+                          isDarkMode ? "text-gray-400" : "text-gray-500"
+                        }`}
+                      >
                         <div className="flex items-center justify-between">
                           <span className="flex items-center">
                             <Calendar className="w-4 h-4 mr-1" />
@@ -486,7 +617,13 @@ const Profile = () => {
                                 </span>
                               ))}
                             {project.languages.length > 3 && (
-                              <span className="text-xs bg-gray-100 px-2 py-1 rounded-full">
+                              <span
+                                className={`text-xs px-2 py-1 rounded-full transition-colors duration-300 ${
+                                  isDarkMode
+                                    ? "bg-gray-600 text-gray-200"
+                                    : "bg-gray-100 text-gray-700"
+                                }`}
+                              >
                                 +{project.languages.length - 3}
                               </span>
                             )}
@@ -503,20 +640,45 @@ const Profile = () => {
           {/* Security Tab */}
           {activeTab === "security" && (
             <div className="space-y-6">
-              <h2 className="text-lg font-medium text-gray-900">
+              <h2
+                className={`text-lg font-medium transition-colors duration-300 ${
+                  isDarkMode ? "text-white" : "text-gray-900"
+                }`}
+              >
                 Security Settings
               </h2>
 
               <div className="space-y-4">
-                <div className="border border-gray-200 rounded-lg p-4">
+                <div
+                  className={`border rounded-lg p-4 transition-colors duration-300 ${
+                    isDarkMode ? "border-gray-600" : "border-gray-200"
+                  }`}
+                >
                   <div className="flex items-center justify-between">
                     <div>
-                      <h3 className="font-medium text-gray-900">Password</h3>
-                      <p className="text-sm text-gray-500">
+                      <h3
+                        className={`font-medium transition-colors duration-300 ${
+                          isDarkMode ? "text-white" : "text-gray-900"
+                        }`}
+                      >
+                        Password
+                      </h3>
+
+                      <p
+                        className={`text-sm transition-colors duration-300 ${
+                          isDarkMode ? "text-gray-400" : "text-gray-500"
+                        }`}
+                      >
                         Change your account password
                       </p>
                     </div>
-                    <button className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+                    <button
+                      className={`px-4 py-2 border rounded-lg transition-colors duration-300 ${
+                        isDarkMode
+                          ? "border-gray-600 text-gray-300 hover:bg-gray-700"
+                          : "border-gray-300 text-gray-700 hover:bg-gray-50"
+                      }`}
+                    >
                       Change Password
                     </button>
                   </div>
@@ -525,14 +687,28 @@ const Profile = () => {
                 <div className="border border-gray-200 rounded-lg p-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h3 className="font-medium text-gray-900">
+                      <h3
+                        className={`font-medium transition-colors duration-300 ${
+                          isDarkMode ? "text-white" : "text-gray-900"
+                        }`}
+                      >
                         Two-Factor Authentication
                       </h3>
-                      <p className="text-sm text-gray-500">
+                      <p
+                        className={`text-sm transition-colors duration-300 ${
+                          isDarkMode ? "text-gray-400" : "text-gray-500"
+                        }`}
+                      >
                         Add an extra layer of security to your account
                       </p>
                     </div>
-                    <button className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">
+                    <button
+                      className={`px-4 py-2 border rounded-lg transition-colors duration-300 ${
+                        isDarkMode
+                          ? "border-gray-600 text-gray-300 hover:bg-gray-700"
+                          : "border-gray-300 text-gray-700 hover:bg-gray-50"
+                      }`}
+                    >
                       Enable 2FA
                     </button>
                   </div>
@@ -544,19 +720,35 @@ const Profile = () => {
           {/* Notifications Tab */}
           {activeTab === "notifications" && (
             <div className="space-y-6">
-              <h2 className="text-lg font-medium text-gray-900">
+              <h2
+                className={`text-lg font-medium transition-colors duration-300 ${
+                  isDarkMode ? "text-white" : "text-gray-900"
+                }`}
+              >
                 Notification Preferences
               </h2>
 
               <div className="space-y-4">
-                <div className="border border-gray-200 rounded-lg p-4">
+                <div
+                  className={`border rounded-lg p-4 transition-colors duration-300 ${
+                    isDarkMode ? "border-gray-600" : "border-gray-200"
+                  }`}
+                >
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <div>
-                        <h3 className="font-medium text-gray-900">
+                        <h3
+                          className={`font-medium transition-colors duration-300 ${
+                            isDarkMode ? "text-white" : "text-gray-900"
+                          }`}
+                        >
                           Email Notifications
                         </h3>
-                        <p className="text-sm text-gray-500">
+                        <p
+                          className={`text-sm transition-colors duration-300 ${
+                            isDarkMode ? "text-gray-400" : "text-gray-500"
+                          }`}
+                        >
                           Receive updates about your translations via email
                         </p>
                       </div>
@@ -572,10 +764,18 @@ const Profile = () => {
 
                     <div className="flex items-center justify-between">
                       <div>
-                        <h3 className="font-medium text-gray-900">
+                        <h3
+                          className={`font-medium transition-colors duration-300 ${
+                            isDarkMode ? "text-white" : "text-gray-900"
+                          }`}
+                        >
                           Project Updates
                         </h3>
-                        <p className="text-sm text-gray-500">
+                        <p
+                          className={`text-sm transition-colors duration-300 ${
+                            isDarkMode ? "text-gray-400" : "text-gray-500"
+                          }`}
+                        >
                           Get notified when your translations are completed
                         </p>
                       </div>

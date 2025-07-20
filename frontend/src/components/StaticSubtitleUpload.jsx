@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import SaveProjectModal from "./SaveProjectModal";
+import AutoSaveModal from "./AutoSave";
 import {
   Upload,
   Download,
@@ -15,179 +16,11 @@ import {
   Redo,
   FolderPlus,
   CheckCircle,
-  Timer,
-  Settings,
 } from "lucide-react";
 
 // API Configuration for Static Upload only
 const API_BASE_URL = "http://localhost:8000/api";
 const MAX_SELECTED_LANGUAGES = 5;
-
-// Auto-Save Countdown Component
-const AutoSaveCountdown = ({
-  isVisible,
-  onAutoSave,
-  onCustomize,
-  onCancel,
-  originalFilename,
-  duration = 10000,
-}) => {
-  const [timeLeft, setTimeLeft] = useState(duration);
-  const [isActive, setIsActive] = useState(false);
-  const intervalRef = useRef(null);
-
-  useEffect(() => {
-    if (isVisible) {
-      setTimeLeft(duration);
-      setIsActive(true);
-    } else {
-      setIsActive(false);
-      // Clear interval when not visible
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-    }
-  }, [isVisible, duration]);
-
-  useEffect(() => {
-    // Clear any existing interval
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-    }
-
-    if (isActive && timeLeft > 0) {
-      intervalRef.current = setInterval(() => {
-        setTimeLeft((prevTimeLeft) => {
-          const newTime = prevTimeLeft - 100;
-
-          if (newTime <= 0) {
-            setIsActive(false);
-            clearInterval(intervalRef.current);
-            intervalRef.current = null;
-            onAutoSave(); // Auto-save when countdown reaches 0
-            return 0;
-          }
-
-          return newTime;
-        });
-      }, 100);
-    }
-
-    // Cleanup function
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-    };
-  }, [isActive, timeLeft, onAutoSave]);
-
-  const handleCustomize = () => {
-    setIsActive(false);
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-    onCustomize();
-  };
-
-  const handleCancel = () => {
-    setIsActive(false);
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-    onCancel();
-  };
-
-  const progressPercentage = (timeLeft / duration) * 100;
-  const secondsLeft = Math.ceil(timeLeft / 1000);
-
-  if (!isVisible) return null;
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
-        {/* Header */}
-        <div className="flex items-center space-x-3 mb-6">
-          <div className="relative">
-            <Timer className="w-6 h-6 text-blue-500" />
-            {isActive && (
-              <div className="absolute -inset-1 border-2 border-blue-500 rounded-full animate-pulse"></div>
-            )}
-          </div>
-          <h2 className="text-xl font-semibold text-gray-900">
-            Auto-Save Project
-          </h2>
-        </div>
-
-        {/* Countdown Content */}
-        <div className="text-center mb-6">
-          <p className="text-gray-600 mb-4">
-            Project will be automatically saved as:
-          </p>
-          <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
-            <p className="font-medium text-blue-900 truncate">
-              {originalFilename?.replace(/\.[^/.]+$/, "") || "Untitled Project"}
-            </p>
-          </div>
-        </div>
-
-        {/* Progress Bar - Reverse countdown */}
-        <div className="mb-6">
-          <div className="w-full bg-gray-200 rounded-full h-3">
-            <div
-              className="bg-gradient-to-r from-blue-500 to-blue-600 h-3 rounded-full transition-all duration-100 ease-linear"
-              style={{ width: `${progressPercentage}%` }}
-            ></div>
-          </div>
-          <div className="flex justify-between text-xs text-gray-500 mt-1">
-            <span>Auto-saving...</span>
-            <span>{secondsLeft}s remaining</span>
-          </div>
-        </div>
-
-        {/* Action Buttons */}
-        <div className="flex flex-col space-y-3">
-          <button
-            onClick={handleCustomize}
-            className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-          >
-            <Settings className="w-4 h-4" />
-            <span>Customize Project Details</span>
-          </button>
-
-          <div className="flex space-x-3">
-            <button
-              onClick={() => {
-                setIsActive(false);
-                onAutoSave();
-              }}
-              className="flex-1 flex items-center justify-center space-x-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
-            >
-              <Save className="w-4 h-4" />
-              <span>Save Now</span>
-            </button>
-
-            <button
-              onClick={handleCancel}
-              className="flex-1 flex items-center justify-center space-x-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-            >
-              <X className="w-4 h-4" />
-              <span>Don't Save</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Info Text */}
-        <p className="text-xs text-gray-500 text-center mt-4">
-          Click any button to interact and stop auto-save
-        </p>
-      </div>
-    </div>
-  );
-};
 
 const apiCall = async (endpoint, options = {}) => {
   try {
@@ -219,6 +52,7 @@ const MultiSelectDropdown = ({
   searchTerm,
   onSearchChange,
   maxLanguages,
+  isDarkMode,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
@@ -236,21 +70,18 @@ const MultiSelectDropdown = ({
 
   const handleLanguageToggle = (languageCode) => {
     if (selectedLanguages.includes(languageCode)) {
-      // Remove language (always allowed)
       const newSelection = selectedLanguages.filter(
         (code) => code !== languageCode,
       );
       onSelectionChange(newSelection);
     } else {
-      // Add language (only if under limit)
       if (selectedLanguages.length < MAX_SELECTED_LANGUAGES) {
         const newSelection = [...selectedLanguages, languageCode];
         onSelectionChange(newSelection);
       }
-      // Don't add if at limit - could show a message here if needed
     }
-    onSearchChange(""); // Clear search after selection
-    setIsOpen(false); // Close dropdown after selection
+    onSearchChange("");
+    setIsOpen(false);
   };
 
   const removeLanguage = (languageCode) => {
@@ -261,19 +92,26 @@ const MultiSelectDropdown = ({
 
   return (
     <div className="relative" ref={dropdownRef}>
-      {/* Selected languages display */}
       <div className="mb-2 flex flex-wrap gap-2">
         {selectedLanguages.map((code) => {
           const language = languages.find((lang) => lang.code === code);
           return (
             <span
               key={code}
-              className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-blue-100 text-blue-800"
+              className={`inline-flex items-center px-3 py-1 rounded-full text-sm transition-colors duration-300 ${
+                isDarkMode
+                  ? "bg-blue-900/50 text-blue-200"
+                  : "bg-blue-100 text-blue-800"
+              }`}
             >
               {language?.name || code}
               <button
                 onClick={() => removeLanguage(code)}
-                className="ml-2 text-blue-600 hover:text-blue-800"
+                className={`ml-2 transition-colors duration-300 ${
+                  isDarkMode
+                    ? "text-blue-300 hover:text-blue-100"
+                    : "text-blue-600 hover:text-blue-800"
+                }`}
                 disabled={disabled}
               >
                 <X className="w-3 h-3" />
@@ -283,7 +121,6 @@ const MultiSelectDropdown = ({
         })}
       </div>
 
-      {/* Search input */}
       <div className="relative">
         <input
           type="text"
@@ -296,20 +133,37 @@ const MultiSelectDropdown = ({
               : `${selectedLanguages.length} selected - type to search more...`
           }
           disabled={disabled}
-          className={`w-full p-3 border rounded-lg pr-10 ${
+          className={`w-full p-3 border rounded-lg pr-10 transition-colors duration-300 ${
             disabled
-              ? "border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed"
-              : "border-gray-300 bg-white hover:border-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              ? isDarkMode
+                ? "border-gray-600 bg-gray-700 text-gray-500 cursor-not-allowed"
+                : "border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed"
+              : isDarkMode
+                ? "border-gray-600 bg-gray-700 text-gray-200 hover:border-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                : "border-gray-300 bg-white hover:border-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           }`}
         />
         <ChevronDown
-          className={`absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 transition-transform ${isOpen ? "rotate-180" : ""} ${disabled ? "text-gray-300" : "text-gray-400"}`}
+          className={`absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 transition-all duration-300 ${isOpen ? "rotate-180" : ""} ${
+            disabled
+              ? isDarkMode
+                ? "text-gray-600"
+                : "text-gray-300"
+              : isDarkMode
+                ? "text-gray-400"
+                : "text-gray-400"
+          }`}
         />
       </div>
 
-      {/* Dropdown menu */}
       {isOpen && !disabled && (
-        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+        <div
+          className={`absolute z-10 w-full mt-1 border rounded-lg shadow-lg max-h-60 overflow-y-auto transition-colors duration-300 ${
+            isDarkMode
+              ? "bg-gray-800 border-gray-600"
+              : "bg-white border-gray-300"
+          }`}
+        >
           {languages
             .filter(
               (language) =>
@@ -329,11 +183,21 @@ const MultiSelectDropdown = ({
                   type="button"
                   onClick={() => handleLanguageToggle(language.code)}
                   disabled={isDisabled}
-                  className={`w-full px-4 py-2 text-left flex items-center justify-between ${
+                  className={`w-full px-4 py-2 text-left flex items-center justify-between transition-colors duration-300 ${
                     isDisabled
-                      ? "text-gray-400 cursor-not-allowed"
-                      : "hover:bg-gray-50"
-                  } ${isSelected ? "bg-blue-50" : ""}`}
+                      ? isDarkMode
+                        ? "text-gray-600 cursor-not-allowed"
+                        : "text-gray-400 cursor-not-allowed"
+                      : isDarkMode
+                        ? "text-gray-200 hover:bg-gray-700"
+                        : "hover:bg-gray-50"
+                  } ${
+                    isSelected
+                      ? isDarkMode
+                        ? "bg-blue-900/30"
+                        : "bg-blue-50"
+                      : ""
+                  }`}
                 >
                   <span className="truncate">{language.name}</span>
                   {selectedLanguages.includes(language.code) && (
@@ -348,22 +212,26 @@ const MultiSelectDropdown = ({
   );
 };
 
-const ToggleSwitch = ({ enabled, onChange, disabled }) => {
+const ToggleSwitch = ({ enabled, onChange, disabled, isDarkMode }) => {
   return (
     <button
       type="button"
       onClick={() => !disabled && onChange(!enabled)}
       disabled={disabled}
-      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
         disabled
-          ? "bg-gray-200 cursor-not-allowed"
+          ? isDarkMode
+            ? "bg-gray-600 cursor-not-allowed"
+            : "bg-gray-200 cursor-not-allowed"
           : enabled
             ? "bg-blue-600"
-            : "bg-gray-200"
+            : isDarkMode
+              ? "bg-gray-600"
+              : "bg-gray-200"
       }`}
     >
       <span
-        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-300 ${
           enabled ? "translate-x-6" : "translate-x-1"
         }`}
       />
@@ -371,7 +239,11 @@ const ToggleSwitch = ({ enabled, onChange, disabled }) => {
   );
 };
 
-const StaticSubtitleUpload = () => {
+const StaticSubtitleUpload = ({
+  initialTranscriptionData,
+  onBackToTranscription,
+  isDarkMode,
+}) => {
   const [dragActive, setDragActive] = useState(false);
   const [uploadedFile, setUploadedFile] = useState(null);
   const [censorProfanity, setCensorProfanity] = useState(false);
@@ -403,16 +275,21 @@ const StaticSubtitleUpload = () => {
   const [showSaveProjectModal, setShowSaveProjectModal] = useState(false);
   const [isSavingProject, setIsSavingProject] = useState(false);
   const [projectSaveSuccess, setProjectSaveSuccess] = useState(null);
-  const [isViewingEditedFile, setIsViewingEditedFile] = useState(false);
   const [projectSaved, setProjectSaved] = useState(false);
   const [hasAutoSaved, setHasAutoSaved] = useState(false);
   const [autoSaveInProgress, setAutoSaveInProgress] = useState(false);
   const [projectSaveAttempted, setProjectSaveAttempted] = useState(false);
   const [pendingRequests, setPendingRequests] = useState(new Set());
+  const [fromTranscription, setFromTranscription] = useState(
+    !!initialTranscriptionData,
+  );
+  const [transcriptionFile, setTranscriptionFile] = useState(null);
+  const [showAutoSaveModal, setShowAutoSaveModal] = useState(false);
 
-  // Auto-save countdown states
-  const [showAutoSaveCountdown, setShowAutoSaveCountdown] = useState(false);
-  const [autoSaveTriggered, setAutoSaveTriggered] = useState(false);
+  const originalPreviewRef = useRef(null);
+  const translatedPreviewRef = useRef(null);
+  const previewSectionRef = useRef(null);
+  const editTextareaRef = useRef(null);
 
   // Load languages from Microsoft Translator API
   useEffect(() => {
@@ -421,14 +298,10 @@ const StaticSubtitleUpload = () => {
         setLoadingLanguages(true);
         setError(null);
 
-        // Check if backend is healthy
         await apiCall("/health");
         setBackendConnected(true);
 
-        // Fetch languages from backend
         const languageData = await apiCall("/languages");
-
-        // Convert backend format to array format
         const languageArray = Object.entries(languageData).map(
           ([code, name]) => ({
             code,
@@ -436,9 +309,7 @@ const StaticSubtitleUpload = () => {
           }),
         );
 
-        // Sort languages alphabetically by name
         languageArray.sort((a, b) => a.name.localeCompare(b.name));
-
         setLanguages(languageArray);
         setError(null);
       } catch (err) {
@@ -455,6 +326,23 @@ const StaticSubtitleUpload = () => {
 
     loadLanguages();
   }, []);
+
+  // Handle initial transcription data
+  useEffect(() => {
+    if (initialTranscriptionData) {
+      const virtualFile = new File(
+        [initialTranscriptionData.content],
+        initialTranscriptionData.filename,
+        { type: "text/plain" },
+      );
+
+      setUploadedFile(virtualFile);
+      setTranscriptionFile(initialTranscriptionData);
+      setFromTranscription(true);
+      setError(null);
+      setBackendConnected(true);
+    }
+  }, [initialTranscriptionData]);
 
   const handleDrag = (e) => {
     e.preventDefault();
@@ -500,7 +388,6 @@ const StaticSubtitleUpload = () => {
     }
   };
 
-  // Enhanced translation function with better progress tracking and auto-save trigger
   const startTranslation = async () => {
     if (!backendConnected) {
       setError("Backend not connected. Please start your FastAPI server.");
@@ -513,9 +400,6 @@ const StaticSubtitleUpload = () => {
     setTranslationProgress(0);
     setTranslatedFiles([]);
     setError(null);
-
-    // Reset auto-save states at the start of translation
-    setAutoSaveTriggered(false);
     setProjectSaveAttempted(false);
     setHasAutoSaved(false);
     setAutoSaveInProgress(false);
@@ -524,7 +408,6 @@ const StaticSubtitleUpload = () => {
       const totalLanguages = targetLanguages.length;
       const translatedResults = [];
 
-      // Process each target language sequentially
       for (let i = 0; i < targetLanguages.length; i++) {
         const targetLang = targetLanguages[i];
         const targetLangName =
@@ -532,7 +415,6 @@ const StaticSubtitleUpload = () => {
 
         setCurrentTranslatingLanguage(`Translating to ${targetLangName}...`);
 
-        // Create FormData for file upload
         const formData = new FormData();
         formData.append("file", uploadedFile);
         formData.append("source_language", "auto");
@@ -540,7 +422,6 @@ const StaticSubtitleUpload = () => {
         formData.append("target_language", targetLang);
 
         try {
-          // Start translation request
           const result = await apiCall("/upload-file", {
             method: "POST",
             body: formData,
@@ -554,31 +435,29 @@ const StaticSubtitleUpload = () => {
             message: result.message,
           });
 
-          // Update progress
           const progress = ((i + 1) / totalLanguages) * 100;
           setTranslationProgress(progress);
 
-          // Small delay to show progress
           if (i < targetLanguages.length - 1) {
             await new Promise((resolve) => setTimeout(resolve, 500));
           }
         } catch (err) {
           console.error(`Translation failed for ${targetLang}:`, err);
           setError(`Translation failed for ${targetLangName}: ${err.message}`);
-          break; // Stop on first error
+          break;
         }
       }
 
       setTranslatedFiles(translatedResults);
       setCurrentTranslatingLanguage("");
 
-      // Show auto-save countdown only if translation was successful and no save attempted yet
+      // Show save project modal immediately after successful translation
       if (
         translatedResults.length > 0 &&
         !projectSaveAttempted &&
         !hasAutoSaved
       ) {
-        setShowAutoSaveCountdown(true);
+        setShowAutoSaveModal(true);
       }
     } catch (err) {
       setError(`Translation failed: ${err.message}`);
@@ -588,128 +467,60 @@ const StaticSubtitleUpload = () => {
     }
   };
 
-  // Auto-save function
-  const handleAutoSave = async () => {
-    // Prevent duplicate auto-saves
-    if (autoSaveInProgress || hasAutoSaved || projectSaveAttempted) {
-      console.log("Auto-save already in progress or completed, skipping...");
-      setShowAutoSaveCountdown(false);
-      return;
-    }
+  // Add these three handler functions
+  const handleAutoSaveQuick = async () => {
+    setShowAutoSaveModal(false);
 
-    // Verify we have files to save
-    if (!translatedFiles || translatedFiles.length === 0) {
-      console.log("No translated files available for auto-save");
-      setShowAutoSaveCountdown(false);
-      return;
-    }
+    const autoProjectName =
+      uploadedFile?.name.replace(/\.[^/.]+$/, "") || "Untitled Project";
 
-    // Check if any files are empty or invalid
-    const validFiles = translatedFiles.filter(
-      (file) =>
-        file.filename &&
-        file.filename.trim() !== "" &&
-        (editedFiles[file.filename] || true), // Either has edited content or assume original is valid
-    );
+    const timestamp = new Date()
+      .toISOString()
+      .slice(0, 19)
+      .replace(/[:-]/g, "");
+    const uniqueProjectName = `${autoProjectName}_${timestamp}`;
 
-    if (validFiles.length === 0) {
-      console.log("No valid files available for auto-save");
-      setShowAutoSaveCountdown(false);
-      setError(
-        "No valid translated files found. Please ensure translation completed successfully.",
-      );
-      return;
-    }
+    const projectData = {
+      project_name: uniqueProjectName,
+      description: `Auto-saved project from translation of ${uploadedFile?.name} at ${new Date().toLocaleString()}`,
+      filenames: translatedFiles.map((file) => file.filename),
+      original_filename: uploadedFile?.name || "",
+      target_languages: targetLanguages,
+      is_public: false,
+      edited_files: editedFiles,
+    };
 
-    setAutoSaveInProgress(true);
-    setProjectSaveAttempted(true);
-
-    try {
-      // Add a small delay to ensure all files are properly processed
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      const autoProjectName =
-        uploadedFile?.name.replace(/\.[^/.]+$/, "") || "Untitled Project";
-
-      // Add timestamp to prevent duplicate project names
-      const timestamp = new Date()
-        .toISOString()
-        .slice(0, 19)
-        .replace(/[:-]/g, "");
-      const uniqueProjectName = `${autoProjectName}_autosaved_${timestamp}`;
-
-      const projectData = {
-        project_name: uniqueProjectName,
-        description: `Auto-saved project from translation of ${uploadedFile?.name} at ${new Date().toLocaleString()}`,
-        filenames: validFiles.map((file) => file.filename),
-        original_filename: uploadedFile?.name || "",
-        target_languages: targetLanguages,
-        is_public: false,
-        edited_files: editedFiles,
-        auto_saved: true, // Flag to indicate this was auto-saved
-      };
-
-      console.log("Attempting auto-save with data:", projectData);
-
-      await saveAsProject(projectData);
-      setAutoSaveTriggered(true);
-      setProjectSaved(true);
-      setHasAutoSaved(true);
-
-      console.log("Auto-save completed successfully");
-    } catch (error) {
-      console.error("Auto-save failed:", error);
-      setError(`Auto-save failed: ${error.message}`);
-      // Reset states on failure so user can try again
-      setProjectSaveAttempted(false);
-    } finally {
-      setShowAutoSaveCountdown(false);
-      setAutoSaveInProgress(false);
-    }
+    await saveAsProject(projectData);
   };
 
-  // Enhanced customize project function
-  const handleCustomizeProject = () => {
-    setShowAutoSaveCountdown(false);
-    setProjectSaveAttempted(true); // Mark as attempted to prevent auto-save
+  const handleCustomizeSave = () => {
+    setShowAutoSaveModal(false);
     setShowSaveProjectModal(true);
   };
 
-  // Enhanced cancel auto-save function
-  const handleCancelAutoSave = () => {
-    setShowAutoSaveCountdown(false);
-    setProjectSaveAttempted(true); // Mark as attempted to prevent auto-save from showing again
+  const handleDontSave = () => {
+    setShowAutoSaveModal(false);
+    setProjectSaveAttempted(true);
   };
 
-  // Enhanced saveAsProject function with duplicate prevention
   const saveAsProject = async (projectData) => {
     if (!backendConnected) {
       setError("Backend not connected. Cannot save project.");
       return;
     }
 
-    // Create a unique request key based on project data
     const requestKey = `save_${projectData.project_name}_${JSON.stringify(projectData.filenames)}`;
 
-    // Check if this exact request is already pending
     if (pendingRequests.has(requestKey)) {
       console.log("Duplicate save request detected, ignoring...");
       return;
     }
 
-    // Prevent duplicate saves with more specific logging
     if (isSavingProject) {
       console.log("Save already in progress, skipping duplicate request");
       return;
     }
 
-    console.log("Starting project save with data:", {
-      projectName: projectData.project_name,
-      fileCount: projectData.filenames?.length || 0,
-      hasEditedFiles: Object.keys(projectData.edited_files || {}).length > 0,
-    });
-
-    // Mark request as pending
     setPendingRequests((prev) => new Set([...prev, requestKey]));
     setIsSavingProject(true);
     setError(null);
@@ -723,8 +534,6 @@ const StaticSubtitleUpload = () => {
         body: JSON.stringify(projectData),
       });
 
-      console.log("Project save response:", response);
-
       setProjectSaveSuccess({
         projectName: projectData.project_name,
         projectId: response.project_id,
@@ -735,19 +544,14 @@ const StaticSubtitleUpload = () => {
       setProjectSaved(true);
       setProjectSaveAttempted(true);
 
-      // Auto-hide success message after 5 seconds
       setTimeout(() => {
         setProjectSaveSuccess(null);
       }, 5000);
     } catch (err) {
       console.error("Project save error:", err);
-
-      // Handle specific duplicate error
-
-      // Don't reset projectSaveAttempted on error to prevent auto-save from triggering
+      setError(`Save failed: ${err.message}`);
     } finally {
       setIsSavingProject(false);
-      // Remove request from pending set
       setPendingRequests((prev) => {
         const newSet = new Set(prev);
         newSet.delete(requestKey);
@@ -756,7 +560,6 @@ const StaticSubtitleUpload = () => {
     }
   };
 
-  // Download translated file from backend
   const downloadFile = async (filename) => {
     if (!backendConnected) {
       setError("Backend not connected. Cannot download files.");
@@ -787,7 +590,6 @@ const StaticSubtitleUpload = () => {
     }
   };
 
-  // Add new function to download all files as ZIP
   const downloadAllAsZip = async () => {
     if (!backendConnected) {
       setError("Backend not connected. Cannot download files.");
@@ -803,7 +605,6 @@ const StaticSubtitleUpload = () => {
     setError(null);
 
     try {
-      // Send the list of filenames to the backend
       const filenames = translatedFiles.map((file) => file.filename);
 
       const response = await fetch(`${API_BASE_URL}/download-zip`, {
@@ -824,7 +625,6 @@ const StaticSubtitleUpload = () => {
       const a = document.createElement("a");
       a.href = url;
 
-      // Create a meaningful ZIP filename based on the original file
       const originalName =
         uploadedFile?.name.replace(/\.[^/.]+$/, "") || "subtitles";
       a.download = `${originalName}_translated.zip`;
@@ -840,7 +640,6 @@ const StaticSubtitleUpload = () => {
     }
   };
 
-  // Preview subtitle file content with original comparison
   const previewFile = async (filename, languageName) => {
     if (!backendConnected) {
       setError("Backend not connected. Cannot preview files.");
@@ -852,7 +651,6 @@ const StaticSubtitleUpload = () => {
     setError(null);
 
     try {
-      // Always fetch the original translated file from backend
       const translatedResponse = await fetch(
         `${API_BASE_URL}/download-subtitle?filename=${encodeURIComponent(filename)}`,
       );
@@ -863,12 +661,9 @@ const StaticSubtitleUpload = () => {
       }
 
       const originalTranslatedContent = await translatedResponse.text();
-
-      // Always show the original translated content in preview, not the edited version
       setPreviewContent(originalTranslatedContent);
       setLoadingPreview(false);
 
-      // Fetch original file content
       if (uploadedFile) {
         const reader = new FileReader();
         reader.onload = (e) => {
@@ -885,7 +680,6 @@ const StaticSubtitleUpload = () => {
       setPreviewingFile({ filename, languageName });
       setShowPreview(true);
 
-      // Scroll to preview section after a short delay
       setTimeout(() => {
         if (previewSectionRef.current) {
           previewSectionRef.current.scrollIntoView({
@@ -902,7 +696,6 @@ const StaticSubtitleUpload = () => {
     }
   };
 
-  // Sync scroll between original and translated preview
   const handleScrollSync = (e, targetRef) => {
     if (targetRef.current) {
       targetRef.current.scrollTop = e.target.scrollTop;
@@ -910,7 +703,6 @@ const StaticSubtitleUpload = () => {
     }
   };
 
-  // Close preview
   const closePreview = () => {
     setShowPreview(false);
     setPreviewingFile(null);
@@ -922,7 +714,6 @@ const StaticSubtitleUpload = () => {
     setIsSaving(false);
   };
 
-  // Start editing mode
   const startEditing = () => {
     setEditedContent(previewContent);
     setIsEditing(true);
@@ -934,13 +725,11 @@ const StaticSubtitleUpload = () => {
     setEditedContent("");
     setEditHistory([]);
     setHistoryIndex(-1);
-    setIsViewingEditedFile(false);
     if (translatedPreviewRef.current) {
       translatedPreviewRef.current.scrollTop = 0;
     }
   };
 
-  // Save edited content
   const saveEditedFile = async () => {
     if (!backendConnected || !previewingFile) {
       setError("Cannot save: Backend not connected or no file selected.");
@@ -951,15 +740,11 @@ const StaticSubtitleUpload = () => {
     setError(null);
 
     try {
-      // Update the preview content to match edited content
       setPreviewContent(editedContent);
-
-      // Mark this file as edited and store the edited content
       setEditedFiles((prev) => ({
         ...prev,
         [previewingFile.filename]: editedContent,
       }));
-
       setIsEditing(false);
       setEditedContent("");
     } catch (err) {
@@ -969,7 +754,6 @@ const StaticSubtitleUpload = () => {
     }
   };
 
-  // Download edited file
   const downloadEditedFile = async (filename) => {
     const editedContent = editedFiles[filename];
     if (!editedContent) {
@@ -994,20 +778,15 @@ const StaticSubtitleUpload = () => {
     }
   };
 
-  // Initialize edit history when starting to edit
   const initializeEditHistory = (content) => {
     setEditHistory([content]);
     setHistoryIndex(0);
   };
 
-  // Add to edit history
   const addToHistory = (content) => {
     setEditHistory((prev) => {
-      // Remove any future history if we're not at the end
       const newHistory = prev.slice(0, historyIndex + 1);
-      // Add new content
       newHistory.push(content);
-      // Limit history to 50 entries to prevent memory issues
       if (newHistory.length > 50) {
         newHistory.shift();
         setHistoryIndex(Math.min(historyIndex, newHistory.length - 1));
@@ -1018,7 +797,6 @@ const StaticSubtitleUpload = () => {
     });
   };
 
-  // Undo function
   const handleUndo = () => {
     if (historyIndex > 0) {
       const newIndex = historyIndex - 1;
@@ -1027,7 +805,6 @@ const StaticSubtitleUpload = () => {
     }
   };
 
-  // Redo function
   const handleRedo = () => {
     if (historyIndex < editHistory.length - 1) {
       const newIndex = historyIndex + 1;
@@ -1036,17 +813,14 @@ const StaticSubtitleUpload = () => {
     }
   };
 
-  // Handle text change with history
   const handleTextChange = (newContent) => {
     setEditedContent(newContent);
-    // Debounce history additions to avoid too many entries
     clearTimeout(window.editHistoryTimeout);
     window.editHistoryTimeout = setTimeout(() => {
       addToHistory(newContent);
-    }, 500); // Add to history after 500ms of no typing
+    }, 500);
   };
 
-  // Handle keyboard shortcuts
   const handleKeyDown = (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === "z" && !e.shiftKey) {
       e.preventDefault();
@@ -1082,24 +856,19 @@ const StaticSubtitleUpload = () => {
     setShowSaveProjectModal(false);
     setIsSavingProject(false);
     setProjectSaveSuccess(null);
-    setShowAutoSaveCountdown(false);
-    setAutoSaveTriggered(false);
     setProjectSaved(false);
     setHasAutoSaved(false);
     setAutoSaveInProgress(false);
     setProjectSaveAttempted(false);
     setPendingRequests(new Set());
+    setFromTranscription(false);
+    setTranscriptionFile(null);
+    setShowAutoSaveModal(false);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
   };
 
-  const originalPreviewRef = useRef(null);
-  const translatedPreviewRef = useRef(null);
-  const previewSectionRef = useRef(null);
-  const editTextareaRef = useRef(null);
-
-  // Retry connection to backend
   const retryConnection = async () => {
     setLoadingLanguages(true);
     setError(null);
@@ -1108,7 +877,6 @@ const StaticSubtitleUpload = () => {
       await apiCall("/health");
       setBackendConnected(true);
 
-      // Load languages from backend only
       const languageData = await apiCall("/languages");
       const languageArray = Object.entries(languageData).map(
         ([code, name]) => ({
@@ -1118,7 +886,6 @@ const StaticSubtitleUpload = () => {
       );
       languageArray.sort((a, b) => a.name.localeCompare(b.name));
       setLanguages(languageArray);
-
       setError(null);
     } catch (err) {
       setBackendConnected(false);
@@ -1132,36 +899,54 @@ const StaticSubtitleUpload = () => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
-      {/* Auto-Save Countdown Modal */}
-      <AutoSaveCountdown
-        isVisible={showAutoSaveCountdown}
-        onAutoSave={handleAutoSave}
-        onCustomize={handleCustomizeProject}
-        onCancel={handleCancelAutoSave}
-        originalFilename={uploadedFile?.name}
-        duration={10000} // 10 seconds
-      />
-
-      <div className="bg-white rounded-xl shadow-lg p-8">
-        <h2 className="text-2xl font-bold text-gray-900 mb-6">
+    <div
+      className={`max-w-4xl mx-auto p-6 min-h-screen transition-colors duration-300 ${
+        isDarkMode ? "bg-gray-900" : "bg-gray-50"
+      }`}
+    >
+      <div
+        className={`rounded-xl shadow-lg p-8 transition-colors duration-300 ${
+          isDarkMode ? "bg-gray-800" : "bg-white"
+        }`}
+      >
+        <h2
+          className={`text-2xl font-bold mb-6 transition-colors duration-300 ${
+            isDarkMode ? "text-white" : "text-gray-900"
+          }`}
+        >
           Subtitle Translation
         </h2>
 
-        {/* Backend Connection Status - Only show when disconnected */}
+        {/* Backend Connection Status */}
         {!backendConnected && (
-          <div className="mb-6 p-4 rounded-lg bg-red-50 border border-red-200">
+          <div
+            className={`mb-6 p-4 rounded-lg border transition-colors duration-300 ${
+              isDarkMode
+                ? "bg-red-900/20 border-red-800"
+                : "bg-red-50 border-red-200"
+            }`}
+          >
             <div className="flex items-center justify-between">
               <div className="flex items-center">
                 <div className="w-3 h-3 rounded-full mr-3 bg-red-500"></div>
-                <span className="font-medium text-red-800">
+                <span
+                  className={`font-medium transition-colors duration-300 ${
+                    isDarkMode ? "text-red-300" : "text-red-800"
+                  }`}
+                >
                   Azure Translation Service: Disconnected
                 </span>
               </div>
               <button
                 onClick={retryConnection}
                 disabled={loadingLanguages}
-                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-300 text-sm"
+                className={`px-4 py-2 rounded-lg text-sm text-white transition-colors duration-300 ${
+                  loadingLanguages
+                    ? isDarkMode
+                      ? "bg-gray-600"
+                      : "bg-gray-300"
+                    : "bg-blue-500 hover:bg-blue-600"
+                }`}
               >
                 {loadingLanguages ? "Connecting..." : "Retry Connection"}
               </button>
@@ -1182,7 +967,7 @@ const StaticSubtitleUpload = () => {
           </div>
         )}
 
-        {/* Show setup instructions when backend is not connected */}
+        {/* Setup instructions when backend is not connected */}
         {!backendConnected && !loadingLanguages && (
           <div className="mb-6 p-6 bg-blue-50 border border-blue-200 rounded-lg">
             <h3 className="text-lg font-medium text-blue-800 mb-2">
@@ -1220,82 +1005,201 @@ const StaticSubtitleUpload = () => {
 
         {/* File Upload Area */}
         <div
-          className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+          className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors duration-300 ${
             !backendConnected
-              ? "border-gray-200 bg-gray-50 cursor-not-allowed"
-              : dragActive
-                ? "border-blue-500 bg-blue-50"
-                : "border-gray-300 hover:border-gray-400"
+              ? isDarkMode
+                ? "border-gray-600 bg-gray-700 cursor-not-allowed"
+                : "border-gray-200 bg-gray-50 cursor-not-allowed"
+              : fromTranscription
+                ? isDarkMode
+                  ? "border-green-600 bg-green-900/20"
+                  : "border-green-300 bg-green-50"
+                : dragActive
+                  ? isDarkMode
+                    ? "border-blue-400 bg-blue-900/20"
+                    : "border-blue-500 bg-blue-50"
+                  : isDarkMode
+                    ? "border-gray-600 hover:border-gray-500 bg-gray-800"
+                    : "border-gray-300 hover:border-gray-400 bg-white"
           }`}
-          onDragEnter={backendConnected ? handleDrag : undefined}
-          onDragLeave={backendConnected ? handleDrag : undefined}
-          onDragOver={backendConnected ? handleDrag : undefined}
-          onDrop={backendConnected ? handleDrop : undefined}
+          onDragEnter={
+            backendConnected && !fromTranscription ? handleDrag : undefined
+          }
+          onDragLeave={
+            backendConnected && !fromTranscription ? handleDrag : undefined
+          }
+          onDragOver={
+            backendConnected && !fromTranscription ? handleDrag : undefined
+          }
+          onDrop={
+            backendConnected && !fromTranscription ? handleDrop : undefined
+          }
         >
-          <Upload
-            className={`w-12 h-12 mx-auto mb-4 ${
-              backendConnected ? "text-gray-400" : "text-gray-300"
-            }`}
-          />
-          <p
-            className={`text-lg mb-2 px-4 ${
-              backendConnected ? "text-gray-600" : "text-gray-400"
-            }`}
-          >
-            {uploadedFile ? (
-              <span
-                className="break-all max-w-full inline-block"
-                title={uploadedFile.name}
+          {fromTranscription ? (
+            <>
+              <svg
+                className="w-12 h-12 mx-auto mb-4 text-green-500"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
               >
-                {uploadedFile.name}
-              </span>
-            ) : (
-              "Drop your subtitle files here"
-            )}
-          </p>
-          <p
-            className={`text-sm mb-4 ${
-              backendConnected ? "text-gray-400" : "text-gray-300"
-            }`}
-          >
-            Supports SRT, VTT formats • Powered by Azure Translator
-          </p>
-          <button
-            onClick={() => backendConnected && fileInputRef.current?.click()}
-            disabled={!backendConnected}
-            className={`px-6 py-2 rounded-lg transition-colors ${
-              backendConnected
-                ? "bg-blue-500 text-white hover:bg-blue-600"
-                : "bg-gray-300 text-gray-500 cursor-not-allowed"
-            }`}
-          >
-            Browse Files
-          </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            className="hidden"
-            accept=".srt,.vtt"
-            onChange={handleFileInput}
-            disabled={!backendConnected}
-          />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+              <p
+                className={`text-lg mb-2 px-4 font-medium transition-colors duration-300 ${
+                  isDarkMode ? "text-green-300" : "text-green-700"
+                }`}
+              >
+                Transcription Ready for Translation
+              </p>
+              <p
+                className={`text-sm mb-2 transition-colors duration-300 ${
+                  isDarkMode ? "text-green-400" : "text-green-600"
+                }`}
+              >
+                {transcriptionFile?.filename} (
+                {transcriptionFile?.format?.toUpperCase()})
+              </p>
+              <p
+                className={`text-xs mb-4 transition-colors duration-300 ${
+                  isDarkMode ? "text-green-500" : "text-green-500"
+                }`}
+              >
+                From: {transcriptionFile?.originalFilename}
+              </p>
+              <div className="flex justify-center space-x-4">
+                <button
+                  onClick={() => {
+                    setFromTranscription(false);
+                    setUploadedFile(null);
+                    setTranscriptionFile(null);
+                  }}
+                  className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors duration-300"
+                >
+                  Upload Different File
+                </button>
+                {onBackToTranscription && (
+                  <button
+                    onClick={onBackToTranscription}
+                    className={`px-4 py-2 border rounded-lg transition-colors duration-300 ${
+                      isDarkMode
+                        ? "border-gray-600 text-gray-300 hover:bg-gray-700"
+                        : "border-gray-300 text-gray-700 hover:bg-gray-50"
+                    }`}
+                  >
+                    Back to Transcription
+                  </button>
+                )}
+              </div>
+            </>
+          ) : (
+            <>
+              <Upload
+                className={`w-12 h-12 mx-auto mb-4 transition-colors duration-300 ${
+                  backendConnected
+                    ? isDarkMode
+                      ? "text-gray-400"
+                      : "text-gray-400"
+                    : isDarkMode
+                      ? "text-gray-600"
+                      : "text-gray-300"
+                }`}
+              />
+              <p
+                className={`text-lg mb-2 px-4 transition-colors duration-300 ${
+                  backendConnected
+                    ? isDarkMode
+                      ? "text-gray-300"
+                      : "text-gray-600"
+                    : isDarkMode
+                      ? "text-gray-500"
+                      : "text-gray-400"
+                }`}
+              >
+                {uploadedFile ? (
+                  <span
+                    className="break-all max-w-full inline-block"
+                    title={uploadedFile.name}
+                  >
+                    {uploadedFile.name}
+                  </span>
+                ) : (
+                  "Drop your subtitle files here"
+                )}
+              </p>
+              <p
+                className={`text-sm mb-4 transition-colors duration-300 ${
+                  backendConnected
+                    ? isDarkMode
+                      ? "text-gray-400"
+                      : "text-gray-400"
+                    : isDarkMode
+                      ? "text-gray-600"
+                      : "text-gray-300"
+                }`}
+              >
+                Supports SRT, VTT formats • Powered by Azure Translator
+              </p>
+              <button
+                onClick={() =>
+                  backendConnected && fileInputRef.current?.click()
+                }
+                disabled={!backendConnected}
+                className={`px-6 py-2 rounded-lg transition-colors duration-300 ${
+                  backendConnected
+                    ? "bg-blue-500 text-white hover:bg-blue-600"
+                    : isDarkMode
+                      ? "bg-gray-600 text-gray-400 cursor-not-allowed"
+                      : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                }`}
+              >
+                Browse Files
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                className="hidden"
+                accept=".srt,.vtt"
+                onChange={handleFileInput}
+                disabled={!backendConnected}
+              />
+            </>
+          )}
         </div>
 
         {/* Language Selection */}
         {uploadedFile && backendConnected && (
           <div className="mt-8 space-y-6">
-            {/* Target Languages - Multi-select Dropdown */}
             <div>
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">
+                <h3
+                  className={`text-lg font-semibold transition-colors duration-300 ${
+                    isDarkMode ? "text-white" : "text-gray-900"
+                  }`}
+                >
                   Select Target Languages
                 </h3>
-                <span className="text-sm text-gray-500">
+                <span
+                  className={`text-sm transition-colors duration-300 ${
+                    isDarkMode ? "text-gray-400" : "text-gray-500"
+                  }`}
+                >
                   {targetLanguages.length}/{MAX_SELECTED_LANGUAGES} selected
                 </span>
               </div>
               {loadingLanguages ? (
-                <p className="text-gray-500">Loading languages...</p>
+                <p
+                  className={`transition-colors duration-300 ${
+                    isDarkMode ? "text-gray-400" : "text-gray-500"
+                  }`}
+                >
+                  Loading languages...
+                </p>
               ) : (
                 <MultiSelectDropdown
                   languages={languages}
@@ -1305,6 +1209,7 @@ const StaticSubtitleUpload = () => {
                   searchTerm={searchTerm}
                   onSearchChange={setSearchTerm}
                   maxLanguages={MAX_SELECTED_LANGUAGES}
+                  isDarkMode={isDarkMode}
                 />
               )}
             </div>
@@ -1315,14 +1220,22 @@ const StaticSubtitleUpload = () => {
         {isTranslating && (
           <div className="mt-8">
             <div className="flex justify-between items-center mb-2">
-              <span className="text-sm text-gray-600">
+              <span
+                className={`text-sm transition-colors duration-300 ${
+                  isDarkMode ? "text-gray-300" : "text-gray-600"
+                }`}
+              >
                 {currentTranslatingLanguage || "Processing..."}
               </span>
               <span className="text-sm text-gray-600">
                 {Math.round(translationProgress)}%
               </span>
             </div>
-            <div className="w-full bg-gray-200 rounded-full h-2">
+            <div
+              className={`w-full rounded-full h-2 transition-colors duration-300 ${
+                isDarkMode ? "bg-gray-700" : "bg-gray-200"
+              }`}
+            >
               <div
                 className="bg-blue-500 h-2 rounded-full transition-all duration-300"
                 style={{ width: `${translationProgress}%` }}
@@ -1336,7 +1249,11 @@ const StaticSubtitleUpload = () => {
           {uploadedFile && (
             <button
               onClick={resetComponent}
-              className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 w-full sm:w-auto"
+              className={`px-6 py-2 border rounded-lg w-full sm:w-auto transition-colors duration-300 ${
+                isDarkMode
+                  ? "border-gray-600 text-gray-300 hover:bg-gray-700"
+                  : "border-gray-300 text-gray-700 hover:bg-gray-50"
+              }`}
             >
               Reset
             </button>
@@ -1344,14 +1261,19 @@ const StaticSubtitleUpload = () => {
 
           {uploadedFile && backendConnected && (
             <div className="flex items-center space-x-6">
-              {/* Profanity Filter Toggle */}
               <div className="flex items-center space-x-3">
-                <span className="text-sm text-gray-700">Censor profanity</span>
-
+                <span
+                  className={`text-sm transition-colors duration-300 ${
+                    isDarkMode ? "text-gray-300" : "text-gray-700"
+                  }`}
+                >
+                  Censor profanity
+                </span>
                 <ToggleSwitch
                   enabled={censorProfanity}
                   onChange={setCensorProfanity}
                   disabled={isTranslating || loadingLanguages}
+                  isDarkMode={isDarkMode}
                 />
               </div>
 
@@ -1363,7 +1285,15 @@ const StaticSubtitleUpload = () => {
                     loadingLanguages ||
                     !backendConnected
                   }
-                  className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed w-full sm:w-auto"
+                  className={`px-6 py-2 text-white rounded-lg w-full sm:w-auto transition-colors duration-300 ${
+                    targetLanguages.length === 0 ||
+                    loadingLanguages ||
+                    !backendConnected
+                      ? isDarkMode
+                        ? "bg-gray-600 cursor-not-allowed"
+                        : "bg-gray-300 cursor-not-allowed"
+                      : "bg-blue-500 hover:bg-blue-600"
+                  }`}
                 >
                   Start Translation
                 </button>
@@ -1372,26 +1302,28 @@ const StaticSubtitleUpload = () => {
           )}
         </div>
 
-        {/* Download Results - Only show if not in auto-save countdown and translation is complete */}
-        {translatedFiles.length > 0 && !showAutoSaveCountdown && (
-          <div className="mt-8 p-4 bg-green-50 rounded-lg">
+        {/* Download Results */}
+        {translatedFiles.length > 0 && (
+          <div
+            className={`mt-8 p-4 rounded-lg transition-colors duration-300 ${
+              isDarkMode ? "bg-green-900/20" : "bg-green-50"
+            }`}
+          >
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center">
                 <Check className="w-5 h-5 text-green-500 mr-2" />
-                <span className="text-green-800 font-medium">
+                <span
+                  className={`font-medium transition-colors duration-300 ${
+                    isDarkMode ? "text-green-300" : "text-green-800"
+                  }`}
+                >
                   Translation Complete! ({translatedFiles.length} file
                   {translatedFiles.length > 1 ? "s" : ""} ready)
                 </span>
-                {autoSaveTriggered && (
-                  <span className="ml-2 text-sm text-green-600 bg-green-100 px-2 py-1 rounded-full">
-                    Auto-saved
-                  </span>
-                )}
               </div>
 
               <div className="flex items-center space-x-2">
-                {/* Save as Project Button - Only show if not auto-saved and not manually saved */}
-                {!autoSaveTriggered && !hasAutoSaved && !projectSaved && (
+                {!hasAutoSaved && !projectSaved && (
                   <button
                     onClick={() => setShowSaveProjectModal(true)}
                     disabled={isSavingProject}
@@ -1401,7 +1333,6 @@ const StaticSubtitleUpload = () => {
                     <span>Save as Project</span>
                   </button>
                 )}
-                {/* Download All as ZIP button when multiple files */}
                 {translatedFiles.length > 1 && (
                   <button
                     onClick={downloadAllAsZip}
@@ -1422,16 +1353,26 @@ const StaticSubtitleUpload = () => {
               {translatedFiles.map((file) => (
                 <div
                   key={file.language}
-                  className="flex items-center justify-between bg-white p-3 rounded-lg border"
+                  className={`flex items-center justify-between p-3 rounded-lg border transition-colors duration-300 ${
+                    isDarkMode
+                      ? "bg-gray-800 border-gray-600"
+                      : "bg-white border-gray-200"
+                  }`}
                 >
                   <div className="flex-1 min-w-0 pr-4">
                     <div
-                      className="text-gray-700 font-medium truncate"
+                      className={`font-medium truncate transition-colors duration-300 ${
+                        isDarkMode ? "text-gray-200" : "text-gray-700"
+                      }`}
                       title={file.filename}
                     >
                       {file.filename}
                     </div>
-                    <div className="text-sm text-gray-500">
+                    <div
+                      className={`text-sm transition-colors duration-300 ${
+                        isDarkMode ? "text-gray-400" : "text-gray-500"
+                      }`}
+                    >
                       Translated to {file.languageName}
                     </div>
                   </div>
@@ -1442,14 +1383,22 @@ const StaticSubtitleUpload = () => {
                       }
                       disabled={loadingPreview}
                       title="Preview"
-                      className="text-green-600 hover:text-green-800 flex items-center space-x-1 px-3 py-1 rounded border border-green-300 hover:bg-green-50 disabled:opacity-50"
+                      className={`flex items-center space-x-1 px-3 py-1 rounded border transition-colors duration-300 disabled:opacity-50 ${
+                        isDarkMode
+                          ? "text-green-400 border-green-600 hover:text-green-300 hover:bg-green-900/20"
+                          : "text-green-600 border-green-300 hover:text-green-800 hover:bg-green-50"
+                      }`}
                     >
                       <Eye className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => downloadFile(file.filename)}
                       title="Download"
-                      className="text-blue-500 hover:text-blue-700 flex items-center space-x-1"
+                      className={`flex items-center space-x-1 transition-colors duration-300 ${
+                        isDarkMode
+                          ? "text-blue-400 hover:text-blue-300"
+                          : "text-blue-500 hover:text-blue-700"
+                      }`}
                     >
                       <Download className="w-4 h-4" />
                     </button>
@@ -1462,25 +1411,47 @@ const StaticSubtitleUpload = () => {
 
         {/* Project Save Success Message */}
         {projectSaveSuccess && (
-          <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+          <div
+            className={`mt-4 p-4 border rounded-lg transition-colors duration-300 ${
+              isDarkMode
+                ? "bg-green-900/20 border-green-800"
+                : "bg-green-50 border-green-200"
+            }`}
+          >
             <div className="flex items-start space-x-3">
               <CheckCircle className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
               <div className="flex-1">
-                <h4 className="text-green-800 font-medium">
+                <h4
+                  className={`font-medium transition-colors duration-300 ${
+                    isDarkMode ? "text-green-300" : "text-green-800"
+                  }`}
+                >
                   Project Saved Successfully!
                 </h4>
-                <p className="text-green-700 text-sm mt-1">
+                <p
+                  className={`text-sm mt-1 transition-colors duration-300 ${
+                    isDarkMode ? "text-green-200" : "text-green-700"
+                  }`}
+                >
                   Project "{projectSaveSuccess.projectName}" has been saved to
                   Azure Blob Storage with {projectSaveSuccess.fileCount} file
                   {projectSaveSuccess.fileCount > 1 ? "s" : ""}.
                 </p>
-                <p className="text-green-600 text-xs mt-1">
+                <p
+                  className={`text-xs mt-1 transition-colors duration-300 ${
+                    isDarkMode ? "text-green-400" : "text-green-600"
+                  }`}
+                >
                   Project ID: {projectSaveSuccess.projectId}
                 </p>
               </div>
               <button
                 onClick={() => setProjectSaveSuccess(null)}
-                className="text-green-400 hover:text-green-600"
+                className={`transition-colors duration-300 ${
+                  isDarkMode
+                    ? "text-green-500 hover:text-green-300"
+                    : "text-green-400 hover:text-green-600"
+                }`}
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1488,17 +1459,30 @@ const StaticSubtitleUpload = () => {
           </div>
         )}
 
-        {/* Subtitle Preview Modal/Section - Side by Side */}
+        {/* Subtitle Preview Section */}
         {showPreview && previewingFile && (
           <div
             ref={previewSectionRef}
-            className="mt-8 p-4 bg-gray-50 rounded-lg border"
+            className={`mt-8 p-4 rounded-lg border transition-colors duration-300 ${
+              isDarkMode
+                ? "bg-gray-800 border-gray-600"
+                : "bg-gray-50 border-gray-200"
+            }`}
           >
             <div className="flex items-center justify-between mb-4">
               <div className="flex-1 min-w-0 pr-4">
-                <h3 className="text-lg font-semibold text-gray-900">Preview</h3>
+                <h3
+                  className={`text-lg font-semibold transition-colors duration-300 ${
+                    isDarkMode ? "text-white" : "text-gray-900"
+                  }`}
+                >
+                  Preview
+                </h3>
+
                 <p
-                  className="text-sm text-gray-600 truncate"
+                  className={`text-sm truncate transition-colors duration-300 ${
+                    isDarkMode ? "text-gray-300" : "text-gray-600"
+                  }`}
                   title={`${previewingFile.filename} - ${previewingFile.languageName}`}
                 >
                   {previewingFile.filename} - {previewingFile.languageName}
@@ -1506,7 +1490,11 @@ const StaticSubtitleUpload = () => {
               </div>
               <button
                 onClick={closePreview}
-                className="text-gray-400 hover:text-gray-600 flex-shrink-0"
+                className={`flex-shrink-0 transition-colors duration-300 ${
+                  isDarkMode
+                    ? "text-gray-500 hover:text-gray-300"
+                    : "text-gray-400 hover:text-gray-600"
+                }`}
               >
                 <X className="w-6 h-6" />
               </button>
@@ -1515,9 +1503,25 @@ const StaticSubtitleUpload = () => {
             {/* Side by side preview */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
               {/* Original File */}
-              <div className="bg-white rounded-lg border">
-                <div className="px-4 py-2 bg-gray-100 border-b rounded-t-lg">
-                  <h4 className="font-medium text-gray-700 flex items-center">
+              <div
+                className={`rounded-lg border transition-colors duration-300 ${
+                  isDarkMode
+                    ? "bg-gray-800 border-gray-600"
+                    : "bg-white border-gray-200"
+                }`}
+              >
+                <div
+                  className={`px-4 py-2 border-b rounded-t-lg transition-colors duration-300 ${
+                    isDarkMode
+                      ? "bg-gray-700 border-gray-600"
+                      : "bg-gray-100 border-gray-200"
+                  }`}
+                >
+                  <h4
+                    className={`font-medium flex items-center transition-colors duration-300 ${
+                      isDarkMode ? "text-gray-200" : "text-gray-700"
+                    }`}
+                  >
                     <span className="w-3 h-3 bg-blue-500 rounded-full mr-2"></span>
                     Original (Auto-detected)
                   </h4>
@@ -1525,7 +1529,11 @@ const StaticSubtitleUpload = () => {
                 <div className="p-4">
                   {loadingOriginal ? (
                     <div className="flex items-center justify-center h-64">
-                      <div className="text-gray-500">
+                      <div
+                        className={`transition-colors duration-300 ${
+                          isDarkMode ? "text-gray-400" : "text-gray-500"
+                        }`}
+                      >
                         Loading original content...
                       </div>
                     </div>
@@ -1540,7 +1548,11 @@ const StaticSubtitleUpload = () => {
                       }
                       className="max-h-96 overflow-auto"
                     >
-                      <pre className="text-sm text-gray-700 whitespace-pre-wrap font-mono">
+                      <pre
+                        className={`text-sm whitespace-pre-wrap font-mono transition-colors duration-300 ${
+                          isDarkMode ? "text-gray-300" : "text-gray-700"
+                        }`}
+                      >
                         {originalContent}
                       </pre>
                     </div>
@@ -1549,24 +1561,43 @@ const StaticSubtitleUpload = () => {
               </div>
 
               {/* Translated File */}
-              <div className="bg-white rounded-lg border">
-                <div className="px-4 py-2 bg-gray-100 border-b rounded-t-lg">
+              <div
+                className={`rounded-lg border transition-colors duration-300 ${
+                  isDarkMode
+                    ? "bg-gray-800 border-gray-600"
+                    : "bg-white border-gray-200"
+                }`}
+              >
+                <div
+                  className={`px-4 py-2 border-b rounded-t-lg transition-colors duration-300 ${
+                    isDarkMode
+                      ? "bg-gray-700 border-gray-600"
+                      : "bg-gray-100 border-gray-200"
+                  }`}
+                >
                   <div className="flex items-center justify-between">
-                    <h4 className="font-medium text-gray-700 flex items-center">
+                    <h4
+                      className={`font-medium flex items-center transition-colors duration-300 ${
+                        isDarkMode ? "text-gray-200" : "text-gray-700"
+                      }`}
+                    >
                       <span className="w-3 h-3 bg-green-500 rounded-full mr-2"></span>
                       Translated ({previewingFile.languageName})
                     </h4>
                     <div className="flex items-center justify-end space-x-4">
-                      {/* Undo/Redo buttons - closer to Edit/View */}
                       {isEditing && (
                         <div className="flex items-center space-x-2">
                           <button
                             onClick={handleUndo}
                             disabled={historyIndex <= 0}
-                            className={`flex items-center space-x-1 px-2 py-1 rounded text-xs ${
+                            className={`flex items-center space-x-1 px-2 py-1 rounded text-xs transition-colors duration-300 ${
                               historyIndex <= 0
-                                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                                : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                                ? isDarkMode
+                                  ? "bg-gray-700 text-gray-600 cursor-not-allowed"
+                                  : "bg-gray-100 text-gray-400 cursor-not-allowed"
+                                : isDarkMode
+                                  ? "bg-gray-600 text-gray-200 hover:bg-gray-500"
+                                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
                             }`}
                             title="Undo (Ctrl+Z)"
                           >
@@ -1575,10 +1606,14 @@ const StaticSubtitleUpload = () => {
                           <button
                             onClick={handleRedo}
                             disabled={historyIndex >= editHistory.length - 1}
-                            className={`flex items-center space-x-1 px-2 py-1 rounded text-xs ${
-                              historyIndex >= editHistory.length - 1
-                                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                                : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                            className={`flex items-center space-x-1 px-2 py-1 rounded text-xs transition-colors duration-300 ${
+                              historyIndex >= editHistory.length - 1 // ← CORRECT condition for redo button
+                                ? isDarkMode
+                                  ? "bg-gray-700 text-gray-600 cursor-not-allowed"
+                                  : "bg-gray-100 text-gray-400 cursor-not-allowed"
+                                : isDarkMode
+                                  ? "bg-gray-600 text-gray-200 hover:bg-gray-500"
+                                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
                             }`}
                             title="Redo (Ctrl+Shift+Z or Ctrl+Y)"
                           >
@@ -1587,13 +1622,16 @@ const StaticSubtitleUpload = () => {
                         </div>
                       )}
 
-                      {/* Edit/View button */}
                       <button
                         onClick={
                           isEditing ? () => setIsEditing(false) : startEditing
                         }
                         disabled={loadingPreview}
-                        className="text-blue-600 hover:text-blue-800 text-sm flex items-center space-x-1"
+                        className={`text-sm flex items-center space-x-1 transition-colors duration-300 ${
+                          isDarkMode
+                            ? "text-blue-400 hover:text-blue-300"
+                            : "text-blue-600 hover:text-blue-800"
+                        }`}
                       >
                         {isEditing ? (
                           <Eye className="w-4 h-4" />
@@ -1608,7 +1646,11 @@ const StaticSubtitleUpload = () => {
                 <div className="p-4">
                   {loadingPreview ? (
                     <div className="flex items-center justify-center h-64">
-                      <div className="text-gray-500">
+                      <div
+                        className={`transition-colors duration-300 ${
+                          isDarkMode ? "text-gray-400" : "text-gray-500"
+                        }`}
+                      >
                         Loading translated content...
                       </div>
                     </div>
@@ -1622,10 +1664,18 @@ const StaticSubtitleUpload = () => {
                         onScroll={(e) =>
                           handleScrollSync(e, originalPreviewRef)
                         }
-                        className="w-full h-96 p-3 border border-gray-300 rounded font-mono text-sm resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className={`w-full h-96 p-3 border rounded font-mono text-sm resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-300 ${
+                          isDarkMode
+                            ? "border-gray-600 bg-gray-800 text-gray-200 focus:border-blue-500"
+                            : "border-gray-300 bg-white text-gray-900 focus:border-blue-500"
+                        }`}
                         placeholder="Edit your subtitle content here..."
                       />
-                      <div className="text-xs text-gray-400">
+                      <div
+                        className={`text-xs transition-colors duration-300 ${
+                          isDarkMode ? "text-gray-500" : "text-gray-400"
+                        }`}
+                      >
                         Lines: {editedContent.split("\n").length} | Characters:{" "}
                         {editedContent.length}
                       </div>
@@ -1641,7 +1691,11 @@ const StaticSubtitleUpload = () => {
                       }
                       className="max-h-96 overflow-auto"
                     >
-                      <pre className="text-sm text-gray-700 whitespace-pre-wrap font-mono">
+                      <pre
+                        className={`text-sm whitespace-pre-wrap font-mono transition-colors duration-300 ${
+                          isDarkMode ? "text-gray-300" : "text-gray-700"
+                        }`}
+                      >
                         {previewContent}
                       </pre>
                     </div>
@@ -1651,21 +1705,24 @@ const StaticSubtitleUpload = () => {
             </div>
 
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-2">
-              {/* Left side - Edit status */}
               <div className="flex items-center space-x-2">
                 {isEditing && (
-                  <div className="text-sm text-orange-600 bg-orange-50 px-3 py-1 rounded-full">
+                  <div
+                    className={`text-sm px-3 py-1 rounded-full transition-colors duration-300 ${
+                      isDarkMode
+                        ? "text-orange-300 bg-orange-900/30"
+                        : "text-orange-600 bg-orange-50"
+                    }`}
+                  >
                     Editing Mode
                   </div>
                 )}
               </div>
 
-              {/* Right side - Action buttons */}
               <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
                 {isEditing && !hasAutoSaved && !projectSaved && (
                   <button
                     onClick={() => {
-                      // Save the edited content to state
                       setPreviewContent(editedContent);
                       setEditedFiles((prev) => ({
                         ...prev,
@@ -1674,7 +1731,13 @@ const StaticSubtitleUpload = () => {
                       setShowSaveProjectModal(true);
                     }}
                     disabled={isSaving}
-                    className="flex items-center justify-center space-x-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:bg-gray-400"
+                    className={`flex items-center justify-center space-x-2 px-4 py-2 text-white rounded-lg transition-colors duration-300 ${
+                      isSaving
+                        ? isDarkMode
+                          ? "bg-gray-600"
+                          : "bg-gray-400"
+                        : "bg-green-500 hover:bg-green-600"
+                    }`}
                   >
                     <Save className="w-4 h-4" />
                     <span>Save Project</span>
@@ -1688,20 +1751,19 @@ const StaticSubtitleUpload = () => {
                       !projectSaved &&
                       !hasAutoSaved
                     ) {
-                      // Has edits but project not saved yet - open save modal
                       setShowSaveProjectModal(true);
                     } else if (editedFiles[previewingFile.filename]) {
-                      // Has edits and project is saved - download edited file
                       downloadEditedFile(previewingFile.filename);
                     } else {
-                      // No edits - download original file
                       downloadFile(previewingFile.filename);
                     }
                   }}
                   disabled={isEditing && !editedFiles[previewingFile.filename]}
-                  className={`flex items-center justify-center space-x-2 px-4 py-2 rounded-lg ${
+                  className={`flex items-center justify-center space-x-2 px-4 py-2 rounded-lg transition-colors duration-300 ${
                     isEditing && !editedFiles[previewingFile.filename]
-                      ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                      ? isDarkMode
+                        ? "bg-gray-600 text-gray-400 cursor-not-allowed"
+                        : "bg-gray-300 text-gray-500 cursor-not-allowed"
                       : "bg-blue-500 text-white hover:bg-blue-600"
                   }`}
                 >
@@ -1724,6 +1786,15 @@ const StaticSubtitleUpload = () => {
         )}
       </div>
 
+      <AutoSaveModal
+        isVisible={showAutoSaveModal}
+        onAutoSave={handleAutoSaveQuick}
+        onCustomize={handleCustomizeSave}
+        onCancel={handleDontSave}
+        originalFilename={uploadedFile?.name}
+        isDarkMode={isDarkMode}
+      />
+
       <SaveProjectModal
         isOpen={showSaveProjectModal}
         onClose={() => setShowSaveProjectModal(false)}
@@ -1734,6 +1805,7 @@ const StaticSubtitleUpload = () => {
         languages={languages}
         isSaving={isSavingProject}
         editedFiles={editedFiles}
+        isDarkMode={isDarkMode}
       />
     </div>
   );

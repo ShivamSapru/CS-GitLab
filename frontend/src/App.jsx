@@ -14,6 +14,7 @@ import Login from "./components/Login";
 import Signup from "./components/Signup";
 import Verify2FA from "./components/Verify2FA";
 import Setup2FA from "./components/Setup2FA";
+import TranscriptionTranslationHub from "./components/TranscriptionTranslationHub";
 
 const SubtitleTranslatorApp = () => {
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -53,9 +54,21 @@ const SubtitleTranslatorApp = () => {
     },
     {
       id: "upload",
-      name: "Static Upload",
+      name: "Static Translation",
       path: "/upload",
       component: StaticSubtitleUpload,
+    },
+    {
+      id: "library",
+      name: "Translation Library",
+      path: "/library",
+      component: Library,
+    },
+    {
+      id: "review",
+      name: " Audio/ Video Transcription",
+      path: "/transcribe",
+      component: TranscriptionTranslationHub,
     },
     {
       id: "realtime",
@@ -63,13 +76,7 @@ const SubtitleTranslatorApp = () => {
       path: "/realtime",
       component: RealTimeTranslation,
     },
-    {
-      id: "review",
-      name: "Translation Review",
-      path: "/transcribe",
-      component: TranslationReview,
-    },
-    { id: "library", name: "Library", path: "/library", component: Library },
+
     { id: "profile", name: "Profile", path: "/profile", component: Profile },
   ];
 
@@ -197,30 +204,16 @@ const SubtitleTranslatorApp = () => {
 
                 {/* User info */}
                 {!loadingUser && user && (
-                  <div
+                  <button
                     onClick={handleUserInfoClick}
-                    className={`text-sm px-3 py-1 rounded shadow flex items-center space-x-2 cursor-pointer transition-colors ${
+                    className={`p-2 rounded-lg transition-colors ${
                       isDarkMode
-                        ? "text-gray-300 bg-gray-700 hover:bg-gray-600"
-                        : "text-gray-700 bg-white hover:bg-gray-50"
+                        ? "text-gray-300 hover:text-white hover:bg-gray-700"
+                        : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
                     }`}
                   >
-                    <User className="w-4 h-4" />
-                    <div className="flex flex-col items-end">
-                      <div className="whitespace-nowrap">
-                        <strong>{user.name || user.email || "User"}</strong>
-                      </div>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation(); // Prevent triggering the parent click
-                          handleLogout();
-                        }}
-                        className="text-red-500 hover:underline text-xs"
-                      >
-                        Log out
-                      </button>
-                    </div>
-                  </div>
+                    <User className="w-4 h-4 sm:w-5 sm:h-5" />
+                  </button>
                 )}
               </div>
             </div>
@@ -236,11 +229,6 @@ const SubtitleTranslatorApp = () => {
                 className={`absolute top-full left-0 right-0 z-50 shadow-lg border-t ${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}
               >
                 <div className="max-w-7xl mx-auto px-3 py-4">
-                  <h3
-                    className={`text-sm font-medium mb-3 ${isDarkMode ? "text-gray-300" : "text-gray-500"}`}
-                  >
-                    Navigation
-                  </h3>
                   <div className="space-y-2">
                     {templates.map((t) => (
                       <button
@@ -272,11 +260,23 @@ const SubtitleTranslatorApp = () => {
             <Dashboard onNavigate={handleNavigation} isDarkMode={isDarkMode} />
           }
         />
-        <Route path="/upload" element={<StaticSubtitleUpload />} />
-        <Route path="/realtime" element={<RealTimeTranslation />} />
-        <Route path="/transcribe" element={<TranslationReview />} />
-        <Route path="/library" element={<Library />} />
-        <Route path="/profile" element={<Profile />} />
+        <Route
+          path="/upload"
+          element={<StaticSubtitleUpload isDarkMode={isDarkMode} />}
+        />
+        <Route
+          path="/realtime"
+          element={<RealTimeTranslation isDarkMode={isDarkMode} />}
+        />
+        <Route
+          path="/transcribe"
+          element={<TranscriptionTranslationHub isDarkMode={isDarkMode} />}
+        />
+        <Route path="/library" element={<Library isDarkMode={isDarkMode} />} />
+        <Route
+          path="/profile"
+          element={<Profile isDarkMode={isDarkMode} onLogout={handleLogout} />}
+        />
 
         {/* Redirect root to dashboard */}
         <Route
