@@ -5,19 +5,20 @@
   "description": "Captures and translates subtitles from YouTube, Zoom, and Teams",
   "permissions": [
     "storage",
-    "activeTab",
-    "https://*.cognitive.microsoft.com/"
+    "activeTab"
   ],
   "host_permissions": [
     "https://*.youtube.com/*",
     "https://*.zoom.us/*",
-    "https://*.teams.microsoft.com/*"
+    "https://*.teams.microsoft.com/*",
+    "https://*.cognitive.microsoft.com/"
   ],
   "content_security_policy": {
     "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
   },
   "background": {
-    "service_worker": "background/background.js"
+    "service_worker": "background/background.js",
+    "type": "module"
   },
   "action": {
     "default_popup": "popup/popup.html",
@@ -29,8 +30,18 @@
   },
   "content_scripts": [
     {
-      "matches": ["https://*.youtube.com/*"],
+      "matches": ["*://*.youtube.com/*"],
       "js": ["content/youtube.js"],
+      "run_at": "document_end"
+    },
+    {
+      "matches": ["*://*.teams.microsoft.com/*", "*://*.teams.live.com/*"],
+      "js": ["content/teams.js"],
+      "run_at": "document_end"
+    },
+    {
+      "matches": ["*://*.zoom.us/*"],
+      "js": ["content/zoom.js"],
       "run_at": "document_end"
     }
   ],

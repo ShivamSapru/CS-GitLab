@@ -35,6 +35,7 @@ body {
 #caption {
   line-height: 1.5;
   font-size: 15px;
+  text-align: center;
 }
 
 .controls {

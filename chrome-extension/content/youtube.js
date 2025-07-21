@@ -1,5 +1,18 @@
-// Initialize YouTube caption detection
-initYouTubeCaptions();
+async function sendCaptionUpdate(text, platform) {
+  try {
+    const response = await chrome.runtime.sendMessage({
+      action: "updateCaption",
+      text: text,
+      platform: platform
+    });
+    
+    if (!response?.status) {
+      console.warn("No response from background");
+    }
+  } catch (error) {
+    console.error("Failed to send caption update:", error);
+  }
+}
 
 async function initYouTubeCaptions() {
   console.log("Initializing YouTube caption detection...");
@@ -21,7 +34,7 @@ async function initYouTubeCaptions() {
       if (elements.length > 0) {
         return Array.from(elements)
           .map(el => el.textContent.trim())
-          .join(' ');
+          .join('<br />');
       }
     }
     return null;
@@ -45,18 +58,5 @@ async function initYouTubeCaptions() {
   });
 }
 
-async function sendCaptionUpdate(text, platform) {
-  try {
-    const response = await chrome.runtime.sendMessage({
-      action: "updateCaption",
-      text: text,
-      platform: platform
-    });
-    
-    if (!response?.status) {
-      console.warn("No response from background");
-    }
-  } catch (error) {
-    console.error("Failed to send caption update:", error);
-  }
-}
+// Initialize YouTube caption detection
+initYouTubeCaptions();

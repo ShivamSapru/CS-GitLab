@@ -1,6 +1,9 @@
+import { CONFIG } from './config.js';
+
 // Azure Translation Config
-const AZURE_TRANSLATOR_KEY = "n3z6pzIHvSepLuVyLq7yRTIP/u0g5Ac/edNVJ0puhi9uAa/MmymQ4aIuCfjdWyLZN2qCCjSX5zBW+ASt3n2B5g==";
-const AZURE_REGION = "uksouth";
+const AZURE_TRANSLATOR_KEY = CONFIG.AZURE_TRANSLATOR_KEY;
+const AZURE_TRANSLATOR_REGION = CONFIG.AZURE_TRANSLATOR_REGION;
+const AZURE_TRANSLATOR_ENDPOINT = CONFIG.AZURE_TRANSLATOR_ENDPOINT;
 
 // Translation cache to reduce API calls
 const translationCache = new Map();
@@ -36,16 +39,20 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
 async function handleCaptionUpdate(request, sendResponse) {
   const settings = await chrome.storage.local.get(['translationEnabled', 'targetLanguage']);
+  const author = request.author?.trim() || "";
+  const captionAuthor = author ? `${author}: ` : "";
+  const captionText = captionAuthor + request.text;
   
   await chrome.storage.local.set({
-    originalText: request.text,
+    originalText: captionText,
     platform: request.platform || "Unknown",
     lastUpdated: Date.now()
   });
 
   if (settings.translationEnabled) {
     const translation = await translateText(request.text, settings.targetLanguage);
-    await chrome.storage.local.set({ translatedText: translation });
+    const translatedCaption = captionAuthor + translation;
+    await chrome.storage.local.set({ translatedText: translatedCaption });
   }
 
   sendResponse({ status: "success" });
@@ -81,14 +88,14 @@ async function translateText(text, targetLang) {
     return translationCache.get(cacheKey);
   }
 
-  const endpoint = `https://api.cognitive.microsofttranslator.com/translate?api-version=3.0&to=${targetLang}`;
+  const endpoint = `${AZURE_TRANSLATOR_ENDPOINT}/translate?api-version=3.0&to=${targetLang}`;
   
   const response = await fetch(endpoint, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'Ocp-Apim-Subscription-Key': AZURE_TRANSLATOR_KEY,
-      'Ocp-Apim-Subscription-Region': AZURE_REGION
+      'Ocp-Apim-Subscription-Region': AZURE_TRANSLATOR_REGION
     },
     body: JSON.stringify([{ Text: text }])
   });
