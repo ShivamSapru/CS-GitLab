@@ -11,7 +11,7 @@
     "https://*.youtube.com/*",
     "https://*.zoom.us/*",
     "https://*.teams.microsoft.com/*",
-    "https://*.cognitive.microsoft.com/"
+    "https://*.teams.live.com/*"
   ],
   "content_security_policy": {
     "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
@@ -43,12 +43,6 @@
       "matches": ["*://*.zoom.us/*"],
       "js": ["content/zoom.js"],
       "run_at": "document_end"
-    }
-  ],
-  "web_accessible_resources": [
-    {
-      "resources": ["lib/*"],
-      "matches": ["<all_urls>"]
     }
   ],
   "icons": {

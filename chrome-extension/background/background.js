@@ -49,13 +49,18 @@ async function handleCaptionUpdate(request, sendResponse) {
     lastUpdated: Date.now()
   });
 
+  let translatedCaption = "";
   if (settings.translationEnabled) {
     const translation = await translateText(request.text, settings.targetLanguage);
-    const translatedCaption = captionAuthor + translation;
+    translatedCaption = captionAuthor + translation;
     await chrome.storage.local.set({ translatedText: translatedCaption });
   }
 
-  sendResponse({ status: "success" });
+  sendResponse({
+    status: "success", 
+    translatedText: translatedCaption,
+    translationEnabled: settings.translationEnabled
+  });
 }
 
 async function handleTranslationRequest(request, sendResponse) {
