@@ -1,81 +1,91 @@
 // teams.js - Microsoft Teams caption scraper
-console.log("Teams caption scraper loaded");
+console.log("Teams caption scraper loaded (Improved Version)");
 
-initTeamsCaptions();
-
-async function initTeamsCaptions() {
-  console.log("Initializing Teams caption detection...");
-  
-  await sendCaptionUpdate("Teams detected - waiting for captions...", "Teams");
-
-  // Teams caption detection with live chat selectors
-  function getCurrentCaptions() {
-    const selectors = [
-      '[data-tid="closed-captions-text"]',
-      '.ui-chat__message__content',
-      '.closed-caption-container .text',
-      '.live-captions .caption-text',
-      '[data-tid="live-captions"] .text-content'
-    ];
-    
-    for (const selector of selectors) {
-      const elements = document.querySelectorAll(selector);
-      if (elements.length > 0) {
-        const text = Array.from(elements)
-          .map(el => el.textContent.trim())
-          .filter(text => text.length > 0)
-          .slice(-1)[0];
-        if (text) {
-          console.log("Teams: Found caption with selector:", selector, "->", text);
-          return text;
-        }
-      }
-    }
-    return null;
-  }
-
-  // Main caption monitoring loop  
-  let lastCaption = '';
-  const POLL_INTERVAL = 500;
-  
-  console.log("Starting Teams caption monitoring loop...");
-  
-  const intervalId = setInterval(async () => {
-    try {
-      const caption = getCurrentCaptions();
-      if (caption && caption !== lastCaption && caption.length > 2) {
-        console.log("Teams: New caption detected:", caption);
-        lastCaption = caption;
-        await sendCaptionUpdate(caption, "Teams");
-      }
-    } catch (error) {
-      console.error("Teams: Error in caption monitoring:", error);
-    }
-  }, POLL_INTERVAL);
-
-  window.addEventListener('beforeunload', () => {
-    console.log("Teams: Cleaning up caption monitoring");
-    clearInterval(intervalId);
-  });
-}
-
-async function sendCaptionUpdate(text, platform) {
+// Function to send caption updates to the background script
+async function sendCaptionUpdate(text, platform, author = null) {
   try {
-    const response = await chrome.runtime.sendMessage({
+    const message = {
       action: "updateCaption",
       text: text,
       platform: platform,
       timestamp: Date.now()
-    });
-    
+    };
+    if (author) {
+      message.author = author; // Add author
+    }
+
+    const response = await chrome.runtime.sendMessage(message);
+
     if (!response?.status) {
-      console.warn("Teams: No response from background");
+      console.warn("Teams: No response from background or status missing.");
     } else {
-      console.log("Teams: Caption sent successfully");
+      console.log("Teams: Caption sent successfully:", text);
     }
   } catch (error) {
     console.error("Teams: Failed to send caption update:", error);
   }
 }
 
-console.log("Teams: Caption scraper initialized");
+// Function to get the current live captions and author from Teams DOM
+function getTeamsCaptions() {
+  const captionElements = document.querySelectorAll('[data-tid="closed-caption-text"]');
+  const captionAuthors = document.querySelectorAll('[data-tid="author"]');
+
+  if (captionElements && captionElements.length > 0) {
+    // Get the text from the very last caption element
+    const captionText = captionElements[captionElements.length - 1].innerText.trim();
+
+    // Get the author from the very last author element
+    // Ensure author element exists before trying to get its text
+    const author = captionAuthors && captionAuthors.length > 0 ?
+                   captionAuthors[captionAuthors.length - 1].innerText.trim() :
+                   "Unknown Speaker"; // Default if author not found
+
+    if (captionText) {
+      return { text: captionText, author: author };
+    }
+  }
+  return null; // Return null if no valid caption is found
+}
+
+// Main function to start polling for Teams captions
+function startTeamsCaptionPolling() {
+  let lastCaptionText = ''; // Keep track of the last captured text
+  const POLL_INTERVAL = 300; // Poll every 300ms for responsiveness
+
+  console.log("Teams: Starting caption monitoring loop...");
+
+  const intervalId = setInterval(async () => {
+    try {
+      const captionData = getTeamsCaptions(); // Get both text and author
+
+      if (captionData && captionData.text && captionData.text !== lastCaptionText && captionData.text.length > 2) {
+        console.log("Teams: New caption detected:", captionData.text, "by", captionData.author);
+        lastCaptionText = captionData.text;
+        await sendCaptionUpdate(captionData.text, "Teams", captionData.author);
+      }
+    } catch (error) {
+      console.error("Teams: Error in caption monitoring loop:", error);
+    }
+  }, POLL_INTERVAL);
+
+  // Clean up the interval when the page is unloaded
+  window.addEventListener('beforeunload', () => {
+    console.log("Teams: Cleaning up caption monitoring interval.");
+    clearInterval(intervalId);
+  });
+}
+
+// Start the polling when the entire page has loaded
+window.addEventListener("load", () => {
+  console.log("Microsoft Teams page loaded: Attempting to start caption polling.");
+  // Send an initial message to the background script to indicate Teams is detected
+  chrome.runtime.sendMessage({
+    action: "updateCaption",
+    platform: "Teams",
+    text: "Teams meeting detected - waiting for captions..."
+  });
+  startTeamsCaptionPolling();
+});
+
+console.log("Teams: Caption scraper script finished execution.");
