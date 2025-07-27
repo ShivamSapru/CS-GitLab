@@ -2,7 +2,7 @@
 
 // DOM elements
 let startBtn, stopBtn, statusDot, statusText;
-let sourceLanguageSelect, targetLanguageSelect, showOriginalCheckbox, autoTranslateCheckbox;
+let sourceLanguageSelect, targetLanguageSelect, showOriginalCheckbox, censorProfanityCheckbox;
 let advancedModal, settingsBtn, closeModal;
 let confidenceSlider, confidenceValue, maxSubtitlesInput;
 let enableLoggingCheckbox, saveHistoryCheckbox;
@@ -13,7 +13,7 @@ let currentSettings = {
   // sourceLanguage: 'en-US',
   targetLanguage: 'en',
   showOriginal: false,
-  autoTranslate: true,
+  censorProfanity: true,
   confidence: 0.5,
   maxSubtitles: 20,
   enableLogging: false,
@@ -39,7 +39,7 @@ function initializeElements() {
   // sourceLanguageSelect = document.getElementById('sourceLanguage');
   targetLanguageSelect = document.getElementById('targetLanguage');
   showOriginalCheckbox = document.getElementById('showOriginal');
-  autoTranslateCheckbox = document.getElementById('autoTranslate');
+  censorProfanityCheckbox = document.getElementById('censorProfanity');
   
   advancedModal = document.getElementById('advancedModal');
   settingsBtn = document.getElementById('settingsBtn');
@@ -62,7 +62,7 @@ function bindEvents() {
   // sourceLanguageSelect.addEventListener('change', onSettingChange);
   targetLanguageSelect.addEventListener('change', onSettingChange);
   showOriginalCheckbox.addEventListener('change', onSettingChange);
-  autoTranslateCheckbox.addEventListener('change', onSettingChange);
+  censorProfanityCheckbox.addEventListener('change', onSettingChange);
   
   // Modal controls
   settingsBtn.addEventListener('click', openAdvancedSettings);
@@ -217,7 +217,7 @@ function onSettingChange() {
   // currentSettings.sourceLanguage = sourceLanguageSelect.value;
   currentSettings.targetLanguage = targetLanguageSelect.value;
   currentSettings.showOriginal = showOriginalCheckbox.checked;
-  currentSettings.autoTranslate = autoTranslateCheckbox.checked;
+  currentSettings.censorProfanity = censorProfanityCheckbox.checked;
   
   saveSettings();
   
@@ -261,7 +261,7 @@ function updateSettingsUI() {
   // sourceLanguageSelect.value = currentSettings.sourceLanguage;
   targetLanguageSelect.value = currentSettings.targetLanguage;
   showOriginalCheckbox.checked = currentSettings.showOriginal;
-  autoTranslateCheckbox.checked = currentSettings.autoTranslate;
+  censorProfanityCheckbox.checked = currentSettings.censorProfanity;
   
   confidenceSlider.value = currentSettings.confidence;
   confidenceValue.textContent = currentSettings.confidence;
@@ -353,7 +353,7 @@ function resetSettings() {
     // sourceLanguage: 'en-US',
     targetLanguage: 'en',
     showOriginal: false,
-    autoTranslate: true,
+    censorProfanity: true,
     confidence: 0.5,
     maxSubtitles: 20,
     enableLogging: false,

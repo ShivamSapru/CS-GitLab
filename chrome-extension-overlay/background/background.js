@@ -15,7 +15,8 @@ const AZURE_TRANSLATOR_ENDPOINT = CONFIG.AZURE_TRANSLATOR_ENDPOINT;
 // Global variables
 let isCapturing = false;
 let currentSettings = {
-  targetLanguage: 'en'
+  targetLanguage: 'en',
+  censorProfanity: true
 };
 
 // Initialize extension
@@ -152,7 +153,7 @@ async function handleRealCaptionUpdate(text, platform, author, sendResponse) {
     const captionAuthor = author ? `${author}: ` : "";
     if (currentSettings.targetLanguage && currentSettings.targetLanguage !== 'none') {
       try {
-        translatedText = captionAuthor + await callAzureTranslator(text, currentSettings.targetLanguage);
+        translatedText = captionAuthor + await callAzureTranslator(text, currentSettings.targetLanguage, currentSettings.censorProfanity);
       } catch (error) {
         console.error('Translation failed:', error);
         translatedText = captionAuthor + text; // Fallback to original
@@ -210,9 +211,12 @@ async function handleTranslateText(text, targetLanguage, sendResponse) {
 }
 
 // Call Azure Translator API
-async function callAzureTranslator(text, targetLanguage) {
+async function callAzureTranslator(text, targetLanguage, censorProfanity) {
   try {
-    const url = `${AZURE_TRANSLATOR_ENDPOINT}/translate?api-version=3.0&to=${targetLanguage}`;
+    let url = `${AZURE_TRANSLATOR_ENDPOINT}/translate?api-version=3.0&to=${targetLanguage}`;
+    if (censorProfanity) {
+      url += "&profanityAction=Marked"
+    }
     
     const headers = {
       'Ocp-Apim-Subscription-Key': AZURE_TRANSLATOR_KEY,
