@@ -26,7 +26,7 @@ async function initYouTubeCaptions() {
         const text = Array.from(elements)
           .map(el => el.textContent.trim())
           .filter(text => text.length > 0)
-          .join(' ');
+          .join('<br />');
         if (text) {
           console.log("YouTube: Found caption with selector:", selector, "->", text);
           return text;

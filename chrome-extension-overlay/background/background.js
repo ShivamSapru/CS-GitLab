@@ -1,19 +1,21 @@
-// background.js - Service Worker for Chrome Extension
+// background/background.js - Service Worker for Chrome Extension
 
-// Azure Speech Service Configuration
-const AZURE_SPEECH_KEY = "<Key>";
-const AZURE_SPEECH_REGION = "northeurope";
-const AZURE_SPEECH_ENDPOINT = "https://northeurope.api.cognitive.microsoft.com";
+import { CONFIG } from './config.js';
+
+// // Azure Speech Service Configuration
+// const AZURE_SPEECH_KEY = "<Key>";
+// const AZURE_SPEECH_REGION = "northeurope";
+// const AZURE_SPEECH_ENDPOINT = "https://northeurope.api.cognitive.microsoft.com";
 
 // Azure Translator Service Configuration  
-const AZURE_TRANSLATOR_KEY = "<Key>";
-const AZURE_TRANSLATOR_REGION = "global";
-const AZURE_TRANSLATOR_ENDPOINT = "https://api.cognitive.microsofttranslator.com";
+const AZURE_TRANSLATOR_KEY = CONFIG.AZURE_TRANSLATOR_KEY;
+const AZURE_TRANSLATOR_REGION = CONFIG.AZURE_TRANSLATOR_REGION;
+const AZURE_TRANSLATOR_ENDPOINT = CONFIG.AZURE_TRANSLATOR_ENDPOINT;
 
 // Global variables
 let isCapturing = false;
 let currentSettings = {
-  targetLanguage: 'hi'
+  targetLanguage: 'en'
 };
 
 // Initialize extension
@@ -55,7 +57,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   // Handle action-based messages from platform scrapers
   if (message.action === 'updateCaption') {
     console.log('Real caption:', message.platform, '-', message.text);
-    handleRealCaptionUpdate(message.text, message.platform, sendResponse);
+    handleRealCaptionUpdate(message.text, message.platform, message.author, sendResponse);
     return true;
   }
 });
@@ -130,7 +132,7 @@ async function handleStopCapture(sendResponse) {
 }
 
 // Handle real caption updates from platform scrapers
-async function handleRealCaptionUpdate(text, platform, sendResponse) {
+async function handleRealCaptionUpdate(text, platform, author, sendResponse) {
   try {
     console.log('Processing real caption:', platform, '-', text);
     
@@ -147,12 +149,13 @@ async function handleRealCaptionUpdate(text, platform, sendResponse) {
     
     // Get translation if needed
     let translatedText = text;
+    const captionAuthor = author ? `${author}: ` : "";
     if (currentSettings.targetLanguage && currentSettings.targetLanguage !== 'none') {
       try {
-        translatedText = await callAzureTranslator(text, currentSettings.targetLanguage);
+        translatedText = captionAuthor + await callAzureTranslator(text, currentSettings.targetLanguage);
       } catch (error) {
         console.error('Translation failed:', error);
-        translatedText = text; // Fallback to original
+        translatedText = captionAuthor + text; // Fallback to original
       }
     }
     
@@ -162,7 +165,7 @@ async function handleRealCaptionUpdate(text, platform, sendResponse) {
       try {
         await chrome.tabs.sendMessage(tabs[0].id, {
           type: 'REAL_CAPTION_UPDATE',
-          originalText: text,
+          originalText: captionAuthor + text,
           translatedText: translatedText,
           platform: platform,
           timestamp: Date.now()
@@ -289,7 +292,7 @@ chrome.runtime.onSuspend.addListener(() => {
 });
 
 console.log('Background script loaded');
-console.log('Azure Speech Key configured:', AZURE_SPEECH_KEY.substring(0, 20) + '...');
+// console.log('Azure Speech Key configured:', AZURE_SPEECH_KEY.substring(0, 20) + '...');
 console.log('Azure Translator Key configured:', AZURE_TRANSLATOR_KEY.substring(0, 20) + '...');
-console.log('Speech Region:', AZURE_SPEECH_REGION);
+// console.log('Speech Region:', AZURE_SPEECH_REGION);
 console.log('Translator Region:', AZURE_TRANSLATOR_REGION);

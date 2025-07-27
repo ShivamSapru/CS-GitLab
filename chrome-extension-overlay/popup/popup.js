@@ -10,9 +10,9 @@ let enableLoggingCheckbox, saveHistoryCheckbox;
 // State variables
 let isCapturing = false;
 let currentSettings = {
-  sourceLanguage: 'en-US',
-  targetLanguage: 'hi',
-  showOriginal: true,
+  // sourceLanguage: 'en-US',
+  targetLanguage: 'en',
+  showOriginal: false,
   autoTranslate: true,
   confidence: 0.5,
   maxSubtitles: 20,
@@ -26,6 +26,7 @@ document.addEventListener('DOMContentLoaded', function() {
   loadSettings();
   bindEvents();
   updateStatus();
+  fetchAndPopulateLanguages(currentSettings);
 });
 
 // Initialize DOM elements
@@ -35,7 +36,7 @@ function initializeElements() {
   statusDot = document.getElementById('statusDot');
   statusText = document.getElementById('statusText');
   
-  sourceLanguageSelect = document.getElementById('sourceLanguage');
+  // sourceLanguageSelect = document.getElementById('sourceLanguage');
   targetLanguageSelect = document.getElementById('targetLanguage');
   showOriginalCheckbox = document.getElementById('showOriginal');
   autoTranslateCheckbox = document.getElementById('autoTranslate');
@@ -58,7 +59,7 @@ function bindEvents() {
   stopBtn.addEventListener('click', stopCapture);
   
   // Settings
-  sourceLanguageSelect.addEventListener('change', onSettingChange);
+  // sourceLanguageSelect.addEventListener('change', onSettingChange);
   targetLanguageSelect.addEventListener('change', onSettingChange);
   showOriginalCheckbox.addEventListener('change', onSettingChange);
   autoTranslateCheckbox.addEventListener('change', onSettingChange);
@@ -101,7 +102,41 @@ function bindEvents() {
   chrome.runtime.onMessage.addListener(handleBackgroundMessage);
 }
 
-// Start audio capture
+async function fetchAndPopulateLanguages(currentSettings) {
+  try {
+    const AZURE_TRANSLATOR_LANGUAGES = "https://api.cognitive.microsofttranslator.com/languages?api-version=3.0&scope=translation";
+    const response = await fetch(AZURE_TRANSLATOR_LANGUAGES);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const translations = data.translation;
+
+    // Clear existing options
+    targetLanguageSelect.innerHTML = "";
+
+    // Sort by language name
+    const sortedLanguages = Object.entries(translations).sort(([, a], [, b]) =>
+      a.name.localeCompare(b.name)
+    );
+
+    // Populate new sorted options
+    for (const [code, info] of sortedLanguages) {
+      const option = document.createElement("option");
+      option.value = code;
+      option.textContent = `${info.name}`;
+      targetLanguageSelect.appendChild(option);
+    }
+
+    // Optionally, set a default selected language
+    targetLanguageSelect.value = currentSettings.targetLanguage || "en";
+  } catch (error) {
+    console.error("Failed to load language options:", error);
+  }
+}
+
+// Start caption capture
 async function startCapture() {
   try {
     updateUI(true, 'starting');
@@ -115,7 +150,7 @@ async function startCapture() {
     if (response.success) {
       isCapturing = true;
       updateUI(true, 'active');
-      showNotification('Started capturing audio', 'success');
+      showNotification('Started capturing caption', 'success');
     } else {
       updateUI(false, 'error');
       showNotification('Failed to start capture: ' + response.error, 'error');
@@ -127,7 +162,7 @@ async function startCapture() {
   }
 }
 
-// Stop audio capture
+// Stop caption capture
 async function stopCapture() {
   try {
     const response = await sendMessageToBackground({
@@ -137,7 +172,7 @@ async function stopCapture() {
     if (response.success) {
       isCapturing = false;
       updateUI(false, 'stopped');
-      showNotification('Stopped capturing audio', 'info');
+      showNotification('Stopped capturing caption', 'info');
     } else {
       showNotification('Failed to stop capture: ' + response.error, 'error');
     }
@@ -162,7 +197,7 @@ function updateUI(capturing, status) {
       statusDot.classList.add('active');
       break;
     case 'active':
-      statusText.textContent = 'Capturing audio';
+      statusText.textContent = 'Capturing caption';
       statusDot.classList.add('active');
       break;
     case 'stopped':
@@ -179,7 +214,7 @@ function updateUI(capturing, status) {
 
 // Handle setting changes
 function onSettingChange() {
-  currentSettings.sourceLanguage = sourceLanguageSelect.value;
+  // currentSettings.sourceLanguage = sourceLanguageSelect.value;
   currentSettings.targetLanguage = targetLanguageSelect.value;
   currentSettings.showOriginal = showOriginalCheckbox.checked;
   currentSettings.autoTranslate = autoTranslateCheckbox.checked;
@@ -223,7 +258,7 @@ function saveSettings() {
 
 // Update settings UI with current values
 function updateSettingsUI() {
-  sourceLanguageSelect.value = currentSettings.sourceLanguage;
+  // sourceLanguageSelect.value = currentSettings.sourceLanguage;
   targetLanguageSelect.value = currentSettings.targetLanguage;
   showOriginalCheckbox.checked = currentSettings.showOriginal;
   autoTranslateCheckbox.checked = currentSettings.autoTranslate;
@@ -315,9 +350,9 @@ function saveAdvancedSettings() {
 
 function resetSettings() {
   currentSettings = {
-    sourceLanguage: 'en-US',
-    targetLanguage: 'hi',
-    showOriginal: true,
+    // sourceLanguage: 'en-US',
+    targetLanguage: 'en',
+    showOriginal: false,
     autoTranslate: true,
     confidence: 0.5,
     maxSubtitles: 20,

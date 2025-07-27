@@ -9,30 +9,25 @@
     "scripting"
   ],
   "background": {
-    "service_worker": "background/background.js"
+    "service_worker": "background/background.js",
+    "type": "module"
   },
   "content_scripts": [
     {
-      "matches": ["*://www.youtube.com/*", "*://youtube.com/*"],
-      "js": ["content/youtube.js", "simple-content.js"],
+      "matches": ["*://*.youtube.com/*"],
+      "js": ["content/youtube.js", "content/overlay.js"],
       "run_at": "document_end",
       "all_frames": false
     },
     {
-      "matches": ["*://teams.microsoft.com/*", "*://*.teams.microsoft.com/*"],
-      "js": ["content/teams.js", "simple-content.js"],
+      "matches": ["*://*.teams.microsoft.com/*", "*://*.teams.live.com/*"],
+      "js": ["content/teams.js", "content/overlay.js"],
       "run_at": "document_end",
       "all_frames": false
     },
     {
-      "matches": ["*://*.zoom.us/*", "*://zoom.us/*"],
-      "js": ["content/zoom.js", "simple-content.js"],
-      "run_at": "document_end",
-      "all_frames": false
-    },
-    {
-      "matches": ["<all_urls>"],
-      "js": ["simple-content.js"],
+      "matches": ["*://*.zoom.us/*"],
+      "js": ["content/zoom.js", "content/overlay.js"],
       "run_at": "document_end",
       "all_frames": false
     }
