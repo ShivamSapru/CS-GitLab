@@ -14,7 +14,6 @@ import LoginModal from "./components/LoginModal"; // Changed from Login to Login
 import SignupModal from "./components/SignupModal"; // New signup modal component
 import Setup2FAModal from "./components/Setup2FAModal"; // New 2FA setup modal
 import Verify2FAModal from "./components/Verify2FAModal"; // New 2FA verify modal
-import Setup2FA from "./components/Setup2FA";
 import TranscriptionTranslationHub from "./components/TranscriptionTranslationHub";
 
 const SubtitleTranslatorApp = () => {
