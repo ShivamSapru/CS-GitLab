@@ -44,6 +44,8 @@ function getTeamsCaptions() {
     if (captionText) {
       return { text: captionText, author: author };
     }
+  } else {
+    return { text: " ", author: "" };
   }
   return null; // Return null if no valid caption is found
 }
@@ -51,7 +53,7 @@ function getTeamsCaptions() {
 // Main function to start polling for Teams captions
 function startTeamsCaptionPolling() {
   let lastCaptionText = ''; // Keep track of the last captured text
-  const POLL_INTERVAL = 300; // Poll every 300ms for responsiveness
+  const POLL_INTERVAL = 100; // Poll every 300ms for responsiveness
 
   console.log("Teams: Starting caption monitoring loop...");
 
@@ -59,7 +61,7 @@ function startTeamsCaptionPolling() {
     try {
       const captionData = getTeamsCaptions(); // Get both text and author
 
-      if (captionData && captionData.text && captionData.text !== lastCaptionText && captionData.text.length > 2) {
+      if (captionData && captionData.text && captionData.text !== lastCaptionText) {
         console.log("Teams: New caption detected:", captionData.text, "by", captionData.author);
         lastCaptionText = captionData.text;
         await sendCaptionUpdate(captionData.text, "Teams", captionData.author);

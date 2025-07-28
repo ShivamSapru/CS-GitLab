@@ -31,6 +31,8 @@ async function initYouTubeCaptions() {
           console.log("YouTube: Found caption with selector:", selector, "->", text);
           return text;
         }
+      } else {
+        return " ";
       }
     }
     return null;
@@ -38,14 +40,14 @@ async function initYouTubeCaptions() {
 
   // Main caption monitoring loop
   let lastCaption = '';
-  const POLL_INTERVAL = 300; // ms - fast polling for real-time
+  const POLL_INTERVAL = 100; // ms - fast polling for real-time
   
   console.log("Starting caption monitoring loop...");
   
   const intervalId = setInterval(async () => {
     try {
       const caption = getCurrentCaptions();
-      if (caption && caption !== lastCaption && caption.length > 2) {
+      if (caption && caption !== lastCaption) {
         console.log("YouTube: New caption detected:", caption);
         lastCaption = caption;
         await sendCaptionUpdate(caption, "YouTube");

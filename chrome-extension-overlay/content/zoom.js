@@ -44,6 +44,8 @@ function getZoomCaptions(iframe) {
       if (captionText) {
         return { text: captionText, author: author };
       }
+    } else {
+      return { text: " ", author: "" };
     }
   } catch (e) {
     console.warn("Unable to access iframe contents:", e);
@@ -60,7 +62,7 @@ function startZoomCaptionPolling() {
   }
 
   let lastCaptionText = ''; // Keep track of the last captured text
-  const POLL_INTERVAL = 300; // Poll every 300ms for responsiveness
+  const POLL_INTERVAL = 100; // Poll every 300ms for responsiveness
 
   console.log("Zoom: Starting caption monitoring loop...");
 
@@ -68,7 +70,7 @@ function startZoomCaptionPolling() {
     try {
       const captionData = getZoomCaptions(iframe); // Get both text and author
 
-      if (captionData && captionData.text && captionData.text !== lastCaptionText && captionData.text.length > 2) {
+      if (captionData && captionData.text && captionData.text !== lastCaptionText) {
         console.log("Zoom: New caption detected:", captionData.text, "by", captionData.author);
         lastCaptionText = captionData.text;
         await sendCaptionUpdate(captionData.text, "Zoom", captionData.author);

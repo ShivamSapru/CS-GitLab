@@ -1,4 +1,4 @@
-// config.js
+// config.js (DO NOT commit this to version control)
 export const CONFIG = {
   AZURE_TRANSLATOR_KEY: "",
   AZURE_TRANSLATOR_REGION: "global",

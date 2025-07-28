@@ -1,11 +1,6 @@
-// background/background.js - Service Worker for Chrome Extension
+// background.js - Service Worker for Chrome Extension
 
 import { CONFIG } from './config.js';
-
-// // Azure Speech Service Configuration
-// const AZURE_SPEECH_KEY = "<Key>";
-// const AZURE_SPEECH_REGION = "northeurope";
-// const AZURE_SPEECH_ENDPOINT = "https://northeurope.api.cognitive.microsoft.com";
 
 // Azure Translator Service Configuration  
 const AZURE_TRANSLATOR_KEY = CONFIG.AZURE_TRANSLATOR_KEY;
@@ -156,8 +151,8 @@ async function handleRealCaptionUpdate(text, platform, author, sendResponse) {
   try {
     console.log('Processing real caption:', platform, '-', text);
     
-    if (!text || text.length < 3) {
-      sendResponse({ status: false, error: 'Text too short' });
+    if (!text) {
+      sendResponse({ status: false, error: 'No text captured' });
       return;
     }
     
@@ -214,7 +209,7 @@ async function handleTranslateText(text, targetLanguage, sendResponse) {
     }
     
     // Call Azure Translator API
-    const translatedText = await callAzureTranslator(text, targetLanguage);
+    const translatedText = await callAzureTranslator(text, targetLanguage, currentSettings.censorProfanity);
     
     console.log('Azure Translator Result:', translatedText);
     sendResponse({ success: true, translatedText });
@@ -315,7 +310,5 @@ chrome.runtime.onSuspend.addListener(() => {
 });
 
 console.log('Background script loaded');
-// console.log('Azure Speech Key configured:', AZURE_SPEECH_KEY.substring(0, 20) + '...');
-console.log('Azure Translator Key configured:', AZURE_TRANSLATOR_KEY.substring(0, 20) + '...');
-// console.log('Speech Region:', AZURE_SPEECH_REGION);
-console.log('Translator Region:', AZURE_TRANSLATOR_REGION);
+// console.log('Azure Translator Key configured:', AZURE_TRANSLATOR_KEY.substring(0, 20) + '...');
+// console.log('Translator Region:', AZURE_TRANSLATOR_REGION);

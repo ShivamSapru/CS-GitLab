@@ -390,7 +390,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         padding: 5px; /* Smaller padding */
         background: rgba(255,255,255,0.05); /* Very subtle white background */
         border-radius: 4px; /* Smaller border radius */
-        transition: opacity 0.3s ease-in-out;
+        /* transition: opacity 0.3s ease-in-out; */
         opacity: 0;
         text-align: center; /* CENTER ALIGNMENT */
         justify-content: center;

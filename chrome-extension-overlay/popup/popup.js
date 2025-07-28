@@ -9,8 +9,9 @@ let themeToggle, themeIcon;
 // State variables
 let isCapturing = false;
 let currentSettings = {
-  targetLanguage: 'hi',
-  showOriginal: true,
+  targetLanguage: 'en',
+  showOriginal: false,
+  censorProfanity: true,
   theme: 'light'
 };
 
@@ -20,6 +21,7 @@ document.addEventListener('DOMContentLoaded', function() {
   loadSettings(); // This will call initializeTheme after settings are loaded
   bindEvents();
   updateStatus();
+  fetchAndPopulateLanguages(currentSettings);
   initializeSearchableSelect();
 });
 
@@ -65,6 +67,42 @@ function toggleTheme() {
   const currentTheme = currentSettings.theme || 'light';
   const newTheme = currentTheme === 'light' ? 'dark' : 'light';
   setTheme(newTheme);
+}
+
+async function fetchAndPopulateLanguages(currentSettings) {
+  try {
+    const AZURE_TRANSLATOR_LANGUAGES = "https://api.cognitive.microsofttranslator.com/languages?api-version=3.0&scope=translation";
+    const response = await fetch(AZURE_TRANSLATOR_LANGUAGES);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const data = await response.json();
+    const translations = data.translation;
+
+    // Sort by language name
+    const sortedLanguages = Object.entries(translations).sort(([, a], [, b]) =>
+      a.name.localeCompare(b.name)
+    );
+
+    // Clear existing options
+    languageDropdown.innerHTML = "";
+
+    // Populate new sorted options
+    for (const [code, info] of sortedLanguages) {
+      const div = document.createElement("div");
+      div.className = "language-option";
+      const val = document.createAttribute("data-value");
+      val.value = code;
+      div.setAttributeNode(val);
+      div.textContent = `${info.name}`;
+      languageDropdown.appendChild(div);
+    }
+
+    // Optionally, set a default selected language
+    languageDropdown.value = currentSettings.targetLanguage;
+  } catch (error) {
+    console.error("Failed to load language options:", error);
+  }
 }
 
 // Initialize searchable select functionality
