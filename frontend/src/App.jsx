@@ -337,7 +337,15 @@ const SubtitleTranslatorApp = () => {
 
       <Routes>
         {/* Auth routes - Keep signup and 2FA routes as separate pages */}
-        <Route path="/signup" element={<Signup setUser={setUser} />} />
+        <Route
+          path="/signup"
+          element={
+            <Signup
+              setUser={setUser}
+              onShowLogin={() => setShowLoginModal(true)}
+            />
+          }
+        />
         <Route path="/verify-2fa" element={<Verify2FA setUser={setUser} />} />
         <Route path="/setup-2fa" element={<Setup2FA />} />
 
