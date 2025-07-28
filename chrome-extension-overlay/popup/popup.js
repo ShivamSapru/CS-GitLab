@@ -2,31 +2,25 @@
 
 // DOM elements
 let startBtn, stopBtn, statusDot, statusText;
-let sourceLanguageSelect, targetLanguageSelect, showOriginalCheckbox, censorProfanityCheckbox;
-let advancedModal, settingsBtn, closeModal;
-let confidenceSlider, confidenceValue, maxSubtitlesInput;
-let enableLoggingCheckbox, saveHistoryCheckbox;
+let targetLanguageInput, showOriginalCheckbox;
+let languageSearch, languageDropdown, searchableSelect;
+let themeToggle, themeIcon;
 
 // State variables
 let isCapturing = false;
 let currentSettings = {
-  // sourceLanguage: 'en-US',
-  targetLanguage: 'en',
-  showOriginal: false,
-  censorProfanity: true,
-  confidence: 0.5,
-  maxSubtitles: 20,
-  enableLogging: false,
-  saveHistory: true
+  targetLanguage: 'hi',
+  showOriginal: true,
+  theme: 'light'
 };
 
 // Initialize popup
 document.addEventListener('DOMContentLoaded', function() {
   initializeElements();
-  loadSettings();
+  loadSettings(); // This will call initializeTheme after settings are loaded
   bindEvents();
   updateStatus();
-  fetchAndPopulateLanguages(currentSettings);
+  initializeSearchableSelect();
 });
 
 // Initialize DOM elements
@@ -36,20 +30,177 @@ function initializeElements() {
   statusDot = document.getElementById('statusDot');
   statusText = document.getElementById('statusText');
   
-  // sourceLanguageSelect = document.getElementById('sourceLanguage');
-  targetLanguageSelect = document.getElementById('targetLanguage');
+  targetLanguageInput = document.getElementById('targetLanguage');
   showOriginalCheckbox = document.getElementById('showOriginal');
-  censorProfanityCheckbox = document.getElementById('censorProfanity');
   
-  advancedModal = document.getElementById('advancedModal');
-  settingsBtn = document.getElementById('settingsBtn');
-  closeModal = document.getElementById('closeModal');
+  languageSearch = document.getElementById('languageSearch');
+  languageDropdown = document.getElementById('languageDropdown');
+  searchableSelect = document.querySelector('.searchable-select');
   
-  confidenceSlider = document.getElementById('confidence');
-  confidenceValue = document.getElementById('confidenceValue');
-  maxSubtitlesInput = document.getElementById('maxSubtitles');
-  enableLoggingCheckbox = document.getElementById('enableLogging');
-  saveHistoryCheckbox = document.getElementById('saveHistory');
+  themeToggle = document.getElementById('themeToggle');
+  themeIcon = document.querySelector('.theme-icon');
+}
+
+// Initialize theme
+function initializeTheme() {
+  const savedTheme = currentSettings.theme || 'light';
+  setTheme(savedTheme);
+}
+
+// Set theme
+function setTheme(theme) {
+  currentSettings.theme = theme;
+  document.documentElement.setAttribute('data-theme', theme);
+  
+  // Update theme icon
+  if (themeIcon) {
+    themeIcon.textContent = theme === 'light' ? '🌙' : '☀️';
+  }
+  
+  saveSettings();
+}
+
+// Toggle theme
+function toggleTheme() {
+  const currentTheme = currentSettings.theme || 'light';
+  const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+  setTheme(newTheme);
+}
+
+// Initialize searchable select functionality
+function initializeSearchableSelect() {
+  // Set initial display text
+  const selectedOption = languageDropdown.querySelector('[data-selected="true"]');
+  if (selectedOption) {
+    languageSearch.value = selectedOption.textContent;
+    languageSearch.setAttribute('data-value', selectedOption.dataset.value);
+    targetLanguageInput.value = selectedOption.dataset.value;
+  }
+  
+  // Filter options based on search
+  languageSearch.addEventListener('input', function() {
+    const searchTerm = this.value.toLowerCase();
+    const options = languageDropdown.querySelectorAll('.language-option');
+    
+    options.forEach(option => {
+      const text = option.textContent.toLowerCase();
+      if (text.includes(searchTerm)) {
+        option.classList.remove('hidden');
+      } else {
+        option.classList.add('hidden');
+      }
+    });
+    
+    // Show dropdown if there's input
+    if (searchTerm) {
+      showDropdown();
+    }
+  });
+  
+  // Show dropdown on focus
+  languageSearch.addEventListener('focus', function() {
+    showDropdown();
+  });
+  
+  // Handle option selection
+  languageDropdown.addEventListener('click', function(e) {
+    if (e.target.classList.contains('language-option')) {
+      selectLanguage(e.target);
+    }
+  });
+  
+  // Hide dropdown when clicking outside
+  document.addEventListener('click', function(e) {
+    if (!searchableSelect.contains(e.target)) {
+      hideDropdown();
+    }
+  });
+  
+  // Handle keyboard navigation
+  languageSearch.addEventListener('keydown', function(e) {
+    const visibleOptions = Array.from(languageDropdown.querySelectorAll('.language-option:not(.hidden)'));
+    const currentHighlighted = languageDropdown.querySelector('.language-option.highlighted');
+    
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      highlightNextOption(visibleOptions, currentHighlighted, 1);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      highlightNextOption(visibleOptions, currentHighlighted, -1);
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (currentHighlighted) {
+        selectLanguage(currentHighlighted);
+      }
+    } else if (e.key === 'Escape') {
+      hideDropdown();
+    }
+  });
+}
+
+function showDropdown() {
+  languageDropdown.classList.remove('hidden');
+  searchableSelect.classList.add('open');
+}
+
+function hideDropdown() {
+  languageDropdown.classList.add('hidden');
+  searchableSelect.classList.remove('open');
+  
+  // Clear any highlights
+  const highlighted = languageDropdown.querySelector('.language-option.highlighted');
+  if (highlighted) {
+    highlighted.classList.remove('highlighted');
+  }
+}
+
+function selectLanguage(option) {
+  // Clear previous selection
+  const previousSelected = languageDropdown.querySelector('.language-option.selected');
+  if (previousSelected) {
+    previousSelected.classList.remove('selected');
+    previousSelected.removeAttribute('data-selected');
+  }
+  
+  // Set new selection
+  option.classList.add('selected');
+  option.setAttribute('data-selected', 'true');
+  
+  // Update input values
+  languageSearch.value = option.textContent;
+  languageSearch.setAttribute('data-value', option.dataset.value);
+  targetLanguageInput.value = option.dataset.value;
+  
+  // Hide dropdown
+  hideDropdown();
+  
+  // Trigger settings change
+  onSettingChange();
+}
+
+function highlightNextOption(visibleOptions, currentHighlighted, direction) {
+  // Clear current highlight
+  if (currentHighlighted) {
+    currentHighlighted.classList.remove('highlighted');
+  }
+  
+  if (visibleOptions.length === 0) return;
+  
+  let nextIndex = 0;
+  
+  if (currentHighlighted) {
+    const currentIndex = visibleOptions.indexOf(currentHighlighted);
+    nextIndex = currentIndex + direction;
+    
+    if (nextIndex < 0) {
+      nextIndex = visibleOptions.length - 1;
+    } else if (nextIndex >= visibleOptions.length) {
+      nextIndex = 0;
+    }
+  }
+  
+  visibleOptions[nextIndex].classList.add('highlighted');
+  visibleOptions[nextIndex].scrollIntoView({ block: 'nearest' });
 }
 
 // Bind event listeners
@@ -59,84 +210,19 @@ function bindEvents() {
   stopBtn.addEventListener('click', stopCapture);
   
   // Settings
-  // sourceLanguageSelect.addEventListener('change', onSettingChange);
-  targetLanguageSelect.addEventListener('change', onSettingChange);
   showOriginalCheckbox.addEventListener('change', onSettingChange);
-  censorProfanityCheckbox.addEventListener('change', onSettingChange);
   
-  // Modal controls
-  settingsBtn.addEventListener('click', openAdvancedSettings);
-  closeModal.addEventListener('click', closeAdvancedSettings);
-  document.getElementById('saveSettings').addEventListener('click', saveAdvancedSettings);
-  document.getElementById('resetSettings').addEventListener('click', resetSettings);
-  
-  // Advanced settings
-  confidenceSlider.addEventListener('input', function() {
-    confidenceValue.textContent = this.value;
-    currentSettings.confidence = parseFloat(this.value);
-  });
-  
-  maxSubtitlesInput.addEventListener('change', function() {
-    currentSettings.maxSubtitles = parseInt(this.value);
-  });
-  
-  enableLoggingCheckbox.addEventListener('change', function() {
-    currentSettings.enableLogging = this.checked;
-  });
-  
-  saveHistoryCheckbox.addEventListener('change', function() {
-    currentSettings.saveHistory = this.checked;
-  });
+  // Theme toggle
+  themeToggle.addEventListener('click', toggleTheme);
   
   // Help button
   document.getElementById('helpBtn').addEventListener('click', showHelp);
-  
-  // Close modal on outside click
-  advancedModal.addEventListener('click', function(e) {
-    if (e.target === advancedModal) {
-      closeAdvancedSettings();
-    }
-  });
   
   // Listen for messages from background script
   chrome.runtime.onMessage.addListener(handleBackgroundMessage);
 }
 
-async function fetchAndPopulateLanguages(currentSettings) {
-  try {
-    const AZURE_TRANSLATOR_LANGUAGES = "https://api.cognitive.microsofttranslator.com/languages?api-version=3.0&scope=translation";
-    const response = await fetch(AZURE_TRANSLATOR_LANGUAGES);
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const data = await response.json();
-    const translations = data.translation;
-
-    // Clear existing options
-    targetLanguageSelect.innerHTML = "";
-
-    // Sort by language name
-    const sortedLanguages = Object.entries(translations).sort(([, a], [, b]) =>
-      a.name.localeCompare(b.name)
-    );
-
-    // Populate new sorted options
-    for (const [code, info] of sortedLanguages) {
-      const option = document.createElement("option");
-      option.value = code;
-      option.textContent = `${info.name}`;
-      targetLanguageSelect.appendChild(option);
-    }
-
-    // Optionally, set a default selected language
-    targetLanguageSelect.value = currentSettings.targetLanguage || "en";
-  } catch (error) {
-    console.error("Failed to load language options:", error);
-  }
-}
-
-// Start caption capture
+// Start capture
 async function startCapture() {
   try {
     updateUI(true, 'starting');
@@ -150,7 +236,7 @@ async function startCapture() {
     if (response.success) {
       isCapturing = true;
       updateUI(true, 'active');
-      showNotification('Started capturing caption', 'success');
+      showNotification('Started capturing captions', 'success');
     } else {
       updateUI(false, 'error');
       showNotification('Failed to start capture: ' + response.error, 'error');
@@ -162,7 +248,7 @@ async function startCapture() {
   }
 }
 
-// Stop caption capture
+// Stop capture
 async function stopCapture() {
   try {
     const response = await sendMessageToBackground({
@@ -172,7 +258,7 @@ async function stopCapture() {
     if (response.success) {
       isCapturing = false;
       updateUI(false, 'stopped');
-      showNotification('Stopped capturing caption', 'info');
+      showNotification('Stopped capturing captions', 'info');
     } else {
       showNotification('Failed to stop capture: ' + response.error, 'error');
     }
@@ -197,7 +283,7 @@ function updateUI(capturing, status) {
       statusDot.classList.add('active');
       break;
     case 'active':
-      statusText.textContent = 'Capturing caption';
+      statusText.textContent = 'Capturing captions';
       statusDot.classList.add('active');
       break;
     case 'stopped':
@@ -214,10 +300,8 @@ function updateUI(capturing, status) {
 
 // Handle setting changes
 function onSettingChange() {
-  // currentSettings.sourceLanguage = sourceLanguageSelect.value;
-  currentSettings.targetLanguage = targetLanguageSelect.value;
+  currentSettings.targetLanguage = targetLanguageInput.value;
   currentSettings.showOriginal = showOriginalCheckbox.checked;
-  currentSettings.censorProfanity = censorProfanityCheckbox.checked;
   
   saveSettings();
   
@@ -246,6 +330,7 @@ function loadSettings() {
     }
     
     updateSettingsUI();
+    initializeTheme();
   });
 }
 
@@ -258,16 +343,13 @@ function saveSettings() {
 
 // Update settings UI with current values
 function updateSettingsUI() {
-  // sourceLanguageSelect.value = currentSettings.sourceLanguage;
-  targetLanguageSelect.value = currentSettings.targetLanguage;
   showOriginalCheckbox.checked = currentSettings.showOriginal;
-  censorProfanityCheckbox.checked = currentSettings.censorProfanity;
   
-  confidenceSlider.value = currentSettings.confidence;
-  confidenceValue.textContent = currentSettings.confidence;
-  maxSubtitlesInput.value = currentSettings.maxSubtitles;
-  enableLoggingCheckbox.checked = currentSettings.enableLogging;
-  saveHistoryCheckbox.checked = currentSettings.saveHistory;
+  // Update language selection
+  const selectedOption = languageDropdown.querySelector(`[data-value="${currentSettings.targetLanguage}"]`);
+  if (selectedOption) {
+    selectLanguage(selectedOption);
+  }
 }
 
 // Get current tab ID
@@ -327,53 +409,22 @@ function showNotification(message, type) {
       statusText.textContent = originalText;
     }
   }, 3000);
-  
-  if (currentSettings.enableLogging) {
-    console.log(`[${type.toUpperCase()}] ${message}`);
-  }
-}
-
-// Advanced settings modal
-function openAdvancedSettings() {
-  advancedModal.classList.remove('hidden');
-}
-
-function closeAdvancedSettings() {
-  advancedModal.classList.add('hidden');
-}
-
-function saveAdvancedSettings() {
-  saveSettings();
-  closeAdvancedSettings();
-  showNotification('Settings saved', 'success');
-}
-
-function resetSettings() {
-  currentSettings = {
-    // sourceLanguage: 'en-US',
-    targetLanguage: 'en',
-    showOriginal: false,
-    censorProfanity: true,
-    confidence: 0.5,
-    maxSubtitles: 20,
-    enableLogging: false,
-    saveHistory: true
-  };
-  
-  updateSettingsUI();
-  saveSettings();
-  showNotification('Settings reset to defaults', 'info');
 }
 
 // Show help information
 function showHelp() {
   const helpText = `
-Real-time Subtitle Generator Help:
+Subtitle Generator Help:
 
 1. Click "Start Capture" to begin capturing captions from the current tab
-2. Select source and target languages for translation
-3. Subtitles will appear as an overlay on the webpage
-4. Use Advanced Settings for fine-tuning
+2. Search and select target language for translation (100+ languages supported)
+3. Toggle "Show original text" to control display
+4. Subtitles will appear as an overlay on the webpage
+
+Supported Platforms:
+- YouTube (with captions enabled)
+- Microsoft Teams (with live captions)
+- Zoom (with live transcription)
 
 Requirements:
 - Keep the tab active while capturing
@@ -387,6 +438,5 @@ Developed by The Sentinels Team.
 
 // Cleanup on popup close
 window.addEventListener('beforeunload', function() {
-  // Save any pending settings
   saveSettings();
 });
