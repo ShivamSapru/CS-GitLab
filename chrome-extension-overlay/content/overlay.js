@@ -3,7 +3,7 @@ console.log('Caption display script loaded');
 
 let userSettings = {
   showOriginal: false,
-  targetLanguage: 'hi',
+  targetLanguage: 'en',
   fontSize: 14, // Default font size for the main text
   overlayOpacity: 0.3 // Default opacity (0.0 to 1.0)
 };

@@ -63,6 +63,25 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 });
 
+// Handle long-lived connections from content scripts
+chrome.runtime.onConnect.addListener(function(port) {
+    console.log("Background: Port connected from:", port.name);
+
+    if (port.name === "youtube-caption-port" || port.name === "teams-caption-port") {
+        port.onMessage.addListener(function(message) {
+            console.log("Background: Received message on port:", message.action, "from", port.name);
+            if (message.action === 'updateCaption') {
+                handleRealCaptionUpdate(message.text, message.platform, message.author, (response) => {
+                    console.log("Background: handleRealCaptionUpdate response status:", response?.status);
+                });
+            }
+        });
+        port.onDisconnect.addListener(function() {
+            console.log("Background: Port disconnected from:", port.name);
+        });
+    }
+});
+
 // Handle start capture
 async function handleStartCapture(tabId, sendResponse) {
   try {
