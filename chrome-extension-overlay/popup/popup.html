@@ -10,8 +10,13 @@
   <div class="popup-container">
     <!-- Header -->
     <div class="header">
-      <img src="../assets/icon32.png" alt="Logo" class="logo">
-      <h1>Real-time Subtitles</h1>
+      <div class="logo-title">
+        <img src="../assets/icon32.png" alt="Logo" class="logo">
+        <h1>Real-time Caption Translator</h1>
+      </div>
+      <button id="themeToggle" class="theme-toggle" title="Toggle theme">
+        <span class="theme-icon">🌙</span>
+      </button>
     </div>
     
     <!-- Status Section -->
@@ -25,69 +30,139 @@
     <!-- Controls Section -->
     <div class="controls-section">
       <button id="startBtn" class="btn btn-primary">
-        <span class="btn-icon">🎤</span>
         Start Capture
       </button>
       
       <button id="stopBtn" class="btn btn-secondary disabled">
-        <span class="btn-icon">⏹️</span>
         Stop Capture
       </button>
     </div>
     
     <!-- Settings Section -->
     <div class="settings-section">
-      <!-- <div class="setting-group">
-        <label for="sourceLanguage">Source Language:</label>
-        <select id="sourceLanguage" class="select-input">
-          <option value="en-US">English (US)</option>
-          <option value="en-GB">English (UK)</option>
-          <option value="es-ES">Spanish (Spain)</option>
-          <option value="es-MX">Spanish (Mexico)</option>
-          <option value="fr-FR">French</option>
-          <option value="de-DE">German</option>
-          <option value="it-IT">Italian</option>
-          <option value="pt-PT">Portuguese</option>
-          <option value="zh-CN">Chinese (Simplified)</option>
-          <option value="ja-JP">Japanese</option>
-          <option value="ko-KR">Korean</option>
-          <option value="ar-SA">Arabic</option>
-          <option value="hi-IN">Hindi</option>
-        </select>
-      </div> -->
-      
       <div class="setting-group">
         <label for="targetLanguage">Translate to:</label>
-        <select id="targetLanguage" class="select-input">
-          <option value="none">No Translation</option>
-          <option value="es">Spanish</option>
-          <option value="fr">French</option>
-          <option value="de">German</option>
-          <option value="it">Italian</option>
-          <option value="pt">Portuguese</option>
-          <option value="zh">Chinese</option>
-          <option value="ja">Japanese</option>
-          <option value="ko">Korean</option>
-          <option value="ar">Arabic</option>
-          <option value="hi">Hindi</option>
-          <option value="ru">Russian</option>
-          <option value="nl">Dutch</option>
-        </select>
+        <div class="searchable-select">
+          <input type="text" id="languageSearch" class="search-input" placeholder="Search languages...">
+          <div class="dropdown-icon">▼</div>
+          <div id="languageDropdown" class="language-dropdown hidden">
+            <div class="language-option" data-value="none">🚫 No Translation</div>
+            <div class="language-option" data-value="af">🇿🇦 Afrikaans</div>
+            <div class="language-option" data-value="sq">🇦🇱 Albanian</div>
+            <div class="language-option" data-value="am">🇪🇹 Amharic</div>
+            <div class="language-option" data-value="ar">🇸🇦 Arabic</div>
+            <div class="language-option" data-value="hy">🇦🇲 Armenian</div>
+            <div class="language-option" data-value="as">🇮🇳 Assamese</div>
+            <div class="language-option" data-value="az">🇦🇿 Azerbaijani</div>
+            <div class="language-option" data-value="bn">🇧🇩 Bangla</div>
+            <div class="language-option" data-value="ba">🇷🇺 Bashkir</div>
+            <div class="language-option" data-value="eu">🇪🇸 Basque</div>
+            <div class="language-option" data-value="be">🇧🇾 Belarusian</div>
+            <div class="language-option" data-value="bs">🇧🇦 Bosnian</div>
+            <div class="language-option" data-value="bg">🇧🇬 Bulgarian</div>
+            <div class="language-option" data-value="yue">🇭🇰 Cantonese (Traditional)</div>
+            <div class="language-option" data-value="ca">🇪🇸 Catalan</div>
+            <div class="language-option" data-value="zh-Hans">🇨🇳 Chinese (Simplified)</div>
+            <div class="language-option" data-value="zh-Hant">🇹🇼 Chinese (Traditional)</div>
+            <div class="language-option" data-value="hr">🇭🇷 Croatian</div>
+            <div class="language-option" data-value="cs">🇨🇿 Czech</div>
+            <div class="language-option" data-value="da">🇩🇰 Danish</div>
+            <div class="language-option" data-value="prs">🇦🇫 Dari</div>
+            <div class="language-option" data-value="nl">🇳🇱 Dutch</div>
+            <div class="language-option" data-value="en">🇺🇸 English</div>
+            <div class="language-option" data-value="et">🇪🇪 Estonian</div>
+            <div class="language-option" data-value="fo">🇫🇴 Faroese</div>
+            <div class="language-option" data-value="fj">🇫🇯 Fijian</div>
+            <div class="language-option" data-value="fil">🇵🇭 Filipino</div>
+            <div class="language-option" data-value="fi">🇫🇮 Finnish</div>
+            <div class="language-option" data-value="fr">🇫🇷 French</div>
+            <div class="language-option" data-value="fr-CA">🇨🇦 French (Canada)</div>
+            <div class="language-option" data-value="gl">🇪🇸 Galician</div>
+            <div class="language-option" data-value="ka">🇬🇪 Georgian</div>
+            <div class="language-option" data-value="de">🇩🇪 German</div>
+            <div class="language-option" data-value="el">🇬🇷 Greek</div>
+            <div class="language-option" data-value="gu">🇮🇳 Gujarati</div>
+            <div class="language-option" data-value="ht">🇭🇹 Haitian Creole</div>
+            <div class="language-option" data-value="he">🇮🇱 Hebrew</div>
+            <div class="language-option" data-value="hi" data-selected="true">🇮🇳 Hindi</div>
+            <div class="language-option" data-value="mww">🇨🇳 Hmong Daw</div>
+            <div class="language-option" data-value="hu">🇭🇺 Hungarian</div>
+            <div class="language-option" data-value="is">🇮🇸 Icelandic</div>
+            <div class="language-option" data-value="id">🇮🇩 Indonesian</div>
+            <div class="language-option" data-value="iu">🇨🇦 Inuktitut</div>
+            <div class="language-option" data-value="ga">🇮🇪 Irish</div>
+            <div class="language-option" data-value="it">🇮🇹 Italian</div>
+            <div class="language-option" data-value="ja">🇯🇵 Japanese</div>
+            <div class="language-option" data-value="kn">🇮🇳 Kannada</div>
+            <div class="language-option" data-value="kk">🇰🇿 Kazakh</div>
+            <div class="language-option" data-value="km">🇰🇭 Khmer</div>
+            <div class="language-option" data-value="ko">🇰🇷 Korean</div>
+            <div class="language-option" data-value="ku">🇮🇶 Kurdish (Central)</div>
+            <div class="language-option" data-value="kmr">🇹🇷 Kurdish (Northern)</div>
+            <div class="language-option" data-value="ky">🇰🇬 Kyrgyz</div>
+            <div class="language-option" data-value="lo">🇱🇦 Lao</div>
+            <div class="language-option" data-value="lv">🇱🇻 Latvian</div>
+            <div class="language-option" data-value="lt">🇱🇹 Lithuanian</div>
+            <div class="language-option" data-value="mk">🇲🇰 Macedonian</div>
+            <div class="language-option" data-value="mg">🇲🇬 Malagasy</div>
+            <div class="language-option" data-value="ms">🇲🇾 Malay</div>
+            <div class="language-option" data-value="ml">🇮🇳 Malayalam</div>
+            <div class="language-option" data-value="mt">🇲🇹 Maltese</div>
+            <div class="language-option" data-value="mi">🇳🇿 Maori</div>
+            <div class="language-option" data-value="mr">🇮🇳 Marathi</div>
+            <div class="language-option" data-value="mn-Cyrl">🇲🇳 Mongolian (Cyrillic)</div>
+            <div class="language-option" data-value="mn-Mong">🇲🇳 Mongolian (Traditional)</div>
+            <div class="language-option" data-value="my">🇲🇲 Myanmar (Burmese)</div>
+            <div class="language-option" data-value="ne">🇳🇵 Nepali</div>
+            <div class="language-option" data-value="nb">🇳🇴 Norwegian</div>
+            <div class="language-option" data-value="or">🇮🇳 Odia</div>
+            <div class="language-option" data-value="ps">🇦🇫 Pashto</div>
+            <div class="language-option" data-value="fa">🇮🇷 Persian</div>
+            <div class="language-option" data-value="pl">🇵🇱 Polish</div>
+            <div class="language-option" data-value="pt">🇧🇷 Portuguese (Brazil)</div>
+            <div class="language-option" data-value="pt-PT">🇵🇹 Portuguese (Portugal)</div>
+            <div class="language-option" data-value="pa">🇮🇳 Punjabi</div>
+            <div class="language-option" data-value="otq">🇲🇽 Querétaro Otomi</div>
+            <div class="language-option" data-value="ro">🇷🇴 Romanian</div>
+            <div class="language-option" data-value="ru">🇷🇺 Russian</div>
+            <div class="language-option" data-value="sm">🇼🇸 Samoan</div>
+            <div class="language-option" data-value="sr-Cyrl">🇷🇸 Serbian (Cyrillic)</div>
+            <div class="language-option" data-value="sr-Latn">🇷🇸 Serbian (Latin)</div>
+            <div class="language-option" data-value="sk">🇸🇰 Slovak</div>
+            <div class="language-option" data-value="sl">🇸🇮 Slovenian</div>
+            <div class="language-option" data-value="so">🇸🇴 Somali</div>
+            <div class="language-option" data-value="es">🇪🇸 Spanish</div>
+            <div class="language-option" data-value="sw">🇰🇪 Swahili</div>
+            <div class="language-option" data-value="sv">🇸🇪 Swedish</div>
+            <div class="language-option" data-value="ty">🇵🇫 Tahitian</div>
+            <div class="language-option" data-value="ta">🇮🇳 Tamil</div>
+            <div class="language-option" data-value="tt">🇷🇺 Tatar</div>
+            <div class="language-option" data-value="te">🇮🇳 Telugu</div>
+            <div class="language-option" data-value="th">🇹🇭 Thai</div>
+            <div class="language-option" data-value="bo">🇨🇳 Tibetan</div>
+            <div class="language-option" data-value="ti">🇪🇷 Tigrinya</div>
+            <div class="language-option" data-value="to">🇹🇴 Tongan</div>
+            <div class="language-option" data-value="tr">🇹🇷 Turkish</div>
+            <div class="language-option" data-value="tk">🇹🇲 Turkmen</div>
+            <div class="language-option" data-value="uk">🇺🇦 Ukrainian</div>
+            <div class="language-option" data-value="hsb">🇩🇪 Upper Sorbian</div>
+            <div class="language-option" data-value="ur">🇵🇰 Urdu</div>
+            <div class="language-option" data-value="ug">🇨🇳 Uyghur</div>
+            <div class="language-option" data-value="uz">🇺🇿 Uzbek (Latin)</div>
+            <div class="language-option" data-value="vi">🇻🇳 Vietnamese</div>
+            <div class="language-option" data-value="cy">🏴󠁧󠁢󠁷󠁬󠁳󠁿 Welsh</div>
+            <div class="language-option" data-value="yua">🇲🇽 Yucatec Maya</div>
+            <div class="language-option" data-value="zu">🇿🇦 Zulu</div>
+          </div>
+        </div>
+        <input type="hidden" id="targetLanguage" value="hi">
       </div>
       
       <div class="setting-group">
         <label class="checkbox-label">
-          <input type="checkbox" id="showOriginal">
+          <input type="checkbox" id="showOriginal" checked>
           <span class="checkmark"></span>
-          Show original caption
-        </label>
-      </div>
-      
-      <div class="setting-group">
-        <label class="checkbox-label">
-          <input type="checkbox" id="censorProfanity" checked>
-          <span class="checkmark"></span>
-          Censor profanity in translated caption
+          Show original text
         </label>
       </div>
     </div>
@@ -95,53 +170,10 @@
     <!-- Footer -->
     <div class="footer">
       <div class="footer-links">
-        <button id="settingsBtn" class="link-btn">Advanced Settings</button>
         <button id="helpBtn" class="link-btn">Help</button>
       </div>
       <div class="footer-info">
         <span>Developed by The Sentinels Team</span>
-      </div>
-    </div>
-  </div>
-  
-  <!-- Advanced Settings Modal -->
-  <div id="advancedModal" class="modal hidden">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h3>Advanced Settings</h3>
-        <button id="closeModal" class="close-btn">&times;</button>
-      </div>
-      <div class="modal-body">
-        <div class="setting-group">
-          <label for="confidence">Confidence Threshold:</label>
-          <input type="range" id="confidence" min="0" max="1" step="0.1" value="0.5" class="range-input">
-          <span id="confidenceValue">0.5</span>
-        </div>
-        
-        <div class="setting-group">
-          <label for="maxSubtitles">Max Subtitle History:</label>
-          <input type="number" id="maxSubtitles" min="5" max="50" value="20" class="number-input">
-        </div>
-        
-        <div class="setting-group">
-          <label class="checkbox-label">
-            <input type="checkbox" id="enableLogging">
-            <span class="checkmark"></span>
-            Enable debug logging
-          </label>
-        </div>
-        
-        <div class="setting-group">
-          <label class="checkbox-label">
-            <input type="checkbox" id="saveHistory">
-            <span class="checkmark"></span>
-            Save subtitle history
-          </label>
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button id="resetSettings" class="btn btn-secondary">Reset to Defaults</button>
-        <button id="saveSettings" class="btn btn-primary">Save Settings</button>
       </div>
     </div>
   </div>
