@@ -228,7 +228,7 @@ function createRealCaptionDisplay() {
               width: 12px;
               height: 12px;
               border-radius: 50%;
-              background: #4CAF50; /* Green thumb */
+              background: #ffffffff;
               cursor: pointer;
               box-shadow: 0 0 2px rgba(0,0,0,0.5);
           }
@@ -236,7 +236,7 @@ function createRealCaptionDisplay() {
               width: 12px;
               height: 12px;
               border-radius: 50%;
-              background: #4CAF50;
+              background: #ffffffff;
               cursor: pointer;
               box-shadow: 0 0 2px rgba(0,0,0,0.5);
           }
