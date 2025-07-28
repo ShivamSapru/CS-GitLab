@@ -3,35 +3,72 @@ import { useNavigate } from "react-router-dom";
 import { X } from "lucide-react";
 import axios from "axios";
 
-const LoginModal = ({ onClose, onLoginSuccess, onShowSignup, isDarkMode }) => {
+const SignupModal = ({ onClose, onSignupSuccess, onShowLogin, isDarkMode }) => {
+  console.log("SignupModal rendering with props:", {
+    onClose,
+    onSignupSuccess,
+    onShowLogin,
+    isDarkMode,
+  });
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const navigate = useNavigate();
 
-  const handleLogin = async (e) => {
+  const handleSignup = async (e) => {
     e.preventDefault();
     setError("");
+    setSuccess("");
+
+    if (password !== confirmPassword) {
+      setError("Passwords do not match");
+      return;
+    }
 
     try {
-      const res = await axios.post(
-        "http://localhost:8000/login",
-        { email, password },
+      // Register
+      await axios.post(
+        "http://localhost:8000/register",
         {
-          headers: { "Content-Type": "application/json" },
+          email,
+          password,
+        },
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
           withCredentials: true,
         },
       );
 
+      // Auto-login
+      const res = await axios.post(
+        "http://localhost:8000/login",
+        {
+          email,
+          password,
+        },
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+          withCredentials: true,
+        },
+      );
+
+      // Handle 2FA logic
       if (res.data?.setup_2fa_required) {
-        onLoginSuccess(res.data);
+        onSignupSuccess(res.data);
       } else if (res.data?.twofa_required) {
-        onLoginSuccess(res.data);
+        onSignupSuccess(res.data);
       } else {
-        onLoginSuccess(res.data.user);
+        onSignupSuccess(res.data.user);
       }
     } catch (err) {
-      setError(err.response?.data?.detail ?? "Invalid credentials");
+      setError(err.response?.data?.detail ?? "Registration failed");
     }
   };
 
@@ -59,6 +96,7 @@ const LoginModal = ({ onClose, onLoginSuccess, onShowSignup, isDarkMode }) => {
       className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
       onClick={handleBackgroundClick}
     >
+      {console.log("SignupModal JSX is rendering")}
       <div
         className={`relative w-full max-w-md rounded-lg shadow-lg ${
           isDarkMode ? "bg-gray-800 text-white" : "bg-white text-gray-900"
@@ -66,12 +104,26 @@ const LoginModal = ({ onClose, onLoginSuccess, onShowSignup, isDarkMode }) => {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="p-6">
-          <form onSubmit={handleLogin}>
-            <h2 className="text-2xl font-bold mb-6 text-center">Login</h2>
+          <form onSubmit={handleSignup}>
+            <h2 className="text-2xl font-bold mb-6 text-center">Sign Up</h2>
 
             {error && (
               <div className="mb-4 p-3 rounded-md bg-red-100 border border-red-300 text-red-700 text-sm">
-                {error}
+                {Array.isArray(error) ? (
+                  <ul className="list-disc ml-4">
+                    {error.map((err, idx) => (
+                      <li key={idx}>{err.msg}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  error
+                )}
+              </div>
+            )}
+
+            {success && (
+              <div className="mb-4 p-3 rounded-md bg-green-100 border border-green-300 text-green-700 text-sm">
+                {success}
               </div>
             )}
 
@@ -106,11 +158,26 @@ const LoginModal = ({ onClose, onLoginSuccess, onShowSignup, isDarkMode }) => {
                 />
               </div>
 
+              <div>
+                <input
+                  type="password"
+                  placeholder="Confirm Password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
+                    isDarkMode
+                      ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400"
+                      : "bg-white border-gray-300 text-gray-900 placeholder-gray-500"
+                  }`}
+                />
+              </div>
+
               <button
                 type="submit"
                 className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors font-medium"
               >
-                Log In
+                Sign Up
               </button>
             </div>
           </form>
@@ -119,18 +186,12 @@ const LoginModal = ({ onClose, onLoginSuccess, onShowSignup, isDarkMode }) => {
             <p
               className={`text-sm ${isDarkMode ? "text-gray-300" : "text-gray-600"}`}
             >
-              Don't have an account?{" "}
+              Already have an account?{" "}
               <button
-                type="button"
-                onClick={() => {
-                  console.log("Sign up clicked, onShowSignup:", onShowSignup);
-                  if (onShowSignup) {
-                    onShowSignup();
-                  }
-                }}
+                onClick={onShowLogin}
                 className="text-blue-600 hover:text-blue-700 hover:underline font-medium bg-transparent border-none cursor-pointer"
               >
-                Sign up
+                Log in
               </button>
             </p>
           </div>
@@ -173,4 +234,4 @@ const LoginModal = ({ onClose, onLoginSuccess, onShowSignup, isDarkMode }) => {
   );
 };
 
-export default LoginModal;
+export default SignupModal;

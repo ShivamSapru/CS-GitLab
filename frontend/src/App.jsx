@@ -11,8 +11,9 @@ import TranslationReview from "./components/TranslationReview";
 import Profile from "./components/Profile";
 import Library from "./components/Library";
 import LoginModal from "./components/LoginModal"; // Changed from Login to LoginModal
-import Signup from "./components/Signup";
-import Verify2FA from "./components/Verify2FA";
+import SignupModal from "./components/SignupModal"; // New signup modal component
+import Setup2FAModal from "./components/Setup2FAModal"; // New 2FA setup modal
+import Verify2FAModal from "./components/Verify2FAModal"; // New 2FA verify modal
 import Setup2FA from "./components/Setup2FA";
 import TranscriptionTranslationHub from "./components/TranscriptionTranslationHub";
 
@@ -20,13 +21,17 @@ const SubtitleTranslatorApp = () => {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [user, setUser] = useState(null);
+  const [pendingUser, setPendingUser] = useState(null); // User pending 2FA verification
   const [loadingUser, setLoadingUser] = useState(true);
   const [showLoginModal, setShowLoginModal] = useState(false); // New state for login modal
+  const [showSignupModal, setShowSignupModal] = useState(false); // New state for signup modal
+  const [showSetup2FAModal, setShowSetup2FAModal] = useState(false); // New state for 2FA setup modal
+  const [showVerify2FAModal, setShowVerify2FAModal] = useState(false); // New state for 2FA verify modal
 
   const location = useLocation();
   const navigate = useNavigate();
 
-  const authPages = ["/signup", "/verify-2fa", "/setup-2fa"]; // Removed "/login" since it's now a modal
+  const authPages = []; // All auth is now handled by modals
   const onAuthPage = authPages.includes(location.pathname);
 
   // Define protected routes that require authentication
@@ -48,6 +53,7 @@ const SubtitleTranslatorApp = () => {
         withCredentials: true,
       });
       setUser(null);
+      setPendingUser(null); // Clear pending user too
       navigate("/dashboard"); // Redirect to dashboard after logout
     } catch (err) {
       console.error("Logout failed:", err);
@@ -117,18 +123,60 @@ const SubtitleTranslatorApp = () => {
   };
 
   const handleUserInfoClick = () => {
+    console.log("Profile clicked, user:", user);
     if (!user) {
-      navigate("/signup"); // Navigate to signup page if not logged in
+      console.log("No user, showing signup modal");
+      setShowSignupModal(true);
     } else {
+      console.log("User exists, navigating to profile");
       navigate("/profile");
     }
   };
 
   // Handle successful login
   const handleLoginSuccess = (userData) => {
-    setUser(userData);
-    setShowLoginModal(false);
-    // You can add logic here to navigate to intended page if needed
+    if (userData?.setup_2fa_required) {
+      setPendingUser(userData); // Don't set as authenticated user yet
+      setShowLoginModal(false);
+      setShowSetup2FAModal(true);
+    } else if (userData?.twofa_required) {
+      setPendingUser(userData); // Don't set as authenticated user yet
+      setShowLoginModal(false);
+      setShowVerify2FAModal(true);
+    } else {
+      setUser(userData); // Fully authenticated user
+      setShowLoginModal(false);
+    }
+  };
+
+  // Handle successful signup
+  const handleSignupSuccess = (userData) => {
+    if (userData?.setup_2fa_required) {
+      setPendingUser(userData); // Don't set as authenticated user yet
+      setShowSignupModal(false);
+      setShowSetup2FAModal(true);
+    } else if (userData?.twofa_required) {
+      setPendingUser(userData); // Don't set as authenticated user yet
+      setShowSignupModal(false);
+      setShowVerify2FAModal(true);
+    } else {
+      setUser(userData); // Fully authenticated user
+      setShowSignupModal(false);
+    }
+  };
+
+  // Handle 2FA setup completion
+  const handleSetup2FAComplete = () => {
+    setUser(pendingUser); // Now user is fully authenticated
+    setPendingUser(null);
+    setShowSetup2FAModal(false);
+  };
+
+  // Handle 2FA verification completion
+  const handleVerify2FAComplete = (userData) => {
+    setUser(userData); // Now user is fully authenticated
+    setPendingUser(null);
+    setShowVerify2FAModal(false);
   };
 
   // Get current template based on URL
@@ -150,18 +198,14 @@ const SubtitleTranslatorApp = () => {
         console.log("🚀 /me response:", res.data);
 
         if (res.data?.setup_2fa_required) {
-          setUser(res.data);
-          navigate("/setup-2fa");
+          setPendingUser(res.data); // Don't set as authenticated user yet
+          setShowSetup2FAModal(true);
         } else if (res.data?.twofa_required) {
-          setUser(res.data);
-          navigate("/verify-2fa");
+          setPendingUser(res.data); // Don't set as authenticated user yet
+          setShowVerify2FAModal(true);
         } else {
-          setUser(res.data);
-
-          // Only redirect to dashboard if on root path
-          if (location.pathname === "/") {
-            navigate("/dashboard");
-          }
+          setUser(res.data); // Fully authenticated user
+          // No automatic redirect - user stays on whatever page they're on
         }
       } catch {
         setUser(null);
@@ -173,12 +217,18 @@ const SubtitleTranslatorApp = () => {
     fetchUser();
   }, []);
 
-  // Show login modal for protected routes when user is not authenticated
+  // Show login modal for dashboard when user is not authenticated
   useEffect(() => {
-    if (!loadingUser && !user && onProtectedRoute) {
+    if (
+      !loadingUser &&
+      !user &&
+      !pendingUser &&
+      (location.pathname === "/" || location.pathname === "/dashboard")
+    ) {
+      console.log("Auto-showing login modal for dashboard");
       setShowLoginModal(true);
     }
-  }, [loadingUser, user, onProtectedRoute]);
+  }, [loadingUser, user, pendingUser, location.pathname]);
 
   // Protected Route Component
   const ProtectedRoute = ({ children }) => {
@@ -202,6 +252,7 @@ const SubtitleTranslatorApp = () => {
           onNavigate={handleNavigation}
           isDarkMode={isDarkMode}
           user={user}
+          onShowLogin={() => setShowLoginModal(true)}
         />
       );
     }
@@ -327,28 +378,50 @@ const SubtitleTranslatorApp = () => {
       )}
 
       {/* Login Modal */}
-      {showLoginModal && (
+      {showLoginModal && !showSignupModal && (
         <LoginModal
           onClose={() => setShowLoginModal(false)}
           onLoginSuccess={handleLoginSuccess}
+          onShowSignup={() => {
+            setShowLoginModal(false);
+            setTimeout(() => setShowSignupModal(true), 100);
+          }}
+          isDarkMode={isDarkMode}
+        />
+      )}
+
+      {/* Signup Modal */}
+      {showSignupModal && !showLoginModal && (
+        <SignupModal
+          onClose={() => setShowSignupModal(false)}
+          onSignupSuccess={handleSignupSuccess}
+          onShowLogin={() => {
+            setShowSignupModal(false);
+            setTimeout(() => setShowLoginModal(true), 100);
+          }}
+          isDarkMode={isDarkMode}
+        />
+      )}
+
+      {/* Setup 2FA Modal */}
+      {showSetup2FAModal && (
+        <Setup2FAModal
+          onClose={() => setShowSetup2FAModal(false)}
+          onSetupComplete={handleSetup2FAComplete}
+          isDarkMode={isDarkMode}
+        />
+      )}
+
+      {/* Verify 2FA Modal */}
+      {showVerify2FAModal && (
+        <Verify2FAModal
+          onClose={() => setShowVerify2FAModal(false)}
+          onVerifyComplete={handleVerify2FAComplete}
           isDarkMode={isDarkMode}
         />
       )}
 
       <Routes>
-        {/* Auth routes - Keep signup and 2FA routes as separate pages */}
-        <Route
-          path="/signup"
-          element={
-            <Signup
-              setUser={setUser}
-              onShowLogin={() => setShowLoginModal(true)}
-            />
-          }
-        />
-        <Route path="/verify-2fa" element={<Verify2FA setUser={setUser} />} />
-        <Route path="/setup-2fa" element={<Setup2FA />} />
-
         {/* Public route - Dashboard */}
         <Route
           path="/dashboard"
@@ -357,6 +430,7 @@ const SubtitleTranslatorApp = () => {
               onNavigate={handleNavigation}
               isDarkMode={isDarkMode}
               user={user}
+              onShowLogin={() => setShowLoginModal(true)}
             />
           }
         />
@@ -411,6 +485,7 @@ const SubtitleTranslatorApp = () => {
               onNavigate={handleNavigation}
               isDarkMode={isDarkMode}
               user={user}
+              onShowLogin={() => setShowLoginModal(true)}
             />
           }
         />
