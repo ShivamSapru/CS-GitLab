@@ -324,3 +324,49 @@ Once `docker compose up` is running and all services are stable:
 * **Frontend Application:** Open your web browser and go to `http://localhost:3000`
 * **Backend API Documentation (Swagger UI):** Open your web browser and go to `http://localhost:8000/docs`
 ---
+
+## Azure Deployment:
+
+### Step 1: Build the Docker Images:
+```bash
+docker compose build
+```
+
+### Step 2: Download Azure CLI (if not installed)
+```link
+https://learn.microsoft.com/en-us/cli/azure/install-azure-cli-windows?view=azure-cli-latest&pivots=msi
+```
+
+### Step 3: Login to Azure using Azure CLI:
+```bash
+az login --use-device-code
+```
+
+### Step 4: Tag your Docker images with Azure Container Registry:
+```bash
+docker tag cs-gitlab-backend sentinels.azurecr.io/backend:latest
+
+docker tag cs-gitlab-frontend sentinels.azurecr.io/frontend:latest
+```
+
+### Step 5: Push the taggedd images to Azure Container Registry:
+```bash
+docker push sentinels.azurecr.io/backend:latest
+
+docker push sentinels.azurecr.io/frontend:latest
+```
+
+### Step 6: Update the Conatiner apps with latest images:
+```bash
+az containerapp update --name subtitle-backend --resource-group Sentinels --image sentinels.azurecr.io/backend:latest
+
+az containerapp update --name subtitle-frontend --resource-group Sentinels --image sentinels.azurecr.io/frontend:latest
+```
+
+### Step 7: To check the logs of containers:
+```bash
+az containerapp logs show --name subtitle-frontend --resource-group Sentinels
+
+az containerapp logs show --name subtitle-backend --resource-group Sentinels
+```
+
