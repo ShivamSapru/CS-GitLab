@@ -55,3 +55,4 @@ pandas          # Data processing utility (used for CSV/JSON manipulation)
 # authenticator
 pyotp
 apscheduler
+pytest
