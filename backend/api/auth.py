@@ -33,7 +33,7 @@ def get_db():
 
 @router.get("/login")
 async def login(request: Request):
-    redirect_uri = os.getenv("BACKEND_URL") + "/auth/callback"
+    redirect_uri = os.getenv("VITE_BACKEND_URL") + "/auth/callback"
     return await oauth.google.authorize_redirect(request, redirect_uri)
 
 @router.get("/auth/callback")
@@ -52,7 +52,7 @@ async def auth_callback(request: Request):
                 display_name=userinfo.get("name", userinfo["email"].split("@")[0]),
                 password_hash="",  # empty since OAuth
                 role="user",
-                credits=10,
+                credits=5,
                 created_at=datetime.utcnow(),
                 updated_at=datetime.utcnow(),
                 last_login=datetime.utcnow()
