@@ -23,8 +23,10 @@ import {
 
 import Projects from "./Projects";
 
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
+
 // API Configuration
-const API_BASE_URL = "http://localhost:8000/api";
+const API_BASE_URL = `${BACKEND_URL}/api`;
 
 const apiCall = async (endpoint, options = {}) => {
   try {

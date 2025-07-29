@@ -10,10 +10,12 @@ const Setup2FAModal = ({ onClose, onSetupComplete, isDarkMode }) => {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
+  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
+
   useEffect(() => {
     const fetch2FA = async () => {
       try {
-        const res = await axios.get("http://localhost:8000/setup-2fa", {
+        const res = await axios.get(`${BACKEND_URL}/setup-2fa`, {
           withCredentials: true,
         });
         setSecret(res.data.secret);
@@ -32,7 +34,7 @@ const Setup2FAModal = ({ onClose, onSetupComplete, isDarkMode }) => {
 
     try {
       await axios.post(
-        "http://localhost:8000/verify-2fa-setup",
+        `${BACKEND_URL}/verify-2fa-setup`,
         { otp, secret },
         { withCredentials: true },
       );

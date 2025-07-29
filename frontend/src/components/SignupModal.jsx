@@ -18,6 +18,8 @@ const SignupModal = ({ onClose, onSignupSuccess, onShowLogin, isDarkMode }) => {
   const [success, setSuccess] = useState("");
   const navigate = useNavigate();
 
+  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
+
   const handleSignup = async (e) => {
     e.preventDefault();
     setError("");
@@ -31,7 +33,7 @@ const SignupModal = ({ onClose, onSignupSuccess, onShowLogin, isDarkMode }) => {
     try {
       // Register
       await axios.post(
-        "http://localhost:8000/register",
+        `${BACKEND_URL}/register`,
         {
           email,
           password,
@@ -46,7 +48,7 @@ const SignupModal = ({ onClose, onSignupSuccess, onShowLogin, isDarkMode }) => {
 
       // Auto-login
       const res = await axios.post(
-        "http://localhost:8000/login",
+        `${BACKEND_URL}/login`,
         {
           email,
           password,
@@ -212,7 +214,7 @@ const SignupModal = ({ onClose, onSignupSuccess, onShowLogin, isDarkMode }) => {
 
           <button
             onClick={() =>
-              (window.location.href = "http://localhost:8000/login")
+              (window.location.href = `${BACKEND_URL}/login`)
             }
             type="button"
             className={`w-full flex items-center justify-center px-4 py-2 border rounded-md hover:bg-opacity-50 transition-colors ${

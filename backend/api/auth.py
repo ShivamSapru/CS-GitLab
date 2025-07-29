@@ -33,7 +33,7 @@ def get_db():
 
 @router.get("/login")
 async def login(request: Request):
-    redirect_uri = os.getenv("BACKEND_URL") + "/auth/callback"
+    redirect_uri = os.getenv("VITE_BACKEND_URL") + "/auth/callback"
     return await oauth.google.authorize_redirect(request, redirect_uri)
 
 @router.get("/auth/callback")

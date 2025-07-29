@@ -28,6 +28,8 @@ const SubtitleTranslatorApp = () => {
   const [showSetup2FAModal, setShowSetup2FAModal] = useState(false); // New state for 2FA setup modal
   const [showVerify2FAModal, setShowVerify2FAModal] = useState(false); // New state for 2FA verify modal
 
+  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
+
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -49,7 +51,7 @@ const SubtitleTranslatorApp = () => {
 
   const handleLogout = async () => {
     try {
-      await axios.get("http://localhost:8000/logout", {
+      await axios.get(`${BACKEND_URL}/logout`, {
         withCredentials: true,
       });
       setUser(null);
@@ -191,7 +193,7 @@ const SubtitleTranslatorApp = () => {
   useEffect(() => {
     const fetchUser = async () => {
       try {
-        const res = await axios.get("http://localhost:8000/me", {
+        const res = await axios.get(`${BACKEND_URL}/me`, {
           withCredentials: true,
         });
 

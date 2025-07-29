@@ -3,11 +3,14 @@ import { useNavigate } from "react-router-dom";
 import { X } from "lucide-react";
 import axios from "axios";
 
+
 const LoginModal = ({ onClose, onLoginSuccess, onShowSignup, isDarkMode }) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const navigate = useNavigate();
+
+  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -15,7 +18,7 @@ const LoginModal = ({ onClose, onLoginSuccess, onShowSignup, isDarkMode }) => {
 
     try {
       const res = await axios.post(
-        "http://localhost:8000/login",
+        `${BACKEND_URL}/login`,
         { email, password },
         {
           headers: { "Content-Type": "application/json" },
@@ -44,6 +47,8 @@ const LoginModal = ({ onClose, onLoginSuccess, onShowSignup, isDarkMode }) => {
 
   // Handle escape key to close modal
   useEffect(() => {
+    console.log(import.meta.env);
+
     const handleEscape = (e) => {
       if (e.key === "Escape") {
         onClose();
@@ -151,7 +156,7 @@ const LoginModal = ({ onClose, onLoginSuccess, onShowSignup, isDarkMode }) => {
 
           <button
             onClick={() =>
-              (window.location.href = "http://localhost:8000/login")
+              (window.location.href = `${BACKEND_URL}/login`)
             }
             type="button"
             className={`w-full flex items-center justify-center px-4 py-2 border rounded-md hover:bg-opacity-50 transition-colors ${

@@ -6,13 +6,15 @@ const Verify2FAModal = ({ onClose, onVerifyComplete, isDarkMode }) => {
   const [otp, setOtp] = useState("");
   const [error, setError] = useState("");
 
+  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
+
   const handleVerify = async (e) => {
     e.preventDefault();
     setError("");
 
     try {
       const res = await axios.post(
-        "http://localhost:8000/verify-2fa",
+        `${BACKEND_URL}/verify-2fa`,
         { otp },
         { withCredentials: true },
       );

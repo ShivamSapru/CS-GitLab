@@ -18,8 +18,11 @@ import {
   CheckCircle,
 } from "lucide-react";
 
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
+
+
 // API Configuration for Static Upload only
-const API_BASE_URL = "http://localhost:8000/api";
+const API_BASE_URL = `${BACKEND_URL}/api`;
 const MAX_SELECTED_LANGUAGES = 5;
 
 const apiCall = async (endpoint, options = {}) => {
@@ -316,7 +319,7 @@ const StaticSubtitleUpload = ({
         setBackendConnected(false);
         setLanguages([]);
         setError(
-          `Backend connection failed: ${err.message}. Please ensure your FastAPI server is running on http://localhost:8000 with Azure credentials configured.`,
+          `Backend connection failed: ${err.message}. Please ensure your FastAPI server is running on ${BACKEND_URL} with Azure credentials configured.`,
         );
         console.error("Failed to load languages:", err);
       } finally {

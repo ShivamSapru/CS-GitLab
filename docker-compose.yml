@@ -49,11 +49,11 @@ services:
     ports:
       - "3000:80" # Map host port 3000 to container port 80 (Nginx serves on 80)
     env_file:
-      - ./.env
+      - ./frontend/.env
     depends_on:
       - backend
     environment:
-      VITE_APP_BACKEND_URL: http://backend:8000
+      VITE_APP_BACKEND_URL: ${VITE_BACKEND_URL}
 #    volumes:
 #      - ./frontend:/app # Mounts local frontend code into the container
 

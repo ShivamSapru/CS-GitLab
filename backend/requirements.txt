@@ -41,7 +41,7 @@ srt==3.5.3
 webvtt-py==0.5.1
 
 # FFmpeg wrapper (note: requires system-level ffmpeg installed)
-ffmpeg-python==0.2.0
+ffmpeg-python
 
 # Other essential utilities (often indirect dependencies, good to include explicitly for clarity)
 python-dotenv==1.1.0    # Only needed if your local dev relies on it for scripts outside Docker Compose
@@ -50,7 +50,7 @@ click==8.1.8            # Uvicorn's CLI dependency
 itsdangerous==2.2.0     # Common for auth/signing
 MarkupSafe==3.0.2       # Common templating dependency
 Jinja2==3.1.5           # Common templating dependency (might be pulled by FastAPI/Authlib)
-pandas==2.2.2           # Data processing utility (used for CSV/JSON manipulation)
+pandas          # Data processing utility (used for CSV/JSON manipulation)
 
 # authenticator
 pyotp

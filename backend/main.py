@@ -18,6 +18,8 @@ POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD")
 POSTGRES_HOSTNAME = os.getenv("POSTGRES_HOSTNAME")
 POSTGRES_PORT = os.getenv("POSTGRES_PORT")
 
+FRONTEND_URL = os.getenv("FRONTEND_URL")
+
 # DATABASE_URL = f"postgresql+psycopg2://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOSTNAME}:{POSTGRES_PORT}/{POSTGRES_DB}"
 
 if not POSTGRES_DB or not POSTGRES_USER or not POSTGRES_PASSWORD or not POSTGRES_HOSTNAME or not POSTGRES_PORT:
@@ -73,17 +75,25 @@ async def startup_event():
     print("FastAPI application startup complete and database tables ensured.")
 
 # Add session middleware
+
+if FRONTEND_URL and "https" in FRONTEND_URL:
+    same_site_value = "none"
+    https_only_value = True
+else:
+    same_site_value = "lax"
+    https_only_value = False
+
 app.add_middleware(
     SessionMiddleware,
     secret_key=os.getenv("SESSION_SECRET_KEY"),
-    same_site="lax",
-    https_only=False
+    same_site=same_site_value,
+    https_only=https_only_value
 )
 
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=[FRONTEND_URL],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
