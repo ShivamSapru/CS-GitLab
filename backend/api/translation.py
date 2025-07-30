@@ -8,7 +8,7 @@ import webvtt
 import time
 import json
 
-from fastapi import APIRouter, UploadFile, File, Form, Query, Request, Depends
+from fastapi import APIRouter, UploadFile, File, Form, Query, Request, Depends, Response
 from fastapi.responses import JSONResponse, FileResponse, StreamingResponse
 from typing import Dict, Optional, List
 from pydantic import BaseModel
@@ -172,6 +172,7 @@ def get_languages() -> Dict[str, str]:
 async def upload_file(
     request: Request,
     file: UploadFile = File(...),
+    source_language: str = Form(...),
     target_language: str = Form(...),
     censor_profanity: bool = Form(...),
     db: Session = Depends(get_db)
@@ -258,6 +259,7 @@ async def upload_file(
             translation_id=uuid4(),
             file_id=translated_subtitle.file_id,
             translated_file_id=translated_subtitle.file_id,
+            source_language = source_language,
             target_language=target_language,
             translation_status="completed",
             requested_at=datetime.now(timezone.utc),
