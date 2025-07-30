@@ -83,6 +83,11 @@ const Library = ({ isDarkMode }) => {
       setError(null);
       const data = await apiCall("/user-projects");
       setProjects(data.projects || []);
+
+      console.log(
+        "Library component - projects:",
+        JSON.stringify(data.projects, null, 2),
+      );
     } catch (err) {
       setError(`Failed to load projects: ${err.message}`);
       console.error("Error loading projects:", err);
@@ -476,6 +481,7 @@ const Library = ({ isDarkMode }) => {
       {showProjects ? (
         <Projects
           projectId={viewingProject}
+          projectData={projects.find((p) => p.project_id === viewingProject)}
           onBack={handleBackToLibrary}
           origin="library"
           isDarkMode={isDarkMode}

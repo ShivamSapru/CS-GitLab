@@ -45,7 +45,13 @@ const apiCall = async (endpoint, options = {}) => {
   }
 };
 
-const Projects = ({ projectId, onBack, origin = "library", isDarkMode }) => {
+const Projects = ({
+  projectId,
+  onBack,
+  projectData,
+  origin = "library",
+  isDarkMode,
+}) => {
   const [project, setProject] = useState(null);
   const [projectFiles, setProjectFiles] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -65,6 +71,7 @@ const Projects = ({ projectId, onBack, origin = "library", isDarkMode }) => {
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [languages, setLanguages] = useState({});
   const [loadingLanguages, setLoadingLanguages] = useState(false);
+  const displayProject = projectData || project;
 
   const originalPreviewRef = useRef(null);
   const translatedPreviewRef = useRef(null);
@@ -572,14 +579,14 @@ const Projects = ({ projectId, onBack, origin = "library", isDarkMode }) => {
             <div>
               <div className="flex items-center space-x-3 flex-wrap">
                 <h2
-                  className={`text-xl font-bold transition-colors duration-300 ${
+                  className={`text-2xl font-bold truncate transition-colors duration-300 ${
                     isDarkMode ? "text-white" : "text-gray-900"
                   }`}
                 >
-                  {project?.project_name || "Project Details"}
+                  {displayProject?.project_name || "Project Details"}
                 </h2>
-                {project?.is_public && (
-                  <span className="px-2 py-1 text-xs bg-blue-50 text-green-800 rounded-full flex items-center space-x-1">
+                {(project?.is_public ?? displayProject?.is_public) && (
+                  <span className="px-2 py-1 text-xs bg-blue-50 text-green-800 rounded-full flex items-center space-x-1 flex-shrink-0">
                     <Globe className="w-3 h-3" />
                     <span>Public</span>
                   </span>
@@ -620,9 +627,9 @@ const Projects = ({ projectId, onBack, origin = "library", isDarkMode }) => {
                       isDarkMode ? "text-white" : "text-gray-900"
                     }`}
                   >
-                    {project?.project_name || "Project Details"}
+                    {displayProject?.project_name || "Project Details"}
                   </h2>
-                  {project?.is_public && (
+                  {(project?.is_public ?? displayProject?.is_public) && (
                     <span className="px-2 py-1 text-xs bg-blue-50 text-green-800 rounded-full flex items-center space-x-1 flex-shrink-0">
                       <Globe className="w-3 h-3" />
                       <span>Public</span>
@@ -693,7 +700,7 @@ const Projects = ({ projectId, onBack, origin = "library", isDarkMode }) => {
         <div className="mb-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center space-x-8">
-              {project && (
+              {displayProject && (
                 <div className="flex items-center space-x-2">
                   <Calendar className="w-4 h-4 text-gray-500" />
                   <span
@@ -701,24 +708,26 @@ const Projects = ({ projectId, onBack, origin = "library", isDarkMode }) => {
                       isDarkMode ? "text-gray-300" : "text-gray-600"
                     }`}
                   >
-                    Created: {formatDate(project.created_at)}
+                    Created: {formatDate(displayProject.created_at)}
                   </span>
                 </div>
               )}
             </div>
 
             {/* Public/Private Toggle */}
-            {project && (
+            {displayProject && (
               <div className="flex items-center space-x-3">
                 <span
                   className={`text-sm transition-colors duration-300 ${
                     isDarkMode ? "text-gray-200" : "text-gray-700"
                   }`}
                 >
-                  {project.is_public ? "Public" : "Private"}
+                  {(project?.is_public ?? displayProject?.is_public)
+                    ? "Public"
+                    : "Private"}
                 </span>
                 <ToggleSwitch
-                  enabled={project.is_public}
+                  enabled={project?.is_public ?? displayProject?.is_public}
                   onChange={handleTogglePublic}
                   disabled={loading}
                   isDarkMode={isDarkMode}
@@ -730,7 +739,7 @@ const Projects = ({ projectId, onBack, origin = "library", isDarkMode }) => {
                 >
                   <Globe className="w-3 h-3 mr-1" />
                   <span>
-                    {project.is_public
+                    {(project?.is_public ?? displayProject?.is_public)
                       ? "Visible to everyone"
                       : "Only visible to you"}
                   </span>
@@ -780,7 +789,7 @@ const Projects = ({ projectId, onBack, origin = "library", isDarkMode }) => {
                       {file.target_language && (
                         <span className="flex items-center">
                           <Languages className="w-3 h-3 mr-1" />
-                          {file.source_language} → {file.target_language}
+                          {file.source_language} →
                         </span>
                       )}
                       <span
