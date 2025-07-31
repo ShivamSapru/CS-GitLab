@@ -44,7 +44,6 @@ class Translation(Base):
     translation_id = Column(pgUUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     file_id = Column(pgUUID(as_uuid=True), ForeignKey("subtitle_files.file_id"), nullable=False)  # original file
     translated_file_id = Column(pgUUID(as_uuid=True), ForeignKey("subtitle_files.file_id"), nullable=True)  # translated version
-    source_language = Column(String(50))
     target_language = Column(String(50))
     translation_status = Column(String(20))  # e.g., 'pending', 'completed'
     requested_at = Column(TIMESTAMP)
