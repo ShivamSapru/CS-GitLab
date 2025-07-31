@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "scripts": {
     "start": "react-scripts start",
-    "build": "react-scripts build"
+    "build": "react-scripts build",
+    "test": "jest"
   },
   "dependencies": {
     "axios": "^1.4.0",
@@ -12,5 +13,20 @@
     "react-qr-code": "^2.0.16",
     "react-router-dom": "^6.30.1",
     "srt-webvtt": "^2.0.0"
-  }
+  },
+  "description": "A full-stack platform to translate both static subtitle files and real-time captions from live events.",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs",
+    "test": "tests"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.28.0",
+    "@babel/preset-env": "^7.28.0",
+    "babel-jest": "^30.0.5",
+    "jest": "^30.0.5"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
 }
