@@ -56,3 +56,4 @@ pandas          # Data processing utility (used for CSV/JSON manipulation)
 pyotp
 apscheduler
 pytest
+pytest-asyncio

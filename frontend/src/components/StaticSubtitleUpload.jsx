@@ -420,12 +420,12 @@ const StaticSubtitleUpload = ({
 
         const formData = new FormData();
         formData.append("file", uploadedFile);
-        formData.append("source_language", "auto");
+        // formData.append("source_language", "auto");
         formData.append("censor_profanity", censorProfanity);
         formData.append("target_language", targetLang);
 
         try {
-          const result = await apiCall("/upload-file", {
+          const result = await apiCall("/translate", {
             method: "POST",
             body: formData,
           });

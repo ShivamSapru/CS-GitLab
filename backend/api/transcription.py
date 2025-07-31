@@ -175,7 +175,7 @@ async def transcribe_audio_video(
             else:
                 return JSONResponse(status_code=400, content={"error": "Invalid output format."})
 
-        return {"message": "Transcription completed.", "transcribed_filename": out_name}
+        return {"message": "Transcription completed.", "transcribed_filename": out_name, "transcribed_file_path": out_path}
 
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": f"Transcription failed: {str(e)}"})
