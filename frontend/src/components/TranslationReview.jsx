@@ -20,8 +20,7 @@ import {
   ChevronUp,
 } from "lucide-react";
 
-// API configuration
-const API_BASE_URL = "http://localhost:8000";
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
 const convertSrtToVttManual = (srtContent) => {
   console.log("Starting manual SRT to VTT conversion...");
@@ -595,7 +594,7 @@ const TranscriptionApp = ({ onTranslateTranscription, isDarkMode }) => {
 
   // Get API URL - simple approach
   const getApiUrl = () => {
-    return API_BASE_URL;
+    return BACKEND_URL;
   };
 
   // Fetch available locales on component mount

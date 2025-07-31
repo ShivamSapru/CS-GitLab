@@ -21,6 +21,8 @@ FROM nginx:alpine as production-stage
 # Copy the built React app from the build-stage to Nginx static directory
 COPY --from=build-stage /app/dist /usr/share/nginx/html
 
+COPY ./.env /app/.env
+
 # Copy a custom Nginx configuration
 COPY ./frontend/nginx.conf /etc/nginx/conf.d/default.conf
 

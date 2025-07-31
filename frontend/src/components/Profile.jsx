@@ -22,8 +22,10 @@ import {
 } from "lucide-react";
 import Projects from "./Projects";
 
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
+
 // API Configuration
-const API_BASE_URL = "http://localhost:8000/api";
+const API_BASE_URL = `${BACKEND_URL}/api`;
 
 const apiCall = async (endpoint, options = {}) => {
   try {
@@ -78,7 +80,7 @@ const Profile = ({ isDarkMode, onLogout }) => {
     try {
       setLoading(true);
       setError(null);
-      const response = await fetch("http://localhost:8000/me", {
+      const response = await fetch(`${BACKEND_URL}/me`, {
         credentials: "include",
       });
 
@@ -130,7 +132,7 @@ const Profile = ({ isDarkMode, onLogout }) => {
       setError(null);
 
       // You'll need to implement this endpoint on your backend
-      const response = await fetch("http://localhost:8000/api/profile", {
+      const response = await fetch(`${BACKEND_URL}api/profile`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
