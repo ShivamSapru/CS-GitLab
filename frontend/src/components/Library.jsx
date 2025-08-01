@@ -81,11 +81,13 @@ const Library = ({ isDarkMode }) => {
     try {
       setLoading(true);
       setError(null);
-      const data = await apiCall("/user-projects");
+
+      // Use the new endpoint that returns both user's projects and public projects
+      const data = await apiCall("/all-projects");
       setProjects(data.projects || []);
 
       console.log(
-        "Library component - projects:",
+        "Library component - all accessible projects:",
         JSON.stringify(data.projects, null, 2),
       );
     } catch (err) {
@@ -682,6 +684,20 @@ const Library = ({ isDarkMode }) => {
                                   <span>Public</span>
                                 </span>
                               )}
+                              {/* Show if it's someone else's project */}
+                              {!project.is_own_project && (
+                                <span
+                                  className={`px-2 py-1 text-xs rounded-full flex items-center space-x-1 ${
+                                    isDarkMode
+                                      ? "bg-purple-900/30 text-purple-300"
+                                      : "bg-purple-100 text-purple-800"
+                                  }`}
+                                >
+                                  <span>
+                                    By {project.owner_name || "Another User"}
+                                  </span>
+                                </span>
+                              )}
                             </div>
                           </div>
 
@@ -725,20 +741,34 @@ const Library = ({ isDarkMode }) => {
                           </div>
                         </div>
 
-                        {/* Action Buttons */}
+                        {/* Action Buttons - Only show delete for own projects */}
                         <div className="flex items-center space-x-2">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDelete(project.project_id);
-                            }}
-                            className={`p-2 text-red-600 rounded-lg transition-colors duration-300 ${
-                              isDarkMode
-                                ? "hover:bg-red-900/20"
-                                : "hover:bg-red-50"
-                            }`}
-                            title="Delete Project"
-                          ></button>
+                          {project.is_own_project && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDelete(project.project_id);
+                              }}
+                              className={`p-2 text-red-600 rounded-lg transition-colors duration-300 ${
+                                isDarkMode
+                                  ? "hover:bg-red-900/20"
+                                  : "hover:bg-red-50"
+                              }`}
+                              title="Delete Project"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                          {/* Show read-only indicator for other users' projects */}
+                          {!project.is_own_project && (
+                            <div
+                              className={`px-2 py-1 text-xs rounded transition-colors duration-300 ${
+                                isDarkMode
+                                  ? "text-gray-400 bg-gray-700"
+                                  : "text-gray-500 bg-gray-100"
+                              }`}
+                            ></div>
+                          )}
                         </div>
                       </div>
                     </div>

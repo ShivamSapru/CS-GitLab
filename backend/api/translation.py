@@ -118,7 +118,7 @@ def upload_to_blob(file_path, blob_name, container_name):
     """
     blob_client = get_blob_client()
     container_client = blob_client.get_container_client(container_name)
-    
+
     try:
         with open(file_path, "rb") as data:
             container_client.upload_blob(blob_name, data, overwrite=True)
@@ -762,26 +762,31 @@ async def get_project_files(
     request: Request,
     db: Session = Depends(get_db)
 ):
-    """Get all files for a specific project"""
+    """Get all files for a specific project - accessible by owner or if public"""
     try:
         # Get user from session
         session_user = request.session.get("user")
-        if not session_user or not session_user.get("email"):
-            return JSONResponse(status_code=401, content={"error": "User not authenticated"})
+        current_user = None
+        if session_user and session_user.get("email"):
+            current_user = db.query(User).filter(User.email == session_user["email"]).first()
 
-        user_email = session_user["email"]
-        user = db.query(User).filter(User.email == user_email).first()
-        if not user:
-            return JSONResponse(status_code=404, content={"error": "User not found"})
-
-        # Verify project belongs to user
+        # Find the project - check if user owns it OR if it's public
         project = db.query(TranslationProject).filter(
-            TranslationProject.project_id == project_id,
-            TranslationProject.user_id == user.user_id
+            TranslationProject.project_id == project_id
         ).first()
 
         if not project:
             return JSONResponse(status_code=404, content={"error": "Project not found"})
+
+        # Check access permissions
+        has_access = False
+        if current_user and project.user_id == current_user.user_id:
+            has_access = True  # Owner has access
+        elif project.is_public:
+            has_access = True  # Public projects are accessible to everyone
+
+        if not has_access:
+            return JSONResponse(status_code=403, content={"error": "Access denied"})
 
         # Get all subtitle files for this project
         files = db.query(SubtitleFile).filter(
@@ -802,22 +807,24 @@ async def get_project_files(
                 "file_size_bytes": file.file_size_bytes,
                 "is_original": file.is_original,
                 "source_language": file.source_language,
-                # "created_at": file.created_at.isoformat() if file.created_at else None,
                 "target_language": translation.target_language if translation else None,
                 "translation_status": translation.translation_status if translation else None,
                 "censor_profanity": translation.censor_profanity if translation else None
             }
             file_list.append(file_data)
 
+        # Get project owner info
+        owner = db.query(User).filter(User.user_id == project.user_id).first()
+
         return {
             "project": {
                 "project_id": str(project.project_id),
                 "project_name": project.project_name,
                 "description": project.description,
-
                 "is_public": project.is_public,
-
-                # "created_at": project.created_at.isoformat() if project.created_at else None
+                "owner_name": owner.display_name if owner else "Unknown User",  # Use display_name
+                "is_own_project": current_user.user_id == project.user_id if current_user else False,
+                "created_at": project.created_at.isoformat() if project.created_at else None
             },
             "files": file_list,
             "total_files": len(file_list)
@@ -904,26 +911,31 @@ async def get_project_original_file(
     request: Request,
     db: Session = Depends(get_db)
 ):
-    """Get the original file content for a project from Azure Blob Storage"""
+    """Get the original file content for a project - accessible by owner or if public"""
     try:
-        # Get user from session and verify project ownership
+        # Get user from session
         session_user = request.session.get("user")
-        if not session_user or not session_user.get("email"):
-            return JSONResponse(status_code=401, content={"error": "User not authenticated"})
+        current_user = None
+        if session_user and session_user.get("email"):
+            current_user = db.query(User).filter(User.email == session_user["email"]).first()
 
-        user_email = session_user["email"]
-        user = db.query(User).filter(User.email == user_email).first()
-        if not user:
-            return JSONResponse(status_code=404, content={"error": "User not found"})
-
-        # Verify project belongs to user
+        # Find the project and check access
         project = db.query(TranslationProject).filter(
-            TranslationProject.project_id == project_id,
-            TranslationProject.user_id == user.user_id
+            TranslationProject.project_id == project_id
         ).first()
 
         if not project:
             return JSONResponse(status_code=404, content={"error": "Project not found"})
+
+        # Check access permissions
+        has_access = False
+        if current_user and project.user_id == current_user.user_id:
+            has_access = True  # Owner has access
+        elif project.is_public:
+            has_access = True  # Public projects are accessible to everyone
+
+        if not has_access:
+            return JSONResponse(status_code=403, content={"error": "Access denied"})
 
         # Try to get original file from blob storage
         blob_client = get_blob_client()
@@ -959,6 +971,7 @@ async def get_project_original_file(
             status_code=500,
             content={"error": f"Failed to fetch original file: {str(e)}"}
         )
+
 
 @router.patch("/project/{project_id}/toggle-public")
 async def toggle_project_public(
@@ -1083,3 +1096,152 @@ async def verify_file(filename: str = Query(...)):
             return Response(status_code=404)
     except Exception:
         return Response(status_code=404)
+
+
+@router.get("/public-projects")
+async def get_public_projects(
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """Get all public projects from all users"""
+    try:
+        # Authentication is optional for public projects, but we'll check for current user
+        # to potentially exclude their own projects from the public list
+        current_user_id = None
+        session_user = request.session.get("user")
+        if session_user and session_user.get("email"):
+            user = db.query(User).filter(User.email == session_user["email"]).first()
+            if user:
+                current_user_id = user.user_id
+
+        # Get all public projects with user information
+        query = db.query(TranslationProject, User.display_name).join(
+            User, TranslationProject.user_id == User.user_id
+        ).filter(
+            TranslationProject.is_public == True
+        ).order_by(TranslationProject.created_at.desc())
+
+        projects_with_users = query.all()
+
+        project_list = []
+        for project, display_name in projects_with_users:
+            # Get translations count for this project
+            translations_count = db.query(Translation).filter(
+                Translation.project_id == project.project_id
+            ).count()
+
+            # Get subtitle files count for this project
+            files_count = db.query(SubtitleFile).filter(
+                SubtitleFile.project_id == project.project_id
+            ).count()
+
+            # Get languages used in this project
+            languages_used = db.query(Translation.target_language).filter(
+                Translation.project_id == project.project_id
+            ).distinct().all()
+
+            project_data = {
+                "project_id": str(project.project_id),
+                "project_name": project.project_name,
+                "description": project.description,
+                "is_public": project.is_public,
+                "owner_name": display_name or "Unknown User",  # Use display_name from User table
+                "owner_id": str(project.user_id),
+                "is_own_project": current_user_id == project.user_id if current_user_id else False,
+                "created_at": project.created_at.isoformat() if project.created_at else None,
+                "updated_at": project.updated_at.isoformat() if project.updated_at else None,
+                "translations_count": translations_count,
+                "files_count": files_count,
+                "languages": [
+                    LANGUAGE_CODES.get(lang[0], lang[0])
+                    for lang in languages_used
+                ] if languages_used else []
+            }
+            project_list.append(project_data)
+
+        return {
+            "projects": project_list,
+            "total_count": len(project_list)
+        }
+
+    except Exception as e:
+        print(f"Error fetching public projects: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={"error": f"Failed to fetch public projects: {str(e)}"}
+        )
+
+@router.get("/all-projects")
+async def get_all_accessible_projects(
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """Get user's own projects + all public projects"""
+    try:
+        # Get user from session
+        session_user = request.session.get("user")
+        if not session_user or not session_user.get("email"):
+            return JSONResponse(status_code=401, content={"error": "User not authenticated"})
+
+        user_email = session_user["email"]
+        user = db.query(User).filter(User.email == user_email).first()
+        if not user:
+            return JSONResponse(status_code=404, content={"error": "User not found"})
+
+        # Get all projects the user can access (their own + public ones)
+        query = db.query(TranslationProject, User.display_name).join(
+            User, TranslationProject.user_id == User.user_id
+        ).filter(
+            (TranslationProject.user_id == user.user_id) |  # User's own projects
+            (TranslationProject.is_public == True)           # All public projects
+        ).order_by(TranslationProject.created_at.desc())
+
+        projects_with_users = query.all()
+
+        project_list = []
+        for project, display_name in projects_with_users:
+            # Get translations count for this project
+            translations_count = db.query(Translation).filter(
+                Translation.project_id == project.project_id
+            ).count()
+
+            # Get subtitle files count for this project
+            files_count = db.query(SubtitleFile).filter(
+                SubtitleFile.project_id == project.project_id
+            ).count()
+
+            # Get languages used in this project
+            languages_used = db.query(Translation.target_language).filter(
+                Translation.project_id == project.project_id
+            ).distinct().all()
+
+            project_data = {
+                "project_id": str(project.project_id),
+                "project_name": project.project_name,
+                "description": project.description,
+                "is_public": project.is_public,
+                "owner_name": display_name or "Unknown User",  # Use display_name
+                "owner_id": str(project.user_id),
+                "is_own_project": user.user_id == project.user_id,  # True if user owns this project
+                "created_at": project.created_at.isoformat() if project.created_at else None,
+                "updated_at": project.updated_at.isoformat() if project.updated_at else None,
+                "translations_count": translations_count,
+                "files_count": files_count,
+                "languages": [
+                    LANGUAGE_CODES.get(lang[0], lang[0])
+                    for lang in languages_used
+                ] if languages_used else []
+            }
+            project_list.append(project_data)
+
+        return {
+            "projects": project_list,
+            "total_count": len(project_list)
+        }
+
+    except Exception as e:
+        print(f"Error fetching accessible projects: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={"error": f"Failed to fetch projects: {str(e)}"}
+        )

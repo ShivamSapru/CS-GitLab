@@ -72,6 +72,8 @@ const Projects = ({
   const [languages, setLanguages] = useState({});
   const [loadingLanguages, setLoadingLanguages] = useState(false);
   const displayProject = projectData || project;
+  const [isOwner, setIsOwner] = useState(true); // Assume owner by default
+  const [canEdit, setCanEdit] = useState(true);
 
   const originalPreviewRef = useRef(null);
   const translatedPreviewRef = useRef(null);
@@ -92,6 +94,11 @@ const Projects = ({
       const data = await apiCall(`/project/${projectId}/files`);
       setProjectFiles(data.files || []);
       setProject(data.project);
+
+      // Check if current user is the owner
+      const isProjectOwner = data.project?.is_own_project !== false;
+      setIsOwner(isProjectOwner);
+      setCanEdit(isProjectOwner);
     } catch (err) {
       setError(`Failed to load project details: ${err.message}`);
       console.error("Error loading project details:", err);
@@ -99,6 +106,7 @@ const Projects = ({
       setLoading(false);
     }
   };
+
   const loadLanguages = async () => {
     try {
       setLoadingLanguages(true);
@@ -118,6 +126,11 @@ const Projects = ({
     }
   };
   const handleDeleteProject = async () => {
+    if (!canEdit) {
+      setError("You don't have permission to delete this project.");
+      return;
+    }
+
     if (
       !confirm(
         "Are you sure you want to delete this entire project? This action cannot be undone.",
@@ -459,7 +472,12 @@ const Projects = ({
   };
 
   const handleTogglePublic = async () => {
-    if (!project) return;
+    if (!project || !canEdit) {
+      setError(
+        "You don't have permission to change this project's visibility.",
+      );
+      return;
+    }
 
     try {
       const response = await fetch(
@@ -568,35 +586,62 @@ const Projects = ({
                     className={`w-4 h-4 ${loading ? "animate-spin" : ""}`}
                   />
                 </button>
-                <button
-                  onClick={handleDeleteProject}
-                  className="p-2 text-white bg-red-600 hover:bg-red-700 rounded-lg"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-            <div>
-              <div className="flex items-center space-x-3 flex-wrap">
-                <h2
-                  className={`text-2xl font-bold truncate transition-colors duration-300 ${
-                    isDarkMode ? "text-white" : "text-gray-900"
-                  }`}
-                >
-                  {displayProject?.project_name || "Project Details"}
-                </h2>
-                {(project?.is_public ?? displayProject?.is_public) && (
-                  <span className="px-2 py-1 text-xs bg-blue-50 text-green-800 rounded-full flex items-center space-x-1 flex-shrink-0">
-                    <Globe className="w-3 h-3" />
-                    <span>Public</span>
-                  </span>
+                {canEdit && (
+                  <button
+                    onClick={handleDeleteProject}
+                    className="p-2 text-white bg-red-600 hover:bg-red-700 rounded-lg"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
                 )}
               </div>
+            </div>
+
+            {/* Mobile project info */}
+            <div>
+              <div className="flex flex-col space-y-2">
+                <div className="flex items-start space-x-3">
+                  <h2
+                    className={`text-lg font-bold line-clamp-2 transition-colors duration-300 ${
+                      isDarkMode ? "text-white" : "text-gray-900"
+                    }`}
+                    title={displayProject?.project_name || "Project Details"}
+                  >
+                    {displayProject?.project_name || "Project Details"}
+                  </h2>
+                </div>
+
+                {/* Status indicators below title on mobile */}
+                <div className="flex items-center space-x-2 flex-wrap">
+                  {/* Show Public label only if user is the owner */}
+                  {isOwner &&
+                    (project?.is_public ?? displayProject?.is_public) && (
+                      <span className="px-2 py-1 text-xs bg-green-100 text-green-800 rounded-full flex items-center space-x-1">
+                        <Globe className="w-3 h-3" />
+                        <span>Public</span>
+                      </span>
+                    )}
+                  {/* Show owner name only if user is NOT the owner */}
+                  {!isOwner && displayProject?.owner_name && (
+                    <span
+                      className={`px-2 py-1 text-xs rounded-full flex items-center space-x-1 ${
+                        isDarkMode
+                          ? "bg-purple-900/30 text-purple-300"
+                          : "bg-purple-100 text-purple-800"
+                      }`}
+                    >
+                      <span>By {displayProject.owner_name}</span>
+                    </span>
+                  )}
+                </div>
+              </div>
+
               {project?.description && (
                 <p
-                  className={`text-sm mt-1 transition-colors duration-300 ${
-                    isDarkMode ? "text-gray-300" : "text-gray-600"
+                  className={`text-lg font-bold line-clamp-2 transition-colors duration-300 ${
+                    isDarkMode ? "text-white" : "text-gray-900"
                   }`}
+                  title={project.description}
                 >
                   {project.description}
                 </p>
@@ -620,33 +665,59 @@ const Projects = ({
                   Back to {origin === "profile" ? "Profile" : "Library"}
                 </span>
               </button>
-              <div className="min-w-0 flex-1">
+
+              {/* Project title section with better width management */}
+              <div className="min-w-0 flex-1 max-w-lg">
                 <div className="flex items-center space-x-3">
                   <h2
-                    className={`text-2xl font-bold truncate transition-colors duration-300 ${
+                    className={`text-xl font-bold truncate transition-colors duration-300 ${
                       isDarkMode ? "text-white" : "text-gray-900"
                     }`}
+                    title={displayProject?.project_name || "Project Details"}
                   >
                     {displayProject?.project_name || "Project Details"}
                   </h2>
-                  {(project?.is_public ?? displayProject?.is_public) && (
-                    <span className="px-2 py-1 text-xs bg-blue-50 text-green-800 rounded-full flex items-center space-x-1 flex-shrink-0">
-                      <Globe className="w-3 h-3" />
-                      <span>Public</span>
-                    </span>
-                  )}
+
+                  {/* Status indicators with flex-shrink-0 to prevent squishing */}
+                  <div className="flex items-center space-x-2 flex-shrink-0">
+                    {/* Show Public label only if user is the owner */}
+                    {isOwner &&
+                      (project?.is_public ?? displayProject?.is_public) && (
+                        <span className="px-2 py-1 text-xs bg-green-100 text-green-800 rounded-full flex items-center space-x-1">
+                          <Globe className="w-3 h-3" />
+                          <span>Public</span>
+                        </span>
+                      )}
+                    {/* Show owner name only if user is NOT the owner */}
+                    {!isOwner && displayProject?.owner_name && (
+                      <span
+                        className={`px-2 py-1 text-xs rounded-full flex items-center space-x-1 ${
+                          isDarkMode
+                            ? "bg-purple-900/30 text-purple-300"
+                            : "bg-purple-100 text-purple-800"
+                        }`}
+                      >
+                        <span>By {displayProject.owner_name}</span>
+                      </span>
+                    )}
+                  </div>
                 </div>
+
+                {/* Description with better truncation */}
                 {project?.description && (
                   <p
                     className={`text-sm mt-1 truncate transition-colors duration-300 ${
                       isDarkMode ? "text-gray-300" : "text-gray-600"
                     }`}
+                    title={project.description}
                   >
                     {project.description}
                   </p>
                 )}
               </div>
             </div>
+
+            {/* Action buttons section */}
             <div className="flex items-center space-x-4 flex-shrink-0">
               <button
                 onClick={loadProjectDetails}
@@ -662,13 +733,16 @@ const Projects = ({
                 />
                 <span>Refresh</span>
               </button>
-              <button
-                onClick={handleDeleteProject}
-                className="flex items-center space-x-2 px-3 py-2 text-sm text-white bg-red-600 hover:bg-red-700 rounded-lg"
-              >
-                <Trash2 className="w-4 h-4" />
-                <span>Delete Project</span>
-              </button>
+              {/* Only show delete button for owners */}
+              {canEdit && (
+                <button
+                  onClick={handleDeleteProject}
+                  className="flex items-center space-x-2 px-3 py-2 text-sm text-white bg-red-600 hover:bg-red-700 rounded-lg"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span>Delete Project</span>
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -714,8 +788,8 @@ const Projects = ({
               )}
             </div>
 
-            {/* Public/Private Toggle */}
-            {displayProject && (
+            {/* Public/Private Toggle - Only show for owners */}
+            {displayProject && canEdit && (
               <div className="flex items-center space-x-3">
                 <span
                   className={`text-sm transition-colors duration-300 ${
@@ -744,6 +818,26 @@ const Projects = ({
                       : "Only visible to you"}
                   </span>
                 </div>
+              </div>
+            )}
+
+            {/* Show read-only indicator for non-owners */}
+            {displayProject && !canEdit && (
+              <div className="flex items-center space-x-3">
+                <div
+                  className={`px-3 py-1 text-sm rounded-full ${
+                    isDarkMode
+                      ? "text-gray-300 bg-gray-700"
+                      : "text-gray-600 bg-gray-100"
+                  }`}
+                >
+                  Read-Only Project
+                </div>
+                <div
+                  className={`flex items-center text-xs transition-colors duration-300 ${
+                    isDarkMode ? "text-gray-400" : "text-gray-500"
+                  }`}
+                ></div>
               </div>
             )}
           </div>
@@ -969,7 +1063,7 @@ const Projects = ({
                   </h4>
                   <div className="flex items-center justify-end space-x-4">
                     {/* Undo/Redo buttons - closer to Edit/View */}
-                    {isEditing && (
+                    {isEditing && canEdit && (
                       <div className="flex items-center space-x-2">
                         <button
                           onClick={handleUndo}
@@ -1002,25 +1096,27 @@ const Projects = ({
                       </div>
                     )}
 
-                    {/* Edit/View button */}
-                    <button
-                      onClick={
-                        isEditing ? () => setIsEditing(false) : startEditing
-                      }
-                      disabled={loadingPreview}
-                      className={`text-sm flex items-center space-x-1 transition-colors duration-300 ${
-                        isDarkMode
-                          ? "text-blue-400 hover:text-blue-300"
-                          : "text-blue-600 hover:text-blue-800"
-                      }`}
-                    >
-                      {isEditing ? (
-                        <Eye className="w-4 h-4" />
-                      ) : (
-                        <Edit className="w-4 h-4" />
-                      )}
-                      <span>{isEditing ? "View" : "Edit"}</span>
-                    </button>
+                    {/* Edit/View button - Only show for project owners */}
+                    {canEdit && (
+                      <button
+                        onClick={
+                          isEditing ? () => setIsEditing(false) : startEditing
+                        }
+                        disabled={loadingPreview}
+                        className={`text-sm flex items-center space-x-1 transition-colors duration-300 ${
+                          isDarkMode
+                            ? "text-blue-400 hover:text-blue-300"
+                            : "text-blue-600 hover:text-blue-800"
+                        }`}
+                      >
+                        {isEditing ? (
+                          <Eye className="w-4 h-4" />
+                        ) : (
+                          <Edit className="w-4 h-4" />
+                        )}
+                        <span>{isEditing ? "View" : "Edit"}</span>
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
