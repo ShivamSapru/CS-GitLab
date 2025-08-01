@@ -1245,3 +1245,99 @@ async def get_all_accessible_projects(
             status_code=500,
             content={"error": f"Failed to fetch projects: {str(e)}"}
         )
+
+
+@router.get("/me")
+async def get_current_user(request: Request, db: Session = Depends(get_db)):
+    """Get current user profile information"""
+    try:
+        # Get user from session
+        session_user = request.session.get("user")
+        if not session_user or not session_user.get("email"):
+            return JSONResponse(status_code=401, content={"error": "User not authenticated"})
+
+        user_email = session_user["email"]
+        user = db.query(User).filter(User.email == user_email).first()
+        if not user:
+            return JSONResponse(status_code=404, content={"error": "User not found"})
+
+        return {
+            "user_id": str(user.user_id),
+            "email": user.email,
+            "display_name": user.display_name,  # Make sure this is display_name, not name
+            "role": user.role,
+            "credits": user.credits,
+            "created_at": user.created_at.isoformat() if user.created_at else None,
+            "last_login": user.last_login.isoformat() if user.last_login else None,
+            "is_2fa_enabled": user.is_2fa_enabled
+        }
+
+    except Exception as e:
+        print(f"Error fetching user profile: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={"error": f"Failed to fetch user profile: {str(e)}"}
+        )
+
+
+@router.put("/profile")
+async def update_user_profile(
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """Update user profile information"""
+    try:
+        # Get user from session
+        session_user = request.session.get("user")
+        if not session_user or not session_user.get("email"):
+            return JSONResponse(status_code=401, content={"error": "User not authenticated"})
+
+        user_email = session_user["email"]
+        user = db.query(User).filter(User.email == user_email).first()
+        if not user:
+            return JSONResponse(status_code=404, content={"error": "User not found"})
+
+        # Get request body
+        body = await request.json()
+
+        # Update fields if provided
+        if "display_name" in body:
+            user.display_name = body["display_name"]
+
+        if "email" in body:
+            # Check if email is already taken by another user
+            existing_user = db.query(User).filter(
+                User.email == body["email"],
+                User.user_id != user.user_id
+            ).first()
+            if existing_user:
+                return JSONResponse(
+                    status_code=400,
+                    content={"error": "Email already in use"}
+                )
+            user.email = body["email"]
+
+        user.updated_at = datetime.now(timezone.utc)
+
+        db.commit()
+
+        # Return updated user data
+        return {
+            "user_id": str(user.user_id),
+            "email": user.email,
+            "display_name": user.display_name,
+            "role": user.role,
+            "credits": user.credits,
+            "created_at": user.created_at.isoformat() if user.created_at else None,
+            "updated_at": user.updated_at.isoformat() if user.updated_at else None,
+            "last_login": user.last_login.isoformat() if user.last_login else None,
+            "is_2fa_enabled": user.is_2fa_enabled
+        }
+
+    except Exception as e:
+        db.rollback()
+        print(f"Error updating user profile: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={"error": f"Failed to update profile: {str(e)}"}
+        )

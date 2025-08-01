@@ -55,7 +55,7 @@ const Profile = ({ isDarkMode, onLogout }) => {
   const [error, setError] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({
-    name: "",
+    display_name: "",
     email: "",
   });
   const [isSaving, setIsSaving] = useState(false);
@@ -121,7 +121,7 @@ const Profile = ({ isDarkMode, onLogout }) => {
   const handleCancelEdit = () => {
     setIsEditing(false);
     setEditForm({
-      name: user?.name || "",
+      display_name: user?.display_name || "", // Changed from 'name' to 'display_name'
       email: user?.email || "",
     });
   };
@@ -132,7 +132,7 @@ const Profile = ({ isDarkMode, onLogout }) => {
       setError(null);
 
       // You'll need to implement this endpoint on your backend
-      const response = await fetch(`${BACKEND_URL}api/profile`, {
+      const response = await fetch(`${BACKEND_URL}/api/profile`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -231,7 +231,7 @@ const Profile = ({ isDarkMode, onLogout }) => {
             </div>
             <div>
               <h1 className="text-2xl font-bold text-white">
-                {user?.name || user?.email || "User Profile"}
+                {user?.display_name || user?.email || "User Profile"}
               </h1>
               <p className="text-blue-100">
                 Manage your account settings and preferences
@@ -354,9 +354,13 @@ const Profile = ({ isDarkMode, onLogout }) => {
                       {isEditing ? (
                         <input
                           type="text"
-                          value={editForm.name}
-                          onChange={(e) =>
-                            setEditForm({ ...editForm, name: e.target.value })
+                          value={editForm.display_name}
+                          onChange={
+                            (e) =>
+                              setEditForm({
+                                ...editForm,
+                                display_name: e.target.value,
+                              }) // Changed field name
                           }
                           className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-300 ${
                             isDarkMode
@@ -372,7 +376,7 @@ const Profile = ({ isDarkMode, onLogout }) => {
                               : "bg-gray-50 border-gray-200 text-gray-700"
                           }`}
                         >
-                          {user?.name || "Not set"}
+                          {user?.display_name || "Not set"}
                         </div>
                       )}
                     </div>

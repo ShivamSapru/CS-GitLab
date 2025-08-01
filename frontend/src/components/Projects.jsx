@@ -830,9 +830,7 @@ const Projects = ({
                       ? "text-gray-300 bg-gray-700"
                       : "text-gray-600 bg-gray-100"
                   }`}
-                >
-                  Read-Only Project
-                </div>
+                ></div>
                 <div
                   className={`flex items-center text-xs transition-colors duration-300 ${
                     isDarkMode ? "text-gray-400" : "text-gray-500"
