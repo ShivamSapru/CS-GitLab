@@ -224,7 +224,7 @@ async function handleTranslateText(text, targetLanguage, sendResponse) {
   }
 }
 
-// Call Azure Translator API
+// Call Azure API Management
 async function callAzureTranslator(text, targetLanguage, censorProfanity) {
   try {
     let url = `${AZURE_TRANSLATOR_ENDPOINT}/translate?api-version=3.0&to=${targetLanguage}`;
@@ -233,15 +233,12 @@ async function callAzureTranslator(text, targetLanguage, censorProfanity) {
     }
     
     const headers = {
-      'Ocp-Apim-Subscription-Key': AZURE_TRANSLATOR_KEY,
-      'Ocp-Apim-Subscription-Region': AZURE_TRANSLATOR_REGION,
-      'Content-Type': 'application/json',
-      'X-ClientTraceId': generateGUID()
+      'Content-Type': 'application/json'
     };
     
     const body = JSON.stringify([{ text: text }]);
     
-    console.log('Calling Azure Translator API:', url);
+    console.log('Calling Azure API Management:', url);
     
     const response = await fetch(url, {
       method: 'POST',
@@ -251,20 +248,20 @@ async function callAzureTranslator(text, targetLanguage, censorProfanity) {
     
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`Azure Translator API error: ${response.status} ${response.statusText} - ${errorText}`);
+      throw new Error(`API Management error: ${response.status} ${response.statusText} - ${errorText}`);
     }
     
     const result = await response.json();
-    console.log('Azure Translator response:', result);
+    console.log('API Management response:', result);
     
     if (result && result[0] && result[0].translations && result[0].translations[0]) {
       return result[0].translations[0].text;
     } else {
-      throw new Error('Invalid response format from Azure Translator');
+      throw new Error('Invalid response format from API Management');
     }
     
   } catch (error) {
-    console.error('Azure Translator API call failed:', error);
+    console.error('API Management call failed:', error);
     throw error;
   }
 }

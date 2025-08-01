@@ -93,7 +93,7 @@ function createRealCaptionDisplay() {
             align-items: center;
             z-index: 1; /* Ensure controls are above caption text */
             opacity: 0; /* Initially hidden */
-            transition: opacity 0.3s ease-in-out; /* Smooth fade in/out */
+            transition: opacity 0.2s ease-in-out; /* Smooth fade in/out */
             pointer-events: none; /* Allow clicks to pass through when hidden */
         ">
             <input type="range" class="opacity-slider" min="0" max="100" value="${currentOpacity * 100}" style="
@@ -177,7 +177,7 @@ function createRealCaptionDisplay() {
                 font-size: 1.2em; /* Larger font */
                 font-weight: bold; /* Bold */
                 opacity: 1; /* Visible by default */
-                transition: opacity 0.5s ease-in-out;
+                transition: opacity 0.2s ease-in-out;
             ">Waiting for captions...</p>
         </div>
     `;
@@ -519,7 +519,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 padding: 5px;
                 background: rgba(255,255,255,0.05);
                 border-radius: 4px;
-                transition: opacity 0.3s ease-in-out;
+                transition: opacity 0.2s ease-in-out;
                 opacity: 0;
                 text-align: center;
                 justify-content: center;
@@ -590,7 +590,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 padding: 5px;
                 background: rgba(255,255,255,0.05);
                 border-radius: 4px;
-                transition: opacity 0.3s ease-in-out;
+                transition: opacity 0.2s ease-in-out;
                 opacity: 0;
                 text-align: center;
                 justify-content: center;
