@@ -77,11 +77,9 @@ class TranscriptionProject(Base):
     created_at = Column(TIMESTAMP)
     subtitle_file_url = Column(String(512))
     media_url = Column(String(512))
- 
- 
+
 class Notification(Base):
     __tablename__ = "notifications"
- 
     notification_id = Column(pgUUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     creation_time = Column(TIMESTAMP)
     user_id = Column(pgUUID(as_uuid=True), ForeignKey("users.user_id"), nullable=False)

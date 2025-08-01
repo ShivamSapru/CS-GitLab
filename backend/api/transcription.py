@@ -6,21 +6,33 @@ import uuid
 import httpx
 import tempfile
 import pandas as pd
+import ffmpeg
+
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict
-
-import ffmpeg
-from fastapi import APIRouter, UploadFile, File, Form, Query
+from fastapi import APIRouter, UploadFile, File, Form, Query, Request, Depends, BackgroundTasks
 from fastapi.responses import FileResponse, JSONResponse
-
 from azure.storage.blob import BlobServiceClient, generate_blob_sas, BlobSasPermissions
 from dotenv import load_dotenv
+
+from backend.database.models import TranscriptionProject, User, Notification
+from backend.database.db import SessionLocal
+from sqlalchemy.orm import Session
+from datetime import datetime, timezone
 
 load_dotenv()
 
 router = APIRouter()
 temp_dir = tempfile.mkdtemp()
+
+# --- DB Dependency ---
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 # Environment variables
 AZURE_SPEECH_KEY = os.getenv("AZURE_SPEECH_KEY")
@@ -100,7 +112,8 @@ def create_transcription_job(audio_url: str, censor_profanity="False", max_speak
     response = httpx.post(BATCH_ENDPOINT, headers=headers, json=payload)
     response.raise_for_status()
     job_url = response.json()["self"]
-    return job_url.split("/")[-1].split("?")[0]
+    job_id = job_url.split("/")[-1].split("?")[0]
+    return job_id
 
 # Poll for status
 def poll_transcription_result(job_id: str, timeout_sec=300):
@@ -127,16 +140,99 @@ def get_transcription_file(files_url: str):
     transcript_json = httpx.get(transcript_url).json()
     return transcript_json.get("recognizedPhrases", [])
 
+def monitor_transcription_job(job_id, project_id, user_id, file_name, output_format):
+    try:
+        db = SessionLocal()
+        try:
+            yield db
+        finally:
+            db.close()
+        
+        files_url = poll_transcription_result(job_id)
+        phrases = get_transcription_file(files_url)
+
+        # Save to file
+        safe_name = re.sub(r'[^\w\-_.]', '_', file_name)
+        out_name = f"{safe_name}.{output_format}"
+        out_path = os.path.join(temp_dir, out_name)
+        with open(out_path, "w", encoding="utf-8") as f:
+            f.write(convert_to_srt(phrases, output_format))
+        
+        blob_service = BlobServiceClient.from_connection_string(AZURE_STORAGE_CONNECTION_STRING)
+        blob_name = os.path.basename(out_path)
+        blob_client = blob_service.get_blob_client(container=AZURE_BLOB_CONTAINER, blob=blob_name)
+        with open(out_path, "rb") as data:
+            blob_client.upload_blob(data, overwrite=True)
+
+        sas_token = generate_blob_sas(
+            account_name=blob_service.account_name,
+            container_name=AZURE_BLOB_CONTAINER,
+            blob_name=blob_name,
+            account_key=blob_service.credential.account_key,
+            permission=BlobSasPermissions(read=True)
+        )
+        subtitle_file_url = f"https://{blob_service.account_name}.blob.core.windows.net/{AZURE_BLOB_CONTAINER}/{blob_name}?{sas_token}"
+
+        # Update TranscriptionProject
+        project = db.query(TranscriptionProject).filter_by(project_id=project_id).first()
+        project.status = "Completed"
+        project.subtitle_file_url = subtitle_file_url
+        db.commit()
+
+        # Create Notification
+        notif = Notification(
+            creation_time=datetime.now(timezone.utc),
+            user_id=user_id,
+            project_id=project_id,
+            project_status="Completed",
+            message="Your transcription is ready.",
+            is_read=False
+        )
+        db.add(notif)
+        db.commit()
+
+    except Exception as e:
+        project = db.query(TranscriptionProject).filter_by(project_id=project_id).first()
+        project.status = "Failed"
+        db.commit()
+
+        notif = Notification(
+            creation_time=datetime.now(timezone.utc),
+            user_id=user_id,
+            project_id=project_id,
+            project_status="Failed",
+            message=f"Transcription failed: {str(e)}",
+            is_read=False
+        )
+        db.add(notif)
+        db.commit()
+
 # Endpoint to transcribe audio/video
 @router.post("/transcribe")
 async def transcribe_audio_video(
+    request: Request,
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     locale: str = Form(...),
     max_speakers: int = Form(...),
     censor_profanity: bool = Form(...),
     output_format: str = Form("srt"),
+    db: Session = Depends(get_db)
 ):
     try:
+        # Retrieve user from session FIRST
+        session_user = request.session.get("user")
+        if not session_user or not session_user.get("email"):
+            return JSONResponse(status_code=401, content={"error": "User not authenticated"})
+
+        user_email = session_user["email"]
+        user = db.query(User).filter(User.email == user_email).first()
+        if not user:
+            return JSONResponse(status_code=404, content={"error": "User not found"})
+        
+        if output_format not in ["srt", "vtt"]:
+            return JSONResponse(status_code=400, content={"error": "Invalid output format."})
+
         base_name, _ = os.path.splitext(file.filename)
         safe_name = re.sub(r'[^\w\-_.]', '_', base_name)
         input_path = os.path.join(temp_dir, f"{safe_name}_input.{file.filename.split('.')[-1]}")
@@ -158,26 +254,33 @@ async def transcribe_audio_video(
             blob_name=blob_name,
             account_key=blob_service.credential.account_key,
             permission=BlobSasPermissions(read=True),
-            expiry=datetime.utcnow() + timedelta(hours=1)
+            expiry=datetime.now(timezone.utc) + timedelta(hours=1)
         )
         audio_url = f"https://{blob_service.account_name}.blob.core.windows.net/{AZURE_BLOB_CONTAINER}/{blob_name}?{sas_token}"
 
         job_id = create_transcription_job(audio_url, censor_profanity, max_speakers, locale)
-        files_url = poll_transcription_result(job_id)
-        phrases = get_transcription_file(files_url)
-
         tag = " and Censored" if censor_profanity else ""
-        out_name = f"{base_name} (Transcribed{tag}).{locale}.{output_format}"
-        out_path = os.path.join(temp_dir, out_name)
-        with open(out_path, "w", encoding="utf-8") as f:
-            if output_format in ["srt", "vtt"]:
-                f.write(convert_to_srt(phrases, output_format))
-            else:
-                return JSONResponse(status_code=400, content={"error": "Invalid output format."})
+        file_name = f"{base_name} (Transcribed{tag}).{locale}"
 
-        return {"message": "Transcription completed.", "transcribed_filename": out_name, "transcribed_file_path": out_path}
+        project = TranscriptionProject(
+            user_id=user.user_id,
+            status="In Progress",
+            created_at=datetime.now(timezone.utc),
+            subtitle_file_url=None,  # Will be filled after success
+        )
+        db.add(project)
+        db.commit()
+        db.refresh(project)
+
+        background_tasks.add_task(monitor_transcription_job, job_id, project.project_id, user.user_id, file_name, output_format)
+
+        return {
+            "message": "Transcription job started.", 
+            "project_id": project.project_id
+        }
 
     except Exception as e:
+        db.rollback()  # Rollback on error
         return JSONResponse(status_code=500, content={"error": f"Transcription failed: {str(e)}"})
 
 # Endpoint to download transcribed subtitle file
@@ -206,3 +309,44 @@ def download_transcribed_file(
             status_code=500,
             content={"error": f"Download failed: {str(e)}"}
         )
+
+# Endpoint: Check Notifications
+@router.get("/notifications")
+def get_notifications(
+    request: Request,
+    user_id: str, 
+    db: Session = Depends(get_db)
+):
+    # Retrieve user from session FIRST
+    session_user = request.session.get("user")
+    if not session_user or not session_user.get("email"):
+        return JSONResponse(status_code=401, content={"error": "User not authenticated"})
+
+    user_email = session_user["email"]
+    user = db.query(User).filter(User.email == user_email).first()
+    if not user:
+        return JSONResponse(status_code=404, content={"error": "User not found"})
+        
+    return db.query(Notification).filter_by(user_id=user_id).order_by(Notification.creation_time.desc()).limit(10).all()
+
+# Endpoint: Notification Read Toggle
+@router.post("/notifications/mark-read")
+def mark_notifications_read(
+    request: Request,
+    user_id: str, 
+    db: Session = Depends(get_db)
+):
+    # Retrieve user from session FIRST
+    session_user = request.session.get("user")
+    if not session_user or not session_user.get("email"):
+        return JSONResponse(status_code=401, content={"error": "User not authenticated"})
+
+    user_email = session_user["email"]
+    user = db.query(User).filter(User.email == user_email).first()
+    if not user:
+        return JSONResponse(status_code=404, content={"error": "User not found"})
+    
+    db.query(Notification).filter_by(user_id=user_id, is_read=False).update({"is_read": True})
+    db.commit()
+
+    return {"message": "All notifications marked as read."}

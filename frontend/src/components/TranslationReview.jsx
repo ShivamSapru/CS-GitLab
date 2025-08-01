@@ -1289,8 +1289,8 @@ const TranscriptionApp = ({ onTranslateTranscription, isDarkMode }) => {
                           : "border-gray-300 bg-white text-gray-900"
                       }`}
                     >
-                      <option value="vtt">VTT </option>
                       <option value="srt">SRT </option>
+                      <option value="vtt">VTT </option>
                     </select>
                   </div>
 
