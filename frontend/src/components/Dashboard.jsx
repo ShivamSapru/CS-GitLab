@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { FileText, Zap, Users, FolderOpen, Mic, Lock } from "lucide-react";
+import { FileText, Zap, Users, FolderOpen, Mic } from "lucide-react";
 
 const Dashboard = ({ onNavigate, isDarkMode, user, onShowLogin }) => {
   const [activeFeature, setActiveFeature] = useState("static");
@@ -45,6 +45,16 @@ const Dashboard = ({ onNavigate, isDarkMode, user, onShowLogin }) => {
 
   const handleFeatureClick = (feature) => {
     setActiveFeature(feature.id);
+
+    // If feature requires auth and user is not logged in, show login modal
+    if (feature.requiresAuth && !user) {
+      if (onShowLogin) {
+        onShowLogin();
+      }
+      return;
+    }
+
+    // If user is authenticated or feature doesn't require auth, navigate
     if (onNavigate) {
       onNavigate(feature.route);
     }
@@ -76,70 +86,27 @@ const Dashboard = ({ onNavigate, isDarkMode, user, onShowLogin }) => {
             Translate subtitles in real-time or process static files. Make your
             content accessible to global audiences.
           </p>
-
-          {/* Login prompt for non-authenticated users */}
-          {!user && (
-            <div
-              className={`mt-6 p-4 rounded-lg border ${
-                isDarkMode
-                  ? "bg-gray-800 border-gray-700 text-gray-300"
-                  : "bg-white border-gray-200 text-gray-600"
-              }`}
-            >
-              <p className="text-sm">
-                <Lock className="w-4 h-4 inline mr-1" />
-                Please{" "}
-                <button
-                  onClick={() => {
-                    console.log(
-                      "Dashboard log in button clicked, onShowLogin:",
-                      onShowLogin,
-                    );
-                    if (onShowLogin) {
-                      onShowLogin();
-                    }
-                  }}
-                  className="text-blue-600 hover:text-blue-700 underline hover:no-underline font-medium bg-transparent border-none cursor-pointer p-0"
-                >
-                  Log in
-                </button>{" "}
-                to access all features and manage your translations
-              </p>
-            </div>
-          )}
         </div>
 
         {/* Feature Cards - Responsive Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8 mb-8 sm:mb-12">
           {features.map((feature) => {
             const IconComponent = feature.icon;
-            const isDisabled = feature.requiresAuth && !user;
 
             return (
               <div
                 key={feature.id}
-                className={`rounded-xl shadow-lg p-4 sm:p-6 transition-all duration-200 transform ${
-                  isDisabled
-                    ? "cursor-not-allowed opacity-60"
-                    : "cursor-pointer hover:shadow-xl hover:-translate-y-1 hover:ring-2 hover:ring-blue-500"
-                } ${isDarkMode ? "bg-gray-800" : "bg-white"}`}
-                onClick={() => !isDisabled && handleFeatureClick(feature)}
+                className={`rounded-xl shadow-lg p-4 sm:p-6 transition-all duration-200 transform cursor-pointer hover:shadow-xl hover:-translate-y-1 hover:ring-2 hover:ring-blue-500 ${
+                  isDarkMode ? "bg-gray-800" : "bg-white"
+                }`}
+                onClick={() => handleFeatureClick(feature)}
               >
                 <div className="relative">
                   <div
-                    className={`w-10 h-10 sm:w-12 sm:h-12 ${
-                      isDisabled ? "bg-gray-400" : feature.color
-                    } rounded-lg flex items-center justify-center mb-3 sm:mb-4`}
+                    className={`w-10 h-10 sm:w-12 sm:h-12 ${feature.color} rounded-lg flex items-center justify-center mb-3 sm:mb-4`}
                   >
                     <IconComponent className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                   </div>
-
-                  {/* Lock icon overlay for disabled features */}
-                  {isDisabled && (
-                    <div className="absolute -top-1 -right-1 w-6 h-6 bg-gray-500 rounded-full flex items-center justify-center">
-                      <Lock className="w-3 h-3 text-white" />
-                    </div>
-                  )}
                 </div>
 
                 <h3
@@ -158,27 +125,21 @@ const Dashboard = ({ onNavigate, isDarkMode, user, onShowLogin }) => {
                   {feature.description}
                 </p>
 
-                <div
-                  className={`flex items-center text-sm font-medium ${
-                    isDisabled ? "text-gray-400" : "text-blue-500"
-                  }`}
-                >
-                  <span>{isDisabled ? "Login Required" : "Get Started"}</span>
-                  {!isDisabled && (
-                    <svg
-                      className="w-3 h-3 sm:w-4 sm:h-4 ml-1"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 5l7 7-7 7"
-                      />
-                    </svg>
-                  )}
+                <div className="flex items-center text-sm font-medium text-blue-500">
+                  <span>Get Started</span>
+                  <svg
+                    className="w-3 h-3 sm:w-4 sm:h-4 ml-1"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 5l7 7-7 7"
+                    />
+                  </svg>
                 </div>
               </div>
             );

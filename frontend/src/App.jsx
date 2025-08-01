@@ -200,36 +200,21 @@ const SubtitleTranslatorApp = () => {
 
         if (res.data?.setup_2fa_required) {
           setPendingUser(res.data); // Don't set as authenticated user yet
-          setShowSetup2FAModal(true);
+          // Don't automatically show 2FA setup modal - only show when user tries to access protected route
         } else if (res.data?.twofa_required) {
           setPendingUser(res.data); // Don't set as authenticated user yet
-          setShowVerify2FAModal(true);
+          // Don't automatically show 2FA verify modal - only show when user tries to access protected route
         } else {
           setUser(res.data); // Fully authenticated user
-          // No automatic redirect - user stays on whatever page they're on
         }
       } catch {
         setUser(null);
-        // Don't redirect to login here - let the route protection handle it
       } finally {
         setLoadingUser(false);
       }
     };
     fetchUser();
   }, []);
-
-  // Show login modal for dashboard when user is not authenticated
-  useEffect(() => {
-    if (
-      !loadingUser &&
-      !user &&
-      !pendingUser &&
-      (location.pathname === "/" || location.pathname === "/dashboard")
-    ) {
-      console.log("Auto-showing login modal for dashboard");
-      setShowLoginModal(true);
-    }
-  }, [loadingUser, user, pendingUser, location.pathname]);
 
   // Protected Route Component
   const ProtectedRoute = ({ children }) => {
@@ -246,8 +231,28 @@ const SubtitleTranslatorApp = () => {
       );
     }
 
+    // If user is not authenticated, redirect to dashboard and show login modal
     if (!user) {
-      // Return dashboard instead of null, modal will handle authentication
+      // Navigate to dashboard
+      if (location.pathname !== "/dashboard" && location.pathname !== "/") {
+        navigate("/dashboard");
+      }
+
+      // Show appropriate modal based on pending user state
+      if (pendingUser?.setup_2fa_required && !showSetup2FAModal) {
+        setShowSetup2FAModal(true);
+      } else if (pendingUser?.twofa_required && !showVerify2FAModal) {
+        setShowVerify2FAModal(true);
+      } else if (
+        !showLoginModal &&
+        !showSignupModal &&
+        !showSetup2FAModal &&
+        !showVerify2FAModal
+      ) {
+        setShowLoginModal(true);
+      }
+
+      // Return dashboard while modals handle authentication
       return (
         <Dashboard
           onNavigate={handleNavigation}
