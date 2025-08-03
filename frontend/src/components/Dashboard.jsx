@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { FileText, Zap, Users, FolderOpen, Mic } from "lucide-react";
+import { FileText, Zap, Users, FolderOpen, Mic, Chrome } from "lucide-react";
 
 const Dashboard = ({ onNavigate, isDarkMode, user, onShowLogin }) => {
   const [activeFeature, setActiveFeature] = useState("static");
@@ -10,7 +10,10 @@ const Dashboard = ({ onNavigate, isDarkMode, user, onShowLogin }) => {
       title: "Static Translation",
       icon: FileText,
       description: "Upload and translate subtitle files (SRT, VTT)",
-      color: "bg-blue-500",
+      gradient: {
+        light: "from-blue-500 via-blue-600 to-indigo-600",
+        dark: "from-blue-600 via-blue-700 to-indigo-800",
+      },
       route: "upload",
       requiresAuth: true,
     },
@@ -19,34 +22,43 @@ const Dashboard = ({ onNavigate, isDarkMode, user, onShowLogin }) => {
       title: "Translation Library",
       icon: FolderOpen,
       description: "Browse and manage your translated subtitle files",
-      color: "bg-purple-500",
+      gradient: {
+        light: "from-purple-500 via-purple-600 to-violet-600",
+        dark: "from-purple-600 via-purple-700 to-violet-800",
+      },
       route: "library",
-      requiresAuth: true,
+      requiresAuth: false,
     },
     {
       id: "transcription",
       title: "Audio/Video Transcription",
       icon: Mic,
       description: "Generate subtitle files from your audio/video content",
-      color: "bg-yellow-500",
-      route: "review",
+      gradient: {
+        light: "from-yellow-500 via-orange-500 to-red-500",
+        dark: "from-yellow-600 via-orange-600 to-red-700",
+      },
+      route: "transcribe",
       requiresAuth: true,
     },
     {
       id: "realtime",
-      title: "Real-time Translation",
-      icon: Zap,
-      description: "Live subtitle translation during events",
-      color: "bg-green-500",
+      title: "Chrome Extension",
+      icon: Chrome,
+      description: "Real-time caption translation for YouTube, Teams & Zoom",
+      gradient: {
+        light: "from-green-500 via-green-600 to-emerald-600",
+        dark: "from-green-600 via-green-700 to-emerald-800",
+      },
       route: "realtime",
-      requiresAuth: true,
+      requiresAuth: false,
+      isSpecial: true,
     },
   ];
 
   const handleFeatureClick = (feature) => {
     setActiveFeature(feature.id);
 
-    // If feature requires auth and user is not logged in, show login modal
     if (feature.requiresAuth && !user) {
       if (onShowLogin) {
         onShowLogin();
@@ -54,7 +66,6 @@ const Dashboard = ({ onNavigate, isDarkMode, user, onShowLogin }) => {
       return;
     }
 
-    // If user is authenticated or feature doesn't require auth, navigate
     if (onNavigate) {
       onNavigate(feature.route);
     }
@@ -69,77 +80,78 @@ const Dashboard = ({ onNavigate, isDarkMode, user, onShowLogin }) => {
       }`}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-        {/* Hero Section - Responsive */}
-        <div className="text-center mb-8 sm:mb-12">
-          <h2
-            className={`text-2xl sm:text-3xl lg:text-4xl font-bold mb-3 sm:mb-4 transition-colors duration-300 leading-tight ${
-              isDarkMode ? "text-white" : "text-gray-900"
-            }`}
-          >
-            Break Language Barriers with AI-Powered Subtitles
-          </h2>
-          <p
-            className={`text-base sm:text-lg lg:text-xl max-w-3xl mx-auto transition-colors duration-300 px-4 ${
-              isDarkMode ? "text-gray-300" : "text-gray-600"
-            }`}
-          >
-            Translate subtitles in real-time or process static files. Make your
-            content accessible to global audiences.
-          </p>
-        </div>
-
-        {/* Feature Cards - Responsive Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8 mb-8 sm:mb-12">
+        {/* 2x2 Grid Layout */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8 max-w-6xl mx-auto">
           {features.map((feature) => {
             const IconComponent = feature.icon;
 
             return (
               <div
                 key={feature.id}
-                className={`rounded-xl shadow-lg p-4 sm:p-6 transition-all duration-200 transform cursor-pointer hover:shadow-xl hover:-translate-y-1 hover:ring-2 hover:ring-blue-500 ${
-                  isDarkMode ? "bg-gray-800" : "bg-white"
+                className={`relative rounded-2xl shadow-2xl overflow-hidden transition-all duration-200 transform cursor-pointer hover:shadow-3xl hover:-translate-y-2 bg-gradient-to-r ${
+                  isDarkMode ? feature.gradient.dark : feature.gradient.light
                 }`}
                 onClick={() => handleFeatureClick(feature)}
               >
-                <div className="relative">
-                  <div
-                    className={`w-10 h-10 sm:w-12 sm:h-12 ${feature.color} rounded-lg flex items-center justify-center mb-3 sm:mb-4`}
-                  >
-                    <IconComponent className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-                  </div>
+                {/* Background Pattern */}
+                <div className="absolute inset-0 opacity-10">
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent transform -skew-x-12"></div>
                 </div>
 
-                <h3
-                  className={`text-lg sm:text-xl font-semibold mb-2 transition-colors duration-300 ${
-                    isDarkMode ? "text-white" : "text-gray-900"
-                  }`}
-                >
-                  {feature.title}
-                </h3>
+                {/* Special indicator for Chrome Extension */}
+                {feature.isSpecial && (
+                  <div className="absolute top-4 right-4 flex items-center space-x-2">
+                    <div className="w-2 h-2 bg-red-400 rounded-full animate-pulse"></div>
+                    <span className="text-white text-xs font-medium">LIVE</span>
+                  </div>
+                )}
 
-                <p
-                  className={`mb-3 sm:mb-4 text-sm sm:text-base transition-colors duration-300 ${
-                    isDarkMode ? "text-gray-300" : "text-gray-600"
-                  }`}
-                >
-                  {feature.description}
-                </p>
+                {/* Auth Required indicator - only show when user is not logged in */}
+                {feature.requiresAuth && !user && (
+                  <div className="absolute top-4 left-4">
+                    <div className="bg-white bg-opacity-20 backdrop-blur-sm rounded-full px-2 py-1">
+                      <span className="text-white text-xs font-medium">
+                        Login Required
+                      </span>
+                    </div>
+                  </div>
+                )}
 
-                <div className="flex items-center text-sm font-medium text-blue-500">
-                  <span>Get Started</span>
-                  <svg
-                    className="w-3 h-3 sm:w-4 sm:h-4 ml-1"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9 5l7 7-7 7"
-                    />
-                  </svg>
+                <div className="relative z-10 p-6 sm:p-8 text-center h-full flex flex-col justify-between min-h-[280px]">
+                  <div>
+                    <div className="flex justify-center mb-4">
+                      <div className="w-16 h-16 sm:w-20 sm:h-20 bg-white bg-opacity-20 rounded-2xl flex items-center justify-center backdrop-blur-sm">
+                        <IconComponent className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
+                      </div>
+                    </div>
+
+                    <h3 className="text-xl sm:text-2xl lg:text-3xl font-bold text-white mb-3">
+                      {feature.title}
+                    </h3>
+
+                    <p className="text-white text-opacity-90 text-base sm:text-lg mb-4 max-w-sm mx-auto leading-relaxed">
+                      {feature.description}
+                    </p>
+                  </div>
+
+                  <div className="flex justify-center items-center">
+                    <div className="flex items-center text-white font-semibold text-base sm:text-lg bg-white bg-opacity-20 px-4 py-2 rounded-full backdrop-blur-sm hover:bg-opacity-30 transition-all duration-200">
+                      <span>Get Started</span>
+                      <svg
+                        className="w-4 h-4 sm:w-5 sm:h-5 ml-2"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M13 7l5 5m0 0l-5 5m5-5H6"
+                        />
+                      </svg>
+                    </div>
+                  </div>
                 </div>
               </div>
             );

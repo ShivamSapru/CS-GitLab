@@ -19,6 +19,8 @@ import {
   Redo,
   ChevronDown,
   Languages,
+  LogIn,
+  UserPlus,
 } from "lucide-react";
 
 import Projects from "./Projects";
@@ -49,7 +51,7 @@ const apiCall = async (endpoint, options = {}) => {
   }
 };
 
-const Library = ({ isDarkMode }) => {
+const Library = ({ isDarkMode, user, onShowLogin }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterLanguage, setFilterLanguage] = useState("all");
   const [sortBy, setSortBy] = useState("date");
@@ -72,27 +74,47 @@ const Library = ({ isDarkMode }) => {
   const [editHistory, setEditHistory] = useState([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
 
-  // Load user projects on component mount
+  // Load projects on component mount
   useEffect(() => {
     loadProjects();
-  }, []);
+  }, [user]); // Re-load when user changes
 
   const loadProjects = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      // Use the new endpoint that returns both user's projects and public projects
-      const data = await apiCall("/all-projects");
+      let endpoint = "/public-projects"; // Default to public projects
+
+      if (user) {
+        // If user is logged in, fetch both public and user's own projects
+        endpoint = "/all-projects";
+      }
+
+      const data = await apiCall(endpoint);
       setProjects(data.projects || []);
 
       console.log(
-        "Library component - all accessible projects:",
+        `Library component - ${user ? "all accessible" : "public"} projects:`,
         JSON.stringify(data.projects, null, 2),
       );
     } catch (err) {
-      setError(`Failed to load projects: ${err.message}`);
-      console.error("Error loading projects:", err);
+      // If the user is not authenticated and we tried all-projects, fall back to public-projects
+      if (
+        err.message.includes("not authenticated") &&
+        endpoint === "/all-projects"
+      ) {
+        try {
+          const fallbackData = await apiCall("/public-projects");
+          setProjects(fallbackData.projects || []);
+        } catch (fallbackErr) {
+          setError(`Failed to load projects: ${fallbackErr.message}`);
+          console.error("Error loading projects:", fallbackErr);
+        }
+      } else {
+        setError(`Failed to load projects: ${err.message}`);
+        console.error("Error loading projects:", err);
+      }
     } finally {
       setLoading(false);
     }
@@ -114,6 +136,14 @@ const Library = ({ isDarkMode }) => {
   };
 
   const handleDelete = async (projectId) => {
+    // Only allow deletion if user is logged in and owns the project
+    if (!user) {
+      if (onShowLogin) {
+        onShowLogin();
+      }
+      return;
+    }
+
     if (
       !confirm(
         "Are you sure you want to delete this project? This action cannot be undone.",
@@ -123,7 +153,6 @@ const Library = ({ isDarkMode }) => {
     }
 
     try {
-      // You'll need to implement this endpoint
       await apiCall(`/project/${projectId}`, {
         method: "DELETE",
       });
@@ -287,6 +316,14 @@ const Library = ({ isDarkMode }) => {
   };
 
   const startEditing = () => {
+    // Only allow editing if user is logged in
+    if (!user) {
+      if (onShowLogin) {
+        onShowLogin();
+      }
+      return;
+    }
+
     setEditedContent(previewContent);
     setIsEditing(true);
     initializeEditHistory(previewContent);
@@ -305,6 +342,13 @@ const Library = ({ isDarkMode }) => {
   const saveEditedFile = async () => {
     if (!previewingFile) {
       setError("Cannot save: No file selected.");
+      return;
+    }
+
+    if (!user) {
+      if (onShowLogin) {
+        onShowLogin();
+      }
       return;
     }
 
@@ -487,6 +531,8 @@ const Library = ({ isDarkMode }) => {
           onBack={handleBackToLibrary}
           origin="library"
           isDarkMode={isDarkMode}
+          user={user}
+          onShowLogin={onShowLogin}
         />
       ) : (
         <div
@@ -500,14 +546,48 @@ const Library = ({ isDarkMode }) => {
             }`}
           >
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
-              <h2
-                className={`text-2xl font-bold mb-4 sm:mb-0 transition-colors duration-300 ${
-                  isDarkMode ? "text-white" : "text-gray-900"
-                }`}
-              >
-                Translation Library
-              </h2>
-              <div className="flex items-center space-x-4">
+              <div className="flex-1">
+                <h2
+                  className={`text-2xl font-bold mb-2 transition-colors duration-300 ${
+                    isDarkMode ? "text-white" : "text-gray-900"
+                  }`}
+                >
+                  Translation Library
+                </h2>
+                {!user && (
+                  <div
+                    className={`flex items-center space-x-2 text-sm transition-colors duration-300 ${
+                      isDarkMode ? "text-gray-400" : "text-gray-600"
+                    }`}
+                  >
+                    <Globe className="w-4 h-4" />
+                    <span>Viewing public projects only.</span>
+                    <button
+                      onClick={onShowLogin}
+                      className="text-blue-500 hover:text-blue-600 font-medium underline"
+                    >
+                      Sign in
+                    </button>
+                    <span>to see your projects</span>
+                  </div>
+                )}
+              </div>
+              <div className="flex items-center space-x-4 mt-4 sm:mt-0">
+                {!user && (
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={onShowLogin}
+                      className={`flex items-center space-x-2 px-3 py-2 text-sm border rounded-lg transition-colors duration-300 ${
+                        isDarkMode
+                          ? "text-blue-400 border-blue-400 hover:bg-blue-400/10"
+                          : "text-blue-600 border-blue-600 hover:bg-blue-50"
+                      }`}
+                    >
+                      <LogIn className="w-4 h-4" />
+                      <span>Sign In</span>
+                    </button>
+                  </div>
+                )}
                 <button
                   onClick={loadProjects}
                   disabled={loading}
@@ -628,7 +708,8 @@ const Library = ({ isDarkMode }) => {
                     isDarkMode ? "text-gray-400" : "text-gray-500"
                   }`}
                 >
-                  Please wait while we fetch your translation projects...
+                  Please wait while we fetch {user ? "your" : "public"}{" "}
+                  translation projects...
                 </p>
               </div>
             ) : sortedProjects.length === 0 ? (
@@ -642,14 +723,38 @@ const Library = ({ isDarkMode }) => {
                   No projects found
                 </h3>
                 <p
-                  className={`transition-colors duration-300 ${
+                  className={`mb-4 transition-colors duration-300 ${
                     isDarkMode ? "text-gray-400" : "text-gray-500"
                   }`}
                 >
                   {searchTerm || filterLanguage !== "all"
                     ? "Try adjusting your search or filter criteria"
-                    : "Start by uploading and translating your first subtitle file, then save it as a project"}
+                    : user
+                      ? "Start by uploading and translating your first subtitle file, then save it as a project"
+                      : "No public projects available at the moment"}
                 </p>
+                {!user && (
+                  <div className="space-y-2">
+                    <p
+                      className={`text-sm transition-colors duration-300 ${
+                        isDarkMode ? "text-gray-400" : "text-gray-500"
+                      }`}
+                    >
+                      Want to create and share your own projects?
+                    </p>
+                    <button
+                      onClick={onShowLogin}
+                      className={`inline-flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors duration-300 ${
+                        isDarkMode
+                          ? "bg-blue-600 text-white hover:bg-blue-700"
+                          : "bg-blue-500 text-white hover:bg-blue-600"
+                      }`}
+                    >
+                      <UserPlus className="w-4 h-4" />
+                      <span>Get Started</span>
+                    </button>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="space-y-4">
@@ -743,7 +848,7 @@ const Library = ({ isDarkMode }) => {
 
                         {/* Action Buttons - Only show delete for own projects */}
                         <div className="flex items-center space-x-2">
-                          {project.is_own_project && (
+                          {project.is_own_project && user && (
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -881,10 +986,26 @@ const Library = ({ isDarkMode }) => {
             </div>
 
             {/* Translated File */}
-            <div className="bg-white rounded-lg border">
-              <div className="px-4 py-2 bg-gray-100 border-b rounded-t-lg">
+            <div
+              className={`rounded-lg border transition-colors duration-300 ${
+                isDarkMode
+                  ? "bg-gray-800 border-gray-600"
+                  : "bg-white border-gray-200"
+              }`}
+            >
+              <div
+                className={`px-4 py-2 border-b rounded-t-lg transition-colors duration-300 ${
+                  isDarkMode
+                    ? "bg-gray-700 border-gray-600"
+                    : "bg-gray-100 border-gray-200"
+                }`}
+              >
                 <div className="flex items-center justify-between">
-                  <h4 className="font-medium text-gray-700 flex items-center">
+                  <h4
+                    className={`font-medium flex items-center transition-colors duration-300 ${
+                      isDarkMode ? "text-gray-200" : "text-gray-700"
+                    }`}
+                  >
                     <span className="w-3 h-3 bg-green-500 rounded-full mr-2"></span>
                     Translated ({previewingFile.languageName})
                   </h4>
@@ -892,15 +1013,20 @@ const Library = ({ isDarkMode }) => {
                     {!isEditing ? (
                       <button
                         onClick={startEditing}
-                        disabled={loadingPreview}
+                        disabled={loadingPreview || !user}
                         className={`text-sm flex items-center space-x-1 transition-colors duration-300 ${
-                          isDarkMode
-                            ? "text-blue-400 hover:text-blue-300"
-                            : "text-blue-600 hover:text-blue-800"
+                          !user
+                            ? isDarkMode
+                              ? "text-gray-600 cursor-not-allowed"
+                              : "text-gray-400 cursor-not-allowed"
+                            : isDarkMode
+                              ? "text-blue-400 hover:text-blue-300"
+                              : "text-blue-600 hover:text-blue-800"
                         }`}
+                        title={!user ? "Sign in to edit files" : "Edit"}
                       >
                         <Edit className="w-4 h-4" />
-                        <span>Edit</span>
+                        <span>{!user ? "Sign in to Edit" : "Edit"}</span>
                       </button>
                     ) : (
                       <div className="flex items-center space-x-2">
@@ -936,7 +1062,11 @@ const Library = ({ isDarkMode }) => {
               <div className="p-4">
                 {loadingPreview ? (
                   <div className="flex items-center justify-center h-64">
-                    <div className="text-gray-500">
+                    <div
+                      className={`transition-colors duration-300 ${
+                        isDarkMode ? "text-gray-400" : "text-gray-500"
+                      }`}
+                    >
                       Loading translated content...
                     </div>
                   </div>
@@ -965,7 +1095,7 @@ const Library = ({ isDarkMode }) => {
                         onClick={handleRedo}
                         disabled={historyIndex >= editHistory.length - 1}
                         className={`flex items-center space-x-1 px-3 py-1 rounded text-sm transition-colors duration-300 ${
-                          historyIndex <= editHistory.length - 1
+                          historyIndex >= editHistory.length - 1
                             ? isDarkMode
                               ? "bg-gray-700 text-gray-600 cursor-not-allowed"
                               : "bg-gray-100 text-gray-400 cursor-not-allowed"
@@ -1016,7 +1146,11 @@ const Library = ({ isDarkMode }) => {
                     }
                     className="max-h-96 overflow-auto"
                   >
-                    <pre className="text-sm text-gray-700 whitespace-pre-wrap font-mono">
+                    <pre
+                      className={`text-sm whitespace-pre-wrap font-mono transition-colors duration-300 ${
+                        isDarkMode ? "text-gray-300" : "text-gray-700"
+                      }`}
+                    >
                       {previewContent}
                     </pre>
                   </div>
@@ -1037,6 +1171,17 @@ const Library = ({ isDarkMode }) => {
                   }`}
                 >
                   Editing
+                </div>
+              )}
+              {!user && (
+                <div
+                  className={`text-sm px-3 py-1 rounded-full transition-colors duration-300 ${
+                    isDarkMode
+                      ? "text-blue-300 bg-blue-900/30"
+                      : "text-blue-600 bg-blue-50"
+                  }`}
+                >
+                  Read Only - Sign in to edit
                 </div>
               )}
             </div>
