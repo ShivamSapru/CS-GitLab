@@ -258,9 +258,12 @@ const SubtitleTranslatorApp = () => {
                 onClick={() => navigate("/dashboard")}
                 className="flex items-center space-x-3 hover:opacity-80 transition-opacity duration-200"
               >
-                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center">
-                  <Globe className="w-4 h-4 sm:w-6 sm:h-6 text-white" />
-                </div>
+                {/* Replace the Globe icon div with an img tag for your PNG logo */}
+                <img
+                  src="/logo.png"
+                  alt="SubtitleTranslator Logo"
+                  className="w-8 h-8 sm:w-10 sm:h-10 object-contain rounded-lg"
+                />
                 <h1
                   className={`text-lg sm:text-xl lg:text-2xl font-bold ${isDarkMode ? "text-white" : "text-gray-900"}`}
                 >

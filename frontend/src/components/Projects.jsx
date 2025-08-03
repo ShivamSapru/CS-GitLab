@@ -51,6 +51,8 @@ const Projects = ({
   projectData,
   origin = "library",
   isDarkMode,
+  user,
+  onShowLogin,
 }) => {
   const [project, setProject] = useState(null);
   const [projectFiles, setProjectFiles] = useState([]);
@@ -72,8 +74,8 @@ const Projects = ({
   const [languages, setLanguages] = useState({});
   const [loadingLanguages, setLoadingLanguages] = useState(false);
   const displayProject = projectData || project;
-  const [isOwner, setIsOwner] = useState(true); // Assume owner by default
-  const [canEdit, setCanEdit] = useState(true);
+  const [isOwner, setIsOwner] = useState(false);
+  const [canEdit, setCanEdit] = useState(false);
 
   const originalPreviewRef = useRef(null);
   const translatedPreviewRef = useRef(null);
@@ -95,8 +97,8 @@ const Projects = ({
       setProjectFiles(data.files || []);
       setProject(data.project);
 
-      // Check if current user is the owner
-      const isProjectOwner = data.project?.is_own_project !== false;
+      // Fix: Check if user is logged in AND is the owner
+      const isProjectOwner = user && data.project?.is_own_project !== false;
       setIsOwner(isProjectOwner);
       setCanEdit(isProjectOwner);
     } catch (err) {
@@ -106,7 +108,6 @@ const Projects = ({
       setLoading(false);
     }
   };
-
   const loadLanguages = async () => {
     try {
       setLoadingLanguages(true);
@@ -126,6 +127,14 @@ const Projects = ({
     }
   };
   const handleDeleteProject = async () => {
+    // Check if user is logged in first
+    if (!user) {
+      if (onShowLogin) {
+        onShowLogin();
+      }
+      return;
+    }
+
     if (!canEdit) {
       setError("You don't have permission to delete this project.");
       return;
@@ -149,7 +158,6 @@ const Projects = ({
       setError(`Failed to delete project: ${err.message}`);
     }
   };
-
   const handleDownload = async (filename) => {
     try {
       // Try to get from project blob storage first (which contains edited content if any)
@@ -308,6 +316,19 @@ const Projects = ({
   };
 
   const startEditing = () => {
+    // Check if user is logged in first
+    if (!user) {
+      if (onShowLogin) {
+        onShowLogin();
+      }
+      return;
+    }
+
+    if (!canEdit) {
+      setError("You don't have permission to edit this project.");
+      return;
+    }
+
     setEditedContent(previewContent);
     setIsEditing(true);
     initializeEditHistory(previewContent);
@@ -472,6 +493,14 @@ const Projects = ({
   };
 
   const handleTogglePublic = async () => {
+    // Check if user is logged in first
+    if (!user) {
+      if (onShowLogin) {
+        onShowLogin();
+      }
+      return;
+    }
+
     if (!project || !canEdit) {
       setError(
         "You don't have permission to change this project's visibility.",
@@ -586,7 +615,8 @@ const Projects = ({
                     className={`w-4 h-4 ${loading ? "animate-spin" : ""}`}
                   />
                 </button>
-                {canEdit && (
+                {/* Only show delete button for logged in owners */}
+                {user && canEdit && (
                   <button
                     onClick={handleDeleteProject}
                     className="p-2 text-white bg-red-600 hover:bg-red-700 rounded-lg"
@@ -633,13 +663,26 @@ const Projects = ({
                       <span>By {displayProject.owner_name}</span>
                     </span>
                   )}
+                  {/* Show sign in prompt for non-logged in users */}
+                  {!user && (
+                    <button
+                      onClick={onShowLogin}
+                      className={`px-2 py-1 text-xs rounded-full border transition-colors duration-300 ${
+                        isDarkMode
+                          ? "text-blue-300 border-blue-400 hover:bg-blue-900/20"
+                          : "text-blue-600 border-blue-600 hover:bg-blue-50"
+                      }`}
+                    >
+                      Sign in to manage projects
+                    </button>
+                  )}
                 </div>
               </div>
 
               {project?.description && (
                 <p
-                  className={`text-lg font-bold line-clamp-2 transition-colors duration-300 ${
-                    isDarkMode ? "text-white" : "text-gray-900"
+                  className={`text-sm mt-2 transition-colors duration-300 ${
+                    isDarkMode ? "text-gray-300" : "text-gray-600"
                   }`}
                   title={project.description}
                 >
@@ -700,6 +743,19 @@ const Projects = ({
                         <span>By {displayProject.owner_name}</span>
                       </span>
                     )}
+                    {/* Show sign in prompt for non-logged in users */}
+                    {!user && (
+                      <button
+                        onClick={onShowLogin}
+                        className={`px-2 py-1 text-xs rounded-full border transition-colors duration-300 ${
+                          isDarkMode
+                            ? "text-blue-300 border-blue-400 hover:bg-blue-900/20"
+                            : "text-blue-600 border-blue-600 hover:bg-blue-50"
+                        }`}
+                      >
+                        Sign in to manage projects
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -733,8 +789,8 @@ const Projects = ({
                 />
                 <span>Refresh</span>
               </button>
-              {/* Only show delete button for owners */}
-              {canEdit && (
+              {/* Only show delete button for logged in owners */}
+              {user && canEdit && (
                 <button
                   onClick={handleDeleteProject}
                   className="flex items-center space-x-2 px-3 py-2 text-sm text-white bg-red-600 hover:bg-red-700 rounded-lg"
@@ -788,8 +844,8 @@ const Projects = ({
               )}
             </div>
 
-            {/* Public/Private Toggle - Only show for owners */}
-            {displayProject && canEdit && (
+            {/* Public/Private Toggle - Only show for logged in owners */}
+            {displayProject && user && canEdit && (
               <div className="flex items-center space-x-3">
                 <span
                   className={`text-sm transition-colors duration-300 ${
@@ -821,8 +877,8 @@ const Projects = ({
               </div>
             )}
 
-            {/* Show read-only indicator for non-owners */}
-            {displayProject && !canEdit && (
+            {/* Show read-only indicator for non-owners or non-logged in users */}
+            {displayProject && (!user || !canEdit) && (
               <div className="flex items-center space-x-3">
                 <div
                   className={`px-3 py-1 text-sm rounded-full ${
@@ -830,12 +886,9 @@ const Projects = ({
                       ? "text-gray-300 bg-gray-700"
                       : "text-gray-600 bg-gray-100"
                   }`}
-                ></div>
-                <div
-                  className={`flex items-center text-xs transition-colors duration-300 ${
-                    isDarkMode ? "text-gray-400" : "text-gray-500"
-                  }`}
-                ></div>
+                >
+                  {!user ? "Read Only - Sign in to manage" : "Read Only"}
+                </div>
               </div>
             )}
           </div>
