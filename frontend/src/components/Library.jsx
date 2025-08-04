@@ -552,7 +552,16 @@ const Library = ({ isDarkMode, user, onShowLogin }) => {
                     isDarkMode ? "text-white" : "text-gray-900"
                   }`}
                 >
-                  Translation Library
+                  <span className="flex items-center">
+                    <div
+                      className={`w-1 h-8 rounded-full mr-3 bg-gradient-to-b ${
+                        isDarkMode
+                          ? "from-purple-600 via-purple-700 to-violet-800"
+                          : "from-purple-500 via-purple-600 to-violet-600"
+                      }`}
+                    ></div>
+                    Translation Library
+                  </span>
                 </h2>
                 {!user && (
                   <div
@@ -564,7 +573,7 @@ const Library = ({ isDarkMode, user, onShowLogin }) => {
                     <span>Viewing public projects only.</span>
                     <button
                       onClick={onShowLogin}
-                      className="text-blue-500 hover:text-blue-600 font-medium underline"
+                      className="text-purple-500 hover:text-purple-600 font-medium underline"
                     >
                       Sign in
                     </button>
@@ -579,8 +588,8 @@ const Library = ({ isDarkMode, user, onShowLogin }) => {
                       onClick={onShowLogin}
                       className={`flex items-center space-x-2 px-3 py-2 text-sm border rounded-lg transition-colors duration-300 ${
                         isDarkMode
-                          ? "text-blue-400 border-blue-400 hover:bg-blue-400/10"
-                          : "text-blue-600 border-blue-600 hover:bg-blue-50"
+                          ? "text-purple-400 border-purple-400 hover:bg-purple-400/10"
+                          : "text-purple-600 border-purple-600 hover:bg-purple-50"
                       }`}
                     >
                       <LogIn className="w-4 h-4" />
@@ -646,7 +655,7 @@ const Library = ({ isDarkMode, user, onShowLogin }) => {
                   placeholder="Search projects..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-300 ${
+                  className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors duration-300 ${
                     isDarkMode
                       ? "border-gray-600 bg-gray-700 text-gray-200 placeholder-gray-400"
                       : "border-gray-300 bg-white text-gray-900 placeholder-gray-500"
@@ -660,7 +669,7 @@ const Library = ({ isDarkMode, user, onShowLogin }) => {
                 <select
                   value={filterLanguage}
                   onChange={(e) => setFilterLanguage(e.target.value)}
-                  className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none transition-colors duration-300 ${
+                  className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 appearance-none transition-colors duration-300 ${
                     isDarkMode
                       ? "border-gray-600 bg-gray-700 text-gray-200"
                       : "border-gray-300 bg-white text-gray-900"
@@ -679,7 +688,7 @@ const Library = ({ isDarkMode, user, onShowLogin }) => {
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-300 ${
+                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors duration-300 ${
                   isDarkMode
                     ? "border-gray-600 bg-gray-700 text-gray-200"
                     : "border-gray-300 bg-white text-gray-900"
@@ -695,7 +704,7 @@ const Library = ({ isDarkMode, user, onShowLogin }) => {
             {/* Loading State */}
             {loading ? (
               <div className="text-center py-12">
-                <Loader2 className="w-8 h-8 text-blue-500 mx-auto mb-4 animate-spin" />
+                <Loader2 className="w-8 h-8 text-purple-500 mx-auto mb-4 animate-spin" />
                 <h3
                   className={`text-lg font-medium mb-2 transition-colors duration-300 ${
                     isDarkMode ? "text-white" : "text-gray-900"
@@ -746,8 +755,8 @@ const Library = ({ isDarkMode, user, onShowLogin }) => {
                       onClick={onShowLogin}
                       className={`inline-flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors duration-300 ${
                         isDarkMode
-                          ? "bg-blue-600 text-white hover:bg-blue-700"
-                          : "bg-blue-500 text-white hover:bg-blue-600"
+                          ? "bg-gradient-to-r from-purple-600 via-purple-700 to-violet-800 text-white hover:opacity-90"
+                          : "bg-gradient-to-r from-purple-500 via-purple-600 to-violet-600 text-white hover:opacity-90"
                       }`}
                     >
                       <UserPlus className="w-4 h-4" />
@@ -774,7 +783,13 @@ const Library = ({ isDarkMode, user, onShowLogin }) => {
                       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
                         <div className="flex-1 min-w-0 mb-4 sm:mb-0">
                           <div className="flex items-center space-x-3 mb-2">
-                            <FolderOpen className="w-5 h-5 text-blue-500 flex-shrink-0" />
+                            <div
+                              className={`w-2 h-2 rounded-full bg-gradient-to-r ${
+                                isDarkMode
+                                  ? "from-purple-600 via-purple-700 to-violet-800"
+                                  : "from-purple-500 via-purple-600 to-violet-600"
+                              }`}
+                            ></div>
                             <h3
                               className={`text-lg font-medium truncate transition-colors duration-300 ${
                                 isDarkMode ? "text-white" : "text-gray-900"
@@ -833,8 +848,8 @@ const Library = ({ isDarkMode, user, onShowLogin }) => {
                                   <span
                                     className={`text-xs px-2 py-1 rounded-full transition-colors duration-300 ${
                                       isDarkMode
-                                        ? "bg-gray-600 text-gray-200"
-                                        : "bg-gray-100 text-gray-700"
+                                        ? "bg-purple-900/20 text-purple-300 border border-purple-700"
+                                        : "bg-purple-50 text-purple-700 border border-purple-200"
                                     }`}
                                   >
                                     {project.languages.length > 2
@@ -902,7 +917,16 @@ const Library = ({ isDarkMode, user, onShowLogin }) => {
                   isDarkMode ? "text-white" : "text-gray-900"
                 }`}
               >
-                Preview
+                <span className="flex items-center">
+                  <div
+                    className={`w-1 h-6 rounded-full mr-3 bg-gradient-to-b ${
+                      isDarkMode
+                        ? "from-purple-600 via-purple-700 to-violet-800"
+                        : "from-purple-500 via-purple-600 to-violet-600"
+                    }`}
+                  ></div>
+                  Preview
+                </span>
               </h3>
               <p
                 className={`text-sm truncate transition-colors duration-300 ${
@@ -1006,7 +1030,13 @@ const Library = ({ isDarkMode, user, onShowLogin }) => {
                       isDarkMode ? "text-gray-200" : "text-gray-700"
                     }`}
                   >
-                    <span className="w-3 h-3 bg-green-500 rounded-full mr-2"></span>
+                    <span
+                      className={`w-3 h-3 rounded-full mr-2 bg-gradient-to-r ${
+                        isDarkMode
+                          ? "from-purple-600 to-violet-800"
+                          : "from-purple-500 to-violet-600"
+                      }`}
+                    ></span>
                     Translated ({previewingFile.languageName})
                   </h4>
                   <div className="flex items-center space-x-2">
@@ -1020,8 +1050,8 @@ const Library = ({ isDarkMode, user, onShowLogin }) => {
                               ? "text-gray-600 cursor-not-allowed"
                               : "text-gray-400 cursor-not-allowed"
                             : isDarkMode
-                              ? "text-blue-400 hover:text-blue-300"
-                              : "text-blue-600 hover:text-blue-800"
+                              ? "text-purple-400 hover:text-purple-300"
+                              : "text-purple-600 hover:text-purple-800"
                         }`}
                         title={!user ? "Sign in to edit files" : "Edit"}
                       >
@@ -1083,8 +1113,8 @@ const Library = ({ isDarkMode, user, onShowLogin }) => {
                               ? "bg-gray-700 text-gray-600 cursor-not-allowed"
                               : "bg-gray-100 text-gray-400 cursor-not-allowed"
                             : isDarkMode
-                              ? "bg-gray-600 text-gray-200 hover:bg-gray-500"
-                              : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                              ? "bg-purple-800/40 text-purple-200 hover:bg-purple-700/40"
+                              : "bg-purple-100 text-purple-700 hover:bg-purple-200"
                         }`}
                         title="Undo (Ctrl+Z)"
                       >
@@ -1100,8 +1130,8 @@ const Library = ({ isDarkMode, user, onShowLogin }) => {
                               ? "bg-gray-700 text-gray-600 cursor-not-allowed"
                               : "bg-gray-100 text-gray-400 cursor-not-allowed"
                             : isDarkMode
-                              ? "bg-gray-600 text-gray-200 hover:bg-gray-500"
-                              : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                              ? "bg-purple-800/40 text-purple-200 hover:bg-purple-700/40"
+                              : "bg-purple-100 text-purple-700 hover:bg-purple-200"
                         }`}
                         title="Redo (Ctrl+Shift+Z or Ctrl+Y)"
                       >
@@ -1119,7 +1149,7 @@ const Library = ({ isDarkMode, user, onShowLogin }) => {
                       onChange={(e) => handleTextChange(e.target.value)}
                       onKeyDown={handleKeyDown}
                       onScroll={(e) => handleScrollSync(e, originalPreviewRef)}
-                      className={`w-full h-96 p-3 border rounded font-mono text-sm resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-300 ${
+                      className={`w-full h-96 p-3 border rounded font-mono text-sm resize-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors duration-300 ${
                         isDarkMode
                           ? "border-gray-600 bg-gray-800 text-gray-200"
                           : "border-gray-300 bg-white text-gray-900"
@@ -1177,8 +1207,8 @@ const Library = ({ isDarkMode, user, onShowLogin }) => {
                 <div
                   className={`text-sm px-3 py-1 rounded-full transition-colors duration-300 ${
                     isDarkMode
-                      ? "text-blue-300 bg-blue-900/30"
-                      : "text-blue-600 bg-blue-50"
+                      ? "text-purple-300 bg-purple-900/30"
+                      : "text-purple-600 bg-purple-50"
                   }`}
                 >
                   Read Only - Sign in to edit
@@ -1202,7 +1232,9 @@ const Library = ({ isDarkMode, user, onShowLogin }) => {
                     ? isDarkMode
                       ? "bg-gray-600 text-gray-400 cursor-not-allowed"
                       : "bg-gray-300 text-gray-500 cursor-not-allowed"
-                    : "bg-blue-500 text-white hover:bg-blue-600"
+                    : isDarkMode
+                      ? "bg-gradient-to-r from-purple-600 via-purple-700 to-violet-800 text-white hover:opacity-90"
+                      : "bg-gradient-to-r from-purple-500 via-purple-600 to-violet-600 text-white hover:opacity-90"
                 }`}
               >
                 <Download className="w-4 h-4" />

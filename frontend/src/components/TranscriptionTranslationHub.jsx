@@ -1,4 +1,4 @@
-// TranscriptionTranslationHub.jsx - Fixed version with dark mode
+// TranscriptionTranslationHub.jsx - With orange/red accent colors
 import React, { useState } from "react";
 import TranslationReview from "./TranslationReview";
 import StaticSubtitleUpload from "./StaticSubtitleUpload";
@@ -46,13 +46,24 @@ const TranscriptionTranslationHub = ({ isDarkMode }) => {
                 onClick={() => handleSwitchMode("transcription")}
                 className={`py-4 px-2 border-b-2 font-medium text-sm transition-colors duration-300 ${
                   activeMode === "transcription"
-                    ? "border-blue-500 text-blue-600"
+                    ? isDarkMode
+                      ? "border-orange-500 text-orange-400"
+                      : "border-orange-500 text-orange-600"
                     : isDarkMode
                       ? "border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-600"
                       : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
                 }`}
               >
                 <div className="flex items-center space-x-2">
+                  <div
+                    className={`w-2 h-2 rounded-full mr-1 ${
+                      activeMode === "transcription"
+                        ? isDarkMode
+                          ? "bg-gradient-to-r from-yellow-600 via-orange-600 to-red-700"
+                          : "bg-gradient-to-r from-yellow-500 via-orange-500 to-red-500"
+                        : "bg-transparent"
+                    }`}
+                  ></div>
                   <FileText className="w-4 h-4" />
                   <span>Audio/Video Transcription</span>
                 </div>
@@ -61,13 +72,24 @@ const TranscriptionTranslationHub = ({ isDarkMode }) => {
                 onClick={() => handleSwitchMode("translation")}
                 className={`py-4 px-2 border-b-2 font-medium text-sm transition-colors duration-300 ${
                   activeMode === "translation"
-                    ? "border-blue-500 text-blue-600"
+                    ? isDarkMode
+                      ? "border-orange-500 text-orange-400"
+                      : "border-orange-500 text-orange-600"
                     : isDarkMode
                       ? "border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-600"
                       : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
                 }`}
               >
                 <div className="flex items-center space-x-2">
+                  <div
+                    className={`w-2 h-2 rounded-full mr-1 ${
+                      activeMode === "translation"
+                        ? isDarkMode
+                          ? "bg-gradient-to-r from-yellow-600 via-orange-600 to-red-700"
+                          : "bg-gradient-to-r from-yellow-500 via-orange-500 to-red-500"
+                        : "bg-transparent"
+                    }`}
+                  ></div>
                   <Languages className="w-4 h-4" />
                   <span>Subtitle Translation</span>
                 </div>
@@ -84,29 +106,40 @@ const TranscriptionTranslationHub = ({ isDarkMode }) => {
           <div
             className={`border-b py-2 transition-colors duration-300 ${
               isDarkMode
-                ? "bg-blue-900/20 border-blue-800"
-                : "bg-blue-50 border-blue-200"
+                ? "bg-orange-900/20 border-orange-800"
+                : "bg-orange-50 border-orange-200"
             }`}
           >
             <div className="max-w-4xl mx-auto px-6">
-              <button
-                onClick={handleBackToTranscription}
-                className={`flex items-center space-x-2 text-sm font-medium transition-colors duration-300 ${
-                  isDarkMode
-                    ? "text-blue-400 hover:text-blue-300"
-                    : "text-blue-600 hover:text-blue-800"
-                }`}
-              >
-                <ArrowLeft className="w-4 h-4" />
-                <span>Back to Transcription</span>
-              </button>
-              <p
-                className={`text-xs mt-1 transition-colors duration-300 ${
-                  isDarkMode ? "text-blue-400" : "text-blue-600"
-                }`}
-              >
-                Translating: {transcriptionData?.originalFilename}
-              </p>
+              <div className="flex items-center space-x-3">
+                <div
+                  className={`w-1 h-6 rounded-full bg-gradient-to-b ${
+                    isDarkMode
+                      ? "from-yellow-600 via-orange-600 to-red-700"
+                      : "from-yellow-500 via-orange-500 to-red-500"
+                  }`}
+                ></div>
+                <div className="flex-1">
+                  <button
+                    onClick={handleBackToTranscription}
+                    className={`flex items-center space-x-2 text-sm font-medium transition-colors duration-300 ${
+                      isDarkMode
+                        ? "text-orange-400 hover:text-orange-300"
+                        : "text-orange-600 hover:text-orange-800"
+                    }`}
+                  >
+                    <ArrowLeft className="w-4 h-4" />
+                    <span>Back to Transcription</span>
+                  </button>
+                  <p
+                    className={`text-xs mt-1 transition-colors duration-300 ${
+                      isDarkMode ? "text-orange-400" : "text-orange-600"
+                    }`}
+                  >
+                    Translating: {transcriptionData?.originalFilename}
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -116,12 +149,28 @@ const TranscriptionTranslationHub = ({ isDarkMode }) => {
           <TranslationReview
             onTranslateTranscription={handleTranslateTranscription}
             isDarkMode={isDarkMode}
+            accentColors={{
+              light: "from-yellow-500 via-orange-500 to-red-500",
+              dark: "from-yellow-600 via-orange-600 to-red-700",
+              primary: isDarkMode ? "orange-400" : "orange-600",
+              primaryHover: isDarkMode ? "orange-300" : "orange-800",
+              ring: "orange-500",
+              border: "orange-500",
+            }}
           />
         ) : (
           <StaticSubtitleUpload
             initialTranscriptionData={transcriptionData}
             onBackToTranscription={handleBackToTranscription}
             isDarkMode={isDarkMode}
+            accentColors={{
+              light: "from-yellow-500 via-orange-500 to-red-500",
+              dark: "from-yellow-600 via-orange-600 to-red-700",
+              primary: isDarkMode ? "orange-400" : "orange-600",
+              primaryHover: isDarkMode ? "orange-300" : "orange-800",
+              ring: "orange-500",
+              border: "orange-500",
+            }}
           />
         )}
       </div>

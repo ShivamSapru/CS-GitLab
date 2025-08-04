@@ -65,6 +65,7 @@ const VideoPreviewPlayer = ({
   isDarkMode,
   currentSubtitleIndex,
   setCurrentSubtitleIndex,
+  accentColors,
 }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -468,8 +469,20 @@ const VideoPreviewPlayer = ({
             {currentSubtitleIndex >= 0 &&
               parsedSubtitles[currentSubtitleIndex] && (
                 <div className="absolute bottom-20 left-4 right-4 text-center pointer-events-none z-30">
-                  <div className="inline-block bg-blue-600/80 text-white px-4 py-2 rounded text-sm font-medium shadow-lg max-w-4xl">
-                    <div className="text-xs text-blue-200 mb-1">
+                  <div
+                    className={`inline-block text-white px-4 py-2 rounded text-sm font-medium shadow-lg max-w-4xl bg-gradient-to-r ${
+                      isDarkMode
+                        ? accentColors?.dark ||
+                          "from-yellow-600 via-orange-600 to-red-700"
+                        : accentColors?.light ||
+                          "from-yellow-500 via-orange-500 to-red-500"
+                    }/80`}
+                  >
+                    <div
+                      className={`text-xs mb-1 ${
+                        isDarkMode ? "text-orange-200" : "text-orange-100"
+                      }`}
+                    >
                       OVERLAY BACKUP:
                     </div>
                     {parsedSubtitles[currentSubtitleIndex].text}
@@ -482,7 +495,11 @@ const VideoPreviewPlayer = ({
               <div className="flex items-center space-x-3">
                 <button
                   onClick={togglePlay}
-                  className="text-white hover:text-blue-300 transition-colors"
+                  className={`text-white transition-colors ${
+                    isDarkMode
+                      ? "hover:text-orange-300"
+                      : "hover:text-orange-200"
+                  }`}
                 >
                   {isPlaying ? (
                     <Pause className="w-6 h-6" />
@@ -492,7 +509,11 @@ const VideoPreviewPlayer = ({
                 </button>
                 <button
                   onClick={resetPlayer}
-                  className="text-white hover:text-blue-300 transition-colors"
+                  className={`text-white transition-colors ${
+                    isDarkMode
+                      ? "hover:text-orange-300"
+                      : "hover:text-orange-200"
+                  }`}
                   title="Reset to first subtitle"
                 >
                   <Undo className="w-5 h-5" />
@@ -500,7 +521,13 @@ const VideoPreviewPlayer = ({
                 <div className="flex-1">
                   <div className="bg-white/30 rounded-full h-1">
                     <div
-                      className="bg-blue-500 h-1 rounded-full transition-all duration-100"
+                      className={`h-1 rounded-full transition-all duration-100 bg-gradient-to-r ${
+                        isDarkMode
+                          ? accentColors?.dark ||
+                            "from-yellow-600 via-orange-600 to-red-700"
+                          : accentColors?.light ||
+                            "from-yellow-500 via-orange-500 to-red-500"
+                      }`}
                       style={{
                         width: `${Math.max(0, Math.min(100, ((currentTime - (parsedSubtitles[0]?.startTime || 0)) / (maxPlayTime - (parsedSubtitles[0]?.startTime || 0))) * 100))}%`,
                       }}
@@ -515,7 +542,7 @@ const VideoPreviewPlayer = ({
               {parsedSubtitles.length > 0 && (
                 <div
                   className={`text-xs mt-1 transition-colors duration-300 ${
-                    isDarkMode ? "text-blue-300" : "text-blue-200"
+                    isDarkMode ? "text-orange-300" : "text-orange-200"
                   }`}
                 >
                   {parsedSubtitles[0].startTime > 0
@@ -532,13 +559,13 @@ const VideoPreviewPlayer = ({
           <div
             className={`w-full p-3 border rounded-lg transition-colors duration-300 ${
               isDarkMode
-                ? "bg-blue-900/30 border-blue-700"
-                : "bg-blue-50 border-blue-200"
+                ? "bg-orange-900/30 border-orange-700"
+                : "bg-orange-50 border-orange-200"
             }`}
           >
             <div
               className={`text-xs font-medium mb-1 transition-colors duration-300 ${
-                isDarkMode ? "text-blue-300" : "text-blue-600"
+                isDarkMode ? "text-orange-300" : "text-orange-600"
               }`}
             >
               Currently Playing:
@@ -557,7 +584,11 @@ const VideoPreviewPlayer = ({
   );
 };
 
-const TranscriptionApp = ({ onTranslateTranscription, isDarkMode }) => {
+const TranscriptionApp = ({
+  onTranslateTranscription,
+  isDarkMode,
+  accentColors,
+}) => {
   const [activeTab, setActiveTab] = useState("upload");
   const [file, setFile] = useState(null);
   const [locales, setLocales] = useState({});
@@ -1127,7 +1158,18 @@ const TranscriptionApp = ({ onTranslateTranscription, isDarkMode }) => {
               isDarkMode ? "text-white" : "text-gray-900"
             }`}
           >
-            AI Transcription
+            <span className="flex items-center">
+              <div
+                className={`w-1 h-8 rounded-full mr-3 bg-gradient-to-b ${
+                  isDarkMode
+                    ? accentColors?.dark ||
+                      "from-yellow-600 via-orange-600 to-red-700"
+                    : accentColors?.light ||
+                      "from-yellow-500 via-orange-500 to-red-500"
+                }`}
+              ></div>
+              AI Transcription
+            </span>
           </h1>
         </div>
 
@@ -1141,27 +1183,57 @@ const TranscriptionApp = ({ onTranslateTranscription, isDarkMode }) => {
             onClick={() => setActiveTab("upload")}
             className={`px-6 py-3 font-medium transition-colors duration-300 ${
               activeTab === "upload"
-                ? "border-b-2 border-blue-500 text-blue-600"
+                ? `border-b-2 border-${accentColors?.border || "orange-500"} text-${accentColors?.primary || "orange-600"}`
                 : isDarkMode
-                  ? "text-gray-300 hover:text-blue-400"
-                  : "text-gray-600 hover:text-blue-600"
+                  ? `text-gray-300 hover:text-${accentColors?.primary || "orange-400"}`
+                  : `text-gray-600 hover:text-${accentColors?.primary || "orange-600"}`
             }`}
           >
-            <Upload className="w-4 h-4 inline mr-2" />
-            Upload & Configure
+            <div className="flex items-center space-x-2">
+              <div
+                className={`w-2 h-2 rounded-full mr-1 ${
+                  activeTab === "upload"
+                    ? `bg-gradient-to-r ${
+                        isDarkMode
+                          ? accentColors?.dark ||
+                            "from-yellow-600 via-orange-600 to-red-700"
+                          : accentColors?.light ||
+                            "from-yellow-500 via-orange-500 to-red-500"
+                      }`
+                    : "bg-transparent"
+                }`}
+              ></div>
+              <Upload className="w-4 h-4" />
+              <span>Upload & Configure</span>
+            </div>
           </button>
           <button
             onClick={() => setActiveTab("result")}
             className={`px-6 py-3 font-medium transition-colors duration-300 ${
               activeTab === "result"
-                ? "border-b-2 border-blue-500 text-blue-600"
+                ? `border-b-2 border-${accentColors?.border || "orange-500"} text-${accentColors?.primary || "orange-600"}`
                 : isDarkMode
-                  ? "text-gray-300 hover:text-blue-400"
-                  : "text-gray-600 hover:text-blue-600"
+                  ? `text-gray-300 hover:text-${accentColors?.primary || "orange-400"}`
+                  : `text-gray-600 hover:text-${accentColors?.primary || "orange-600"}`
             } ${!transcriptionResult ? "opacity-50 cursor-not-allowed" : ""}`}
           >
-            <FileText className="w-4 h-4 inline mr-2" />
-            Results
+            <div className="flex items-center space-x-2">
+              <div
+                className={`w-2 h-2 rounded-full mr-1 ${
+                  activeTab === "result"
+                    ? `bg-gradient-to-r ${
+                        isDarkMode
+                          ? accentColors?.dark ||
+                            "from-yellow-600 via-orange-600 to-red-700"
+                          : accentColors?.light ||
+                            "from-yellow-500 via-orange-500 to-red-500"
+                      }`
+                    : "bg-transparent"
+                }`}
+              ></div>
+              <FileText className="w-4 h-4" />
+              <span>Results</span>
+            </div>
           </button>
         </div>
 
@@ -1203,8 +1275,8 @@ const TranscriptionApp = ({ onTranslateTranscription, isDarkMode }) => {
                 <div
                   className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors duration-300 ${
                     isDarkMode
-                      ? "border-gray-600 hover:border-blue-500 bg-gray-800"
-                      : "border-gray-300 hover:border-blue-400 bg-white"
+                      ? `border-gray-600 hover:border-${accentColors?.border || "orange-500"} bg-gray-800`
+                      : `border-gray-300 hover:border-${accentColors?.border || "orange-400"} bg-white`
                   }`}
                 >
                   <input
@@ -1283,7 +1355,7 @@ const TranscriptionApp = ({ onTranslateTranscription, isDarkMode }) => {
                     <select
                       value={outputFormat}
                       onChange={(e) => setOutputFormat(e.target.value)}
-                      className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-300 ${
+                      className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-${accentColors?.ring || "orange-500"} focus:border-${accentColors?.border || "orange-500"} transition-colors duration-300 ${
                         isDarkMode
                           ? "border-gray-600 bg-gray-700 text-gray-200"
                           : "border-gray-300 bg-white text-gray-900"
@@ -1309,7 +1381,7 @@ const TranscriptionApp = ({ onTranslateTranscription, isDarkMode }) => {
                         id="censor-profanity"
                         checked={censorProfanity}
                         onChange={(e) => setCensorProfanity(e.target.checked)}
-                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        className={`h-4 w-4 text-${accentColors?.primary || "orange-600"} focus:ring-${accentColors?.ring || "orange-500"} border-gray-300 rounded`}
                       />
                       <label
                         htmlFor="censor-profanity"
@@ -1330,11 +1402,7 @@ const TranscriptionApp = ({ onTranslateTranscription, isDarkMode }) => {
                     onClick={() =>
                       setShowAdvancedSettings(!showAdvancedSettings)
                     }
-                    className={`flex items-center space-x-2 font-medium transition-colors duration-300 ${
-                      isDarkMode
-                        ? "text-blue-400 hover:text-blue-300"
-                        : "text-blue-600 hover:text-blue-800"
-                    }`}
+                    className={`flex items-center space-x-2 font-medium transition-colors duration-300 text-${accentColors?.primary || "orange-600"} hover:text-${accentColors?.primaryHover || "orange-800"}`}
                   >
                     <Settings className="w-4 h-4" />
                     <span>Advanced</span>
@@ -1367,7 +1435,7 @@ const TranscriptionApp = ({ onTranslateTranscription, isDarkMode }) => {
                           <select
                             value={selectedLocale}
                             onChange={(e) => setSelectedLocale(e.target.value)}
-                            className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-300 ${
+                            className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-${accentColors?.ring || "orange-500"} focus:border-${accentColors?.border || "orange-500"} transition-colors duration-300 ${
                               isDarkMode
                                 ? "border-gray-600 bg-gray-700 text-gray-200"
                                 : "border-gray-300 bg-white text-gray-900"
@@ -1404,7 +1472,7 @@ const TranscriptionApp = ({ onTranslateTranscription, isDarkMode }) => {
                             onChange={(e) =>
                               setMaxSpeakers(parseInt(e.target.value))
                             }
-                            className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-300 ${
+                            className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-${accentColors?.ring || "orange-500"} focus:border-${accentColors?.border || "orange-500"} transition-colors duration-300 ${
                               isDarkMode
                                 ? "border-gray-600 bg-gray-700 text-gray-200"
                                 : "border-gray-300 bg-white text-gray-900"
@@ -1443,7 +1511,13 @@ const TranscriptionApp = ({ onTranslateTranscription, isDarkMode }) => {
                       ? isDarkMode
                         ? "bg-gray-600 text-gray-400 cursor-not-allowed"
                         : "bg-gray-300 text-gray-500 cursor-not-allowed"
-                      : "bg-blue-500 text-white hover:bg-blue-600"
+                      : `bg-gradient-to-r ${
+                          isDarkMode
+                            ? accentColors?.dark ||
+                              "from-yellow-600 via-orange-600 to-red-700"
+                            : accentColors?.light ||
+                              "from-yellow-500 via-orange-500 to-red-500"
+                        } text-white hover:opacity-90`
                   }`}
                 >
                   {isTranscribing ? (
@@ -1618,7 +1692,13 @@ const TranscriptionApp = ({ onTranslateTranscription, isDarkMode }) => {
                       ? isDarkMode
                         ? "bg-gray-600 text-gray-400"
                         : "bg-gray-400 text-gray-600"
-                      : "bg-blue-500 text-white hover:bg-blue-600"
+                      : `bg-gradient-to-r ${
+                          isDarkMode
+                            ? accentColors?.dark ||
+                              "from-yellow-600 via-orange-600 to-red-700"
+                            : accentColors?.light ||
+                              "from-yellow-500 via-orange-500 to-red-500"
+                        } text-white hover:opacity-90`
                   }`}
                 >
                   {loadingPreview ? (
@@ -1678,7 +1758,15 @@ const TranscriptionApp = ({ onTranslateTranscription, isDarkMode }) => {
                           isDarkMode ? "text-gray-200" : "text-gray-700"
                         }`}
                       >
-                        <span className="w-3 h-3 bg-blue-500 rounded-full mr-2"></span>
+                        <span
+                          className={`w-3 h-3 rounded-full mr-2 bg-gradient-to-r ${
+                            isDarkMode
+                              ? accentColors?.dark ||
+                                "from-yellow-600 via-orange-600 to-red-700"
+                              : accentColors?.light ||
+                                "from-yellow-500 via-orange-500 to-red-500"
+                          }`}
+                        ></span>
                         Transcribed Content ({selectedLocale}) -{" "}
                         {outputFormat.toUpperCase()}
                       </h4>
@@ -1686,11 +1774,7 @@ const TranscriptionApp = ({ onTranslateTranscription, isDarkMode }) => {
                         {!isEditing ? (
                           <button
                             onClick={startEditing}
-                            className={`text-sm flex items-center space-x-1 px-2 py-1 rounded transition-colors duration-300 ${
-                              isDarkMode
-                                ? "text-blue-400 hover:text-blue-300 hover:bg-blue-900/20"
-                                : "text-blue-600 hover:text-blue-800 hover:bg-blue-50"
-                            }`}
+                            className={`text-sm flex items-center space-x-1 px-2 py-1 rounded transition-colors duration-300 text-${accentColors?.primary || "orange-600"} hover:text-${accentColors?.primaryHover || "orange-800"} hover:bg-${isDarkMode ? "orange-900/20" : "orange-50"}`}
                           >
                             <Edit className="w-4 h-4" />
                             <span>Edit</span>
@@ -1749,6 +1833,7 @@ const TranscriptionApp = ({ onTranslateTranscription, isDarkMode }) => {
                         isDarkMode={isDarkMode}
                         currentSubtitleIndex={currentSubtitleIndex}
                         setCurrentSubtitleIndex={setCurrentSubtitleIndex}
+                        accentColors={accentColors}
                       />
                     )}
                     {isEditing ? (
@@ -1768,8 +1853,8 @@ const TranscriptionApp = ({ onTranslateTranscription, isDarkMode }) => {
                                   ? "bg-gray-700 text-gray-600 cursor-not-allowed"
                                   : "bg-gray-100 text-gray-400 cursor-not-allowed"
                                 : isDarkMode
-                                  ? "bg-gray-600 text-gray-200 hover:bg-gray-500"
-                                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                                  ? `bg-orange-800/40 text-orange-200 hover:bg-orange-700/40`
+                                  : `bg-orange-100 text-orange-700 hover:bg-orange-200`
                             }`}
                             title="Undo (Ctrl+Z)"
                           >
@@ -1785,8 +1870,8 @@ const TranscriptionApp = ({ onTranslateTranscription, isDarkMode }) => {
                                   ? "bg-gray-700 text-gray-600 cursor-not-allowed"
                                   : "bg-gray-100 text-gray-400 cursor-not-allowed"
                                 : isDarkMode
-                                  ? "bg-gray-600 text-gray-200 hover:bg-gray-500"
-                                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                                  ? `bg-orange-800/40 text-orange-200 hover:bg-orange-700/40`
+                                  : `bg-orange-100 text-orange-700 hover:bg-orange-200`
                             }`}
                             title="Redo (Ctrl+Shift+Z or Ctrl+Y)"
                           >
@@ -1807,7 +1892,7 @@ const TranscriptionApp = ({ onTranslateTranscription, isDarkMode }) => {
                           value={editedContent}
                           onChange={(e) => handleTextChange(e.target.value)}
                           onKeyDown={handleKeyDown}
-                          className={`w-full h-96 p-3 border rounded font-mono text-sm resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-300 ${
+                          className={`w-full h-96 p-3 border rounded font-mono text-sm resize-none focus:ring-2 focus:ring-${accentColors?.ring || "orange-500"} focus:border-${accentColors?.border || "orange-500"} transition-colors duration-300 ${
                             isDarkMode
                               ? "border-gray-600 bg-gray-800 text-gray-200"
                               : "border-gray-300 bg-white text-gray-900"
