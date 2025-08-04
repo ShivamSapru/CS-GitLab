@@ -147,10 +147,31 @@ const SubtitleTranslatorApp = () => {
     }
   };
 
-  const handleSetup2FAComplete = () => {
-    setUser(pendingUser);
-    setPendingUser(null);
-    setShowSetup2FAModal(false);
+  const handleSetup2FAComplete = async () => {
+    try {
+      // Fetch updated user data after 2FA setup
+      const res = await axios.get(`${BACKEND_URL}/me`, {
+        withCredentials: true,
+      });
+      console.log("User data after 2FA setup:", res.data);
+      setUser(res.data);
+    } catch (err) {
+      console.error("Failed to fetch user after 2FA setup", err);
+      // Fallback to pendingUser if fetch fails
+      setUser(pendingUser);
+    } finally {
+      setPendingUser(null);
+      setShowSetup2FAModal(false);
+    }
+  };
+  const debugUserState = () => {
+    console.log("=== USER STATE DEBUG ===");
+    console.log("user:", user);
+    console.log("pendingUser:", pendingUser);
+    console.log("loadingUser:", loadingUser);
+    console.log("showSetup2FAModal:", showSetup2FAModal);
+    console.log("showVerify2FAModal:", showVerify2FAModal);
+    console.log("========================");
   };
 
   const handleVerify2FAComplete = (userData) => {
@@ -167,29 +188,70 @@ const SubtitleTranslatorApp = () => {
   const currentTemplate = getCurrentTemplate();
 
   useEffect(() => {
+    // Check for auth success/error in URL parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    const authStatus = urlParams.get("auth");
+
+    if (authStatus === "success") {
+      console.log("OAuth success detected");
+      // Remove the query parameter
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (authStatus === "error") {
+      const errorMessage = urlParams.get("message");
+      console.error("OAuth error:", errorMessage);
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+
     const fetchUser = async () => {
       try {
         const res = await axios.get(`${BACKEND_URL}/me`, {
           withCredentials: true,
         });
+        const userData = res.data;
 
-        console.log("🚀 /me response:", res.data);
+        console.log("🚀 /me response:", userData);
 
-        if (res.data?.setup_2fa_required) {
-          setPendingUser(res.data);
-        } else if (res.data?.twofa_required) {
-          setPendingUser(res.data);
+        if (userData?.twofa_required) {
+          // User has 2FA enabled but hasn't verified yet
+          console.log("2FA verification required");
+          setPendingUser(userData);
+          setShowVerify2FAModal(true);
+        } else if (userData?.setup_2fa_required) {
+          // User needs to set up 2FA
+          console.log("2FA setup required");
+
+          // CRITICAL FIX: Check if user already has user_id (OAuth users)
+          if (userData.user_id) {
+            // OAuth user without 2FA - they're already logged in
+            console.log("OAuth user without 2FA - setting as logged in user");
+            setUser(userData);
+            setPendingUser(userData); // Also set pending for 2FA setup
+            setShowSetup2FAModal(true);
+          } else {
+            // Email user without 2FA - not fully logged in yet
+            console.log("Email user without 2FA - pending login");
+            setPendingUser(userData);
+            setShowSetup2FAModal(true);
+          }
+        } else if (userData?.user_id) {
+          // Fully authenticated user (has user_id and passed 2FA if required)
+          console.log("Fully authenticated user");
+          setUser(userData);
         } else {
-          setUser(res.data);
+          // No valid user data
+          console.log("No valid user data");
+          setUser(null);
         }
-      } catch {
+      } catch (error) {
+        console.log("User fetch error:", error);
         setUser(null);
       } finally {
         setLoadingUser(false);
       }
     };
+
     fetchUser();
-  }, []);
+  }, [location]);
 
   // SIMPLIFIED ProtectedRoute - only used for actual protected routes
   const ProtectedRoute = ({ children }) => {
