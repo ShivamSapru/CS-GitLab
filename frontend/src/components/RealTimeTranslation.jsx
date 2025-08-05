@@ -12,6 +12,11 @@ import {
   Mail,
   Monitor,
   Package,
+  Move,
+  Type,
+  Eye,
+  Filter,
+  Palette,
 } from "lucide-react";
 
 const ChromeExtensionPage = ({ isDarkMode = false }) => {
@@ -22,6 +27,10 @@ const ChromeExtensionPage = ({ isDarkMode = false }) => {
     { icon: Zap, title: "Real-time Translation", color: "bg-green-500" },
     { icon: Shield, title: "Privacy-focused", color: "bg-purple-500" },
     { icon: Package, title: "Free to Use", color: "bg-yellow-500" },
+    { icon: Move, title: "Drag & Resize", color: "bg-orange-500" },
+    { icon: Type, title: "Font Controls", color: "bg-pink-500" },
+    { icon: Filter, title: "Profanity Filter", color: "bg-red-500" },
+    { icon: Palette, title: "Theme Switching", color: "bg-indigo-500" },
   ];
 
   const sections = {
@@ -84,6 +93,159 @@ const ChromeExtensionPage = ({ isDarkMode = false }) => {
               <strong>Chrome Setup:</strong> Go to chrome://extensions/ → Enable
               "Developer mode" → Click "Load unpacked" → Select folder
             </p>
+          </div>
+        </div>
+      ),
+    },
+
+    features: {
+      title: "Features",
+      icon: Settings,
+      content: (
+        <div className="space-y-6">
+          {/* Core Features */}
+          <div>
+            <h4
+              className={`font-medium mb-4 ${isDarkMode ? "text-white" : "text-gray-900"}`}
+            >
+              Translation Features
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div
+                className={`border rounded-lg p-4 ${isDarkMode ? "border-gray-600" : "border-gray-200"}`}
+              >
+                <div className="flex items-center space-x-2 mb-2">
+                  <Zap className="w-5 h-5 text-green-500" />
+                  <h5
+                    className={`font-medium ${isDarkMode ? "text-white" : "text-gray-900"}`}
+                  >
+                    Real-time Translation
+                  </h5>
+                </div>
+                <p
+                  className={`text-sm ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}
+                >
+                  Instant caption translation across 100+ languages with high
+                  accuracy
+                </p>
+              </div>
+              <div
+                className={`border rounded-lg p-4 ${isDarkMode ? "border-gray-600" : "border-gray-200"}`}
+              >
+                <div className="flex items-center space-x-2 mb-2">
+                  <Shield className="w-5 h-5 text-purple-500" />
+                  <h5
+                    className={`font-medium ${isDarkMode ? "text-white" : "text-gray-900"}`}
+                  >
+                    Privacy-focused
+                  </h5>
+                </div>
+                <p
+                  className={`text-sm ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}
+                >
+                  Secure processing with no data stored locally or on servers
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Interactive Features */}
+          <div>
+            <h4
+              className={`font-medium mb-4 ${isDarkMode ? "text-white" : "text-gray-900"}`}
+            >
+              Interactive Controls
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div
+                className={`border rounded-lg p-4 ${isDarkMode ? "border-gray-600" : "border-gray-200"}`}
+              >
+                <div className="flex items-center space-x-2 mb-2">
+                  <Move className="w-5 h-5 text-orange-500" />
+                  <h5
+                    className={`font-medium ${isDarkMode ? "text-white" : "text-gray-900"}`}
+                  >
+                    Drag & Resize
+                  </h5>
+                </div>
+                <p
+                  className={`text-sm ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}
+                >
+                  Freely move and resize the caption overlay to your preferred
+                  position
+                </p>
+              </div>
+              <div
+                className={`border rounded-lg p-4 ${isDarkMode ? "border-gray-600" : "border-gray-200"}`}
+              >
+                <div className="flex items-center space-x-2 mb-2">
+                  <Type className="w-5 h-5 text-pink-500" />
+                  <h5
+                    className={`font-medium ${isDarkMode ? "text-white" : "text-gray-900"}`}
+                  >
+                    Font Controls
+                  </h5>
+                </div>
+                <p
+                  className={`text-sm ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}
+                >
+                  Adjust font size and opacity for optimal readability
+                </p>
+              </div>
+              <div
+                className={`border rounded-lg p-4 ${isDarkMode ? "border-gray-600" : "border-gray-200"}`}
+              >
+                <div className="flex items-center space-x-2 mb-2">
+                  <Filter className="w-5 h-5 text-red-500" />
+                  <h5
+                    className={`font-medium ${isDarkMode ? "text-white" : "text-gray-900"}`}
+                  >
+                    Profanity Filter
+                  </h5>
+                </div>
+                <p
+                  className={`text-sm ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}
+                >
+                  Optional content filtering for family-friendly viewing
+                </p>
+              </div>
+              <div
+                className={`border rounded-lg p-4 ${isDarkMode ? "border-gray-600" : "border-gray-200"}`}
+              >
+                <div className="flex items-center space-x-2 mb-2">
+                  <Palette className="w-5 h-5 text-indigo-500" />
+                  <h5
+                    className={`font-medium ${isDarkMode ? "text-white" : "text-gray-900"}`}
+                  >
+                    Theme Switching
+                  </h5>
+                </div>
+                <p
+                  className={`text-sm ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}
+                >
+                  Toggle between light and dark themes for better visibility
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Usage Tips */}
+          <div
+            className={`rounded-lg p-4 ${isDarkMode ? "bg-gray-700" : "bg-blue-50"}`}
+          >
+            <h5
+              className={`font-medium mb-2 ${isDarkMode ? "text-white" : "text-gray-900"}`}
+            >
+              💡 Pro Tips
+            </h5>
+            <ul
+              className={`text-sm space-y-1 ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}
+            >
+              <li>• Right-click the overlay to access quick settings</li>
+              <li>• Use keyboard shortcuts Ctrl+D to toggle drag mode</li>
+              <li>• Double-click the overlay to reset position and size</li>
+              <li>• Settings are automatically saved for each website</li>
+            </ul>
           </div>
         </div>
       ),
@@ -159,6 +321,12 @@ const ChromeExtensionPage = ({ isDarkMode = false }) => {
                 <Globe className="w-4 h-4 text-blue-500" />
                 <span>Internet connection</span>
               </li>
+              <li
+                className={`flex items-center space-x-2 ${isDarkMode ? "text-gray-300" : "text-gray-600"}`}
+              >
+                <Eye className="w-4 h-4 text-blue-500" />
+                <span>Captions enabled on platform</span>
+              </li>
             </ul>
           </div>
           <div>
@@ -171,17 +339,22 @@ const ChromeExtensionPage = ({ isDarkMode = false }) => {
               <li
                 className={`${isDarkMode ? "text-gray-400" : "text-gray-600"}`}
               >
-                • Refresh page if not working
+                • Refresh page if overlay not appearing
               </li>
               <li
                 className={`${isDarkMode ? "text-gray-400" : "text-gray-600"}`}
               >
-                • Check captions are enabled
+                • Check captions are enabled first
               </li>
               <li
                 className={`${isDarkMode ? "text-gray-400" : "text-gray-600"}`}
               >
-                • Verify target language selected
+                • Verify target language is selected
+              </li>
+              <li
+                className={`${isDarkMode ? "text-gray-400" : "text-gray-600"}`}
+              >
+                • Try repositioning overlay if text cut off
               </li>
             </ul>
           </div>
@@ -234,8 +407,8 @@ const ChromeExtensionPage = ({ isDarkMode = false }) => {
               </div>
             </div>
 
-            {/* Features */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            {/* Features - Updated to show all 8 features */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
               {features.map((feature, index) => {
                 const IconComponent = feature.icon;
                 return (
@@ -243,7 +416,7 @@ const ChromeExtensionPage = ({ isDarkMode = false }) => {
                     <div className="w-10 h-10 bg-white bg-opacity-20 rounded-lg flex items-center justify-center mx-auto mb-2 backdrop-blur-sm">
                       <IconComponent className="w-5 h-5 text-white" />
                     </div>
-                    <p className="text-sm font-medium text-green-100">
+                    <p className="text-xs sm:text-sm font-medium text-green-100">
                       {feature.title}
                     </p>
                   </div>
@@ -273,14 +446,14 @@ const ChromeExtensionPage = ({ isDarkMode = false }) => {
           <div
             className={`border-b ${isDarkMode ? "border-gray-600" : "border-gray-200"}`}
           >
-            <nav className="flex space-x-8 px-8 pt-6">
+            <nav className="flex space-x-8 px-8 pt-6 overflow-x-auto">
               {Object.entries(sections).map(([key, section]) => {
                 const IconComponent = section.icon;
                 return (
                   <button
                     key={key}
                     onClick={() => setActiveSection(key)}
-                    className={`flex items-center space-x-2 py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-300 ${
+                    className={`flex items-center space-x-2 py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-300 whitespace-nowrap ${
                       activeSection === key
                         ? "border-green-500 text-green-600"
                         : isDarkMode
