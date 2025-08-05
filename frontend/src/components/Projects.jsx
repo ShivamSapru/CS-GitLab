@@ -89,25 +89,6 @@ const Projects = ({
     }
   }, [projectId]);
 
-  const loadProjectDetails = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const data = await apiCall(`/project/${projectId}/files`);
-      setProjectFiles(data.files || []);
-      setProject(data.project);
-
-      // Fix: Check if user is logged in AND is the owner
-      const isProjectOwner = user && data.project?.is_own_project !== false;
-      setIsOwner(isProjectOwner);
-      setCanEdit(isProjectOwner);
-    } catch (err) {
-      setError(`Failed to load project details: ${err.message}`);
-      console.error("Error loading project details:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
   const loadLanguages = async () => {
     try {
       setLoadingLanguages(true);
@@ -194,6 +175,7 @@ const Projects = ({
       setError(`Download failed: ${err.message}`);
     }
   };
+  // Add this debugging to your handlePreview function to help identify the issue:
 
   const handlePreview = async (filename, targetLanguage, sourceLanguage) => {
     if (!filename) {
@@ -201,82 +183,109 @@ const Projects = ({
       return;
     }
 
+    console.log("🔍 Preview Debug Info:", {
+      filename: filename,
+      targetLanguage: targetLanguage,
+      sourceLanguage: sourceLanguage,
+      projectId: projectId,
+    });
+
     setLoadingPreview(true);
     setLoadingOriginal(true);
     setError(null);
 
     try {
       // Fetch the translated file content
-      // Fetch the translated file content (try project storage first for edited content)
+      console.log(`🔍 Attempting to fetch translated file: ${filename}`);
+
+      // First try: Get from project blob storage
       let translatedResponse = await fetch(
         `${API_BASE_URL}/project/${projectId}/file/${encodeURIComponent(filename)}`,
         { credentials: "include" },
       );
 
-      if (!translatedResponse.ok) {
-        // Fallback to temp storage
+      let translatedContent = "";
+
+      if (translatedResponse.ok) {
+        console.log("✅ Found translated file in project storage");
+        translatedContent = await translatedResponse.text();
+      } else {
+        console.log(
+          "❌ Translated file not found in project storage, trying temp storage...",
+        );
+
+        // Second try: Get from temp storage
         translatedResponse = await fetch(
           `${API_BASE_URL}/download-subtitle?filename=${encodeURIComponent(filename)}`,
           { credentials: "include" },
         );
+
+        if (translatedResponse.ok) {
+          console.log("✅ Found translated file in temp storage");
+          translatedContent = await translatedResponse.text();
+        } else {
+          throw new Error("Translated file not found in any storage location");
+        }
       }
 
-      if (!translatedResponse.ok) {
-        const errorData = await translatedResponse.json();
-        throw new Error(errorData.error || "Preview failed");
-      }
-
-      const translatedContent = await translatedResponse.text();
       setPreviewContent(translatedContent);
       setLoadingPreview(false);
 
-      // Fetch original content from the project
-      if (projectId) {
-        try {
+      // NOW FETCH THE ORIGINAL FILE - This is what was missing!
+      try {
+        console.log("🔍 Attempting to fetch original file...");
+
+        // Try to get the original file from the project
+        // First, find the original filename from the project files
+        const originalFile = projectFiles.find(
+          (file) =>
+            file.is_original === true ||
+            file.target_language === null ||
+            file.source_language === sourceLanguage,
+        );
+
+        let originalContent = "";
+
+        if (originalFile && originalFile.filename) {
+          console.log(
+            "📄 Found original file reference:",
+            originalFile.filename,
+          );
+
+          // Try to fetch the original file
           const originalResponse = await fetch(
-            `${API_BASE_URL}/project/${projectId}/original`,
+            `${API_BASE_URL}/project/${projectId}/file/${encodeURIComponent(originalFile.filename)}`,
             { credentials: "include" },
           );
 
           if (originalResponse.ok) {
-            const originalData = await originalResponse.json();
-            setOriginalContent(originalData.original_content);
-            setLoadingOriginal(false);
+            originalContent = await originalResponse.text();
+            console.log("✅ Successfully fetched original file content");
           } else {
-            const errorData = await originalResponse.json();
-            console.log("Original file not found:", errorData);
-
-            setOriginalContent(
-              `📁 Original Content Not Available\n\n` +
-                `This project was created before original file storage was implemented.\n\n` +
-                `Project Details:\n` +
-                `• File: ${filename}\n` +
-                `• Source Language: ${sourceLanguage || "Auto-detected"}\n` +
-                `• Target Language: ${targetLanguage}\n` +
-                `• Status: Translation completed\n\n` +
-                `Note: New projects will include original content for comparison.`,
+            console.log(
+              "❌ Could not fetch original file from project storage",
             );
-            setLoadingOriginal(false);
+            // You could also try temp storage here if needed
           }
-        } catch (originalError) {
-          console.error("Error fetching original content:", originalError);
-          setOriginalContent(
-            `❌ Error Loading Original Content\n\n` +
-              `Could not retrieve the original subtitle file.\n\n` +
-              `Error: ${originalError.message}\n\n` +
-              `You can still view and edit the translated content on the right.`,
-          );
-          setLoadingOriginal(false);
+        } else {
+          console.log("❌ No original file reference found in project files");
+          // Fallback: Use a placeholder or try to derive original filename
+          originalContent = "Original file not available for comparison";
         }
+
+        setOriginalContent(originalContent);
+        setLoadingOriginal(false);
+      } catch (originalError) {
+        console.error("❌ Error fetching original file:", originalError);
+        setOriginalContent("Could not load original file for comparison");
+        setLoadingOriginal(false);
       }
 
-      // Set preview file info
-      const languageName = targetLanguage || "Unknown";
+      // Set preview info and show the preview
       setPreviewingFile({
         filename,
-        languageName,
-        targetLanguage,
-        sourceLanguage,
+        languageName: getLanguageName(targetLanguage) || targetLanguage,
+        sourceLanguage: sourceLanguage,
       });
       setShowPreview(true);
 
@@ -291,9 +300,49 @@ const Projects = ({
         }
       }, 100);
     } catch (err) {
+      console.error("💥 Translation preview error:", err);
       setError(`Preview failed: ${err.message}`);
       setLoadingPreview(false);
       setLoadingOriginal(false);
+    }
+  };
+
+  // Also, you might need to modify your loadProjectDetails function to properly identify original files
+  // Add this logic to your loadProjectDetails function after setting projectFiles:
+
+  const loadProjectDetails = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await apiCall(`/project/${projectId}/files`);
+
+      console.log("🗂️ Project files from backend:", data.files);
+
+      // Enhanced logging to identify original vs translated files
+      data.files?.forEach((file, index) => {
+        console.log(`📄 File ${index + 1}:`, {
+          filename: file.filename,
+          target_language: file.target_language,
+          source_language: file.source_language,
+          file_format: file.file_format,
+          is_original: file.is_original,
+          // Add more debugging info
+          hasTargetLang: !!file.target_language,
+          isLikelyOriginal: !file.target_language || file.is_original === true,
+        });
+      });
+
+      setProjectFiles(data.files || []);
+      setProject(data.project);
+
+      const isProjectOwner = user && data.project?.is_own_project !== false;
+      setIsOwner(isProjectOwner);
+      setCanEdit(isProjectOwner);
+    } catch (err) {
+      setError(`Failed to load project details: ${err.message}`);
+      console.error("Error loading project details:", err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -894,7 +943,10 @@ const Projects = ({
           </div>
 
           {/* Files List */}
-          {projectFiles.length === 0 ? (
+          {projectFiles.filter(
+            (file) =>
+              file.target_language && file.target_language.trim() !== "",
+          ).length === 0 ? (
             <div className="text-center py-8">
               <FileText className="w-12 h-12 text-gray-300 mx-auto mb-4" />
               <p
@@ -902,87 +954,92 @@ const Projects = ({
                   isDarkMode ? "text-gray-400" : "text-gray-500"
                 }`}
               >
-                No files found in this project
+                No translated files found in this project
               </p>
             </div>
           ) : (
             <div className="space-y-3">
-              {projectFiles.map((file) => (
-                <div
-                  key={file.file_id}
-                  className={`flex items-center justify-between p-4 rounded-lg border transition-colors duration-300 ${
-                    isDarkMode
-                      ? "bg-gray-700 border-gray-600 hover:bg-gray-600"
-                      : "bg-gray-50 border-gray-200 hover:bg-gray-100"
-                  }`}
-                >
-                  <div className="flex-1 min-w-0 pr-4">
-                    <div
-                      className={`text-sm font-medium truncate transition-colors duration-300 ${
-                        isDarkMode ? "text-gray-200" : "text-gray-900"
-                      }`}
-                    >
-                      {file.filename}
-                    </div>
-                    <div
-                      className={`flex items-center text-xs space-x-3 mt-1 transition-colors duration-300 ${
-                        isDarkMode ? "text-gray-400" : "text-gray-500"
-                      }`}
-                    >
-                      <span>{file.file_format.toUpperCase()}</span>
-                      <span>{formatFileSize(file.file_size_bytes)}</span>
-                      {file.target_language && (
-                        <span className="flex items-center">
-                          <Languages className="w-3 h-3 mr-1" />
-                          {file.source_language} →
-                        </span>
-                      )}
-                      <span
-                        className={`px-2 py-0.5 rounded-full text-xs transition-colors duration-300 ${
-                          isDarkMode
-                            ? "bg-green-900/30 text-green-300"
-                            : "bg-green-100 text-green-800"
+              {projectFiles
+                .filter(
+                  (file) =>
+                    file.target_language && file.target_language.trim() !== "",
+                )
+                .map((file) => (
+                  <div
+                    key={file.file_id}
+                    className={`flex items-center justify-between p-4 rounded-lg border transition-colors duration-300 ${
+                      isDarkMode
+                        ? "bg-gray-700 border-gray-600 hover:bg-gray-600"
+                        : "bg-gray-50 border-gray-200 hover:bg-gray-100"
+                    }`}
+                  >
+                    <div className="flex-1 min-w-0 pr-4">
+                      <div
+                        className={`text-sm font-medium truncate transition-colors duration-300 ${
+                          isDarkMode ? "text-gray-200" : "text-gray-900"
                         }`}
                       >
-                        {Object.keys(languages).length > 0
-                          ? getLanguageName(file.target_language)
-                          : file.target_language || "Loading..."}
-                      </span>
+                        {file.filename}
+                      </div>
+                      <div
+                        className={`flex items-center text-xs space-x-3 mt-1 transition-colors duration-300 ${
+                          isDarkMode ? "text-gray-400" : "text-gray-500"
+                        }`}
+                      >
+                        <span>{file.file_format.toUpperCase()}</span>
+                        <span>{formatFileSize(file.file_size_bytes)}</span>
+                        {file.target_language && (
+                          <span className="flex items-center">
+                            <Languages className="w-3 h-3 mr-1" />
+                            {file.source_language} →
+                          </span>
+                        )}
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-xs transition-colors duration-300 ${
+                            isDarkMode
+                              ? "bg-green-900/30 text-green-300"
+                              : "bg-green-100 text-green-800"
+                          }`}
+                        >
+                          {Object.keys(languages).length > 0
+                            ? getLanguageName(file.target_language)
+                            : file.target_language || "Loading..."}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={() =>
+                          handlePreview(
+                            file.filename,
+                            file.target_language,
+                            file.source_language,
+                          )
+                        }
+                        className={`p-2 rounded-lg transition-colors duration-300 ${
+                          isDarkMode
+                            ? "text-blue-400 hover:bg-blue-900/20"
+                            : "text-blue-600 hover:bg-blue-50"
+                        }`}
+                        title="Preview"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDownload(file.filename)}
+                        className={`p-2 rounded-lg transition-colors duration-300 ${
+                          isDarkMode
+                            ? "text-green-400 hover:bg-green-900/20"
+                            : "text-green-600 hover:bg-green-50"
+                        }`}
+                        title="Download"
+                      >
+                        <Download className="w-4 h-4" />
+                      </button>
                     </div>
                   </div>
-
-                  <div className="flex items-center space-x-2">
-                    <button
-                      onClick={() =>
-                        handlePreview(
-                          file.filename,
-                          file.target_language,
-                          file.source_language,
-                        )
-                      }
-                      className={`p-2 rounded-lg transition-colors duration-300 ${
-                        isDarkMode
-                          ? "text-blue-400 hover:bg-blue-900/20"
-                          : "text-blue-600 hover:bg-blue-50"
-                      }`}
-                      title="Preview"
-                    >
-                      <Eye className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => handleDownload(file.filename)}
-                      className={`p-2 rounded-lg transition-colors duration-300 ${
-                        isDarkMode
-                          ? "text-green-400 hover:bg-green-900/20"
-                          : "text-green-600 hover:bg-green-50"
-                      }`}
-                      title="Download"
-                    >
-                      <Download className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              ))}
+                ))}
             </div>
           )}
         </div>

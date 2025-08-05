@@ -346,37 +346,60 @@ async def save_project(
 
         uploaded_files = []
 
-        # Storing original subtitle file
+        # 1. FIRST: Store the original subtitle file (if it exists)
+        original_file_stored = False
+        original_subtitle_file = None
         original_filename = project_data.original_filename
         local_path = project_data.original_file_path
-        with open(local_path, "rb") as f:
-            file_bytes = f.read()
-        file_size = len(file_bytes)
-        blob_name = f"projects/{project_id}/{original_filename}"
-        blob_client.get_blob_client(container=AZURE_STORAGE_CONTAINER_NAME, blob=blob_name).upload_blob(file_bytes, overwrite=True)
-        uploaded_files.append({
-            "filename": original_filename,
-            "blob_path": blob_name,
-            "size": file_size,
-            "is_edited": original_filename in project_data.edited_files
-        })
 
-        subtitle_file = SubtitleFile(
-            file_id=uuid4(),
-            project_id=project_id,
-            original_file_name=original_filename,
-            file_format=original_filename.split(".")[-1],
-            file_size_bytes=file_size,
-            is_original=False,
-            source_language=project_data.source_language,
-            blob_url=f"https://{os.getenv('AZURE_STORAGE_ACCOUNT_NAME')}.blob.core.windows.net/{AZURE_STORAGE_CONTAINER_NAME}/{blob_name}"
-        )
-        db.add(subtitle_file)
-        db.flush()
-        
-        # Storing translated subtitle files
+        # If original_file_path is empty or just a filename, construct the full path
+        if not local_path or not os.path.isabs(local_path):
+            local_path = os.path.join(temp_dir, original_filename)
+
+        print(f"Looking for original file at: {local_path}")
+
+        if os.path.exists(local_path):
+            # Original file exists, store it
+            file_size = 0
+            blob_name = f"projects/{project_id}/{original_filename}"
+            blob_url = f"https://{os.getenv('AZURE_STORAGE_ACCOUNT_NAME')}.blob.core.windows.net/{AZURE_STORAGE_CONTAINER_NAME}/{blob_name}"
+
+            with open(local_path, "rb") as f:
+                file_bytes = f.read()
+            file_size = len(file_bytes)
+            blob_client.get_blob_client(container=AZURE_STORAGE_CONTAINER_NAME, blob=blob_name).upload_blob(file_bytes, overwrite=True)
+
+            # Create the ORIGINAL subtitle file record
+            original_subtitle_file = SubtitleFile(
+                file_id=uuid4(),
+                project_id=project_id,
+                original_file_name=original_filename,
+                file_format=original_filename.split(".")[-1] if original_filename else "srt",
+                file_size_bytes=file_size,
+                is_original=True,  # This is the original file
+                source_language=project_data.source_language,
+                blob_url=blob_url
+            )
+            db.add(original_subtitle_file)
+            db.flush()
+
+            uploaded_files.append({
+                "filename": original_filename,
+                "blob_path": blob_name,
+                "size": file_size,
+                "is_original": True
+            })
+            original_file_stored = True
+            print(f"✅ Original file uploaded to blob: {blob_name}")
+        else:
+            print(f"⚠️ Warning: Original file not found at {local_path}")
+
+        # 2. SECOND: Store each translated subtitle file as separate SubtitleFile records
         for idx, filename in enumerate(project_data.filenames):
+            translated_file_id = uuid4()
+
             if filename in project_data.edited_files:
+                # Handle edited files
                 content = project_data.edited_files[filename]
                 if not content.strip():
                     continue
@@ -385,14 +408,37 @@ async def save_project(
                 file_size = len(file_bytes)
                 blob_client.get_blob_client(container=AZURE_STORAGE_CONTAINER_NAME, blob=blob_name).upload_blob(file_bytes, overwrite=True)
             else:
-                local_path = project_data.translated_file_path[idx]
+                # Handle translated file from temp storage
+                if idx < len(project_data.translated_file_path):
+                    local_path = project_data.translated_file_path[idx]
+                    if not os.path.isabs(local_path):
+                        local_path = os.path.join(temp_dir, local_path)
+                else:
+                    local_path = os.path.join(temp_dir, filename)
+
                 if not os.path.exists(local_path):
+                    print(f"Warning: Translated file not found: {local_path}")
                     continue
+
                 with open(local_path, "rb") as f:
                     file_bytes = f.read()
                 file_size = len(file_bytes)
                 blob_name = f"projects/{project_id}/{filename}"
                 blob_client.get_blob_client(container=AZURE_STORAGE_CONTAINER_NAME, blob=blob_name).upload_blob(file_bytes, overwrite=True)
+
+            # Create a SEPARATE SubtitleFile record for each translated file
+            translated_subtitle_file = SubtitleFile(
+                file_id=translated_file_id,
+                project_id=project_id,
+                original_file_name=filename,  # This is the translated filename
+                file_format=filename.split(".")[-1] if filename else "srt",
+                file_size_bytes=file_size,
+                is_original=False,  # This is a translated file, NOT original
+                source_language=project_data.source_language,
+                blob_url=f"https://{os.getenv('AZURE_STORAGE_ACCOUNT_NAME')}.blob.core.windows.net/{AZURE_STORAGE_CONTAINER_NAME}/{blob_name}"
+            )
+            db.add(translated_subtitle_file)
+            db.flush()
 
             uploaded_files.append({
                 "filename": filename,
@@ -401,11 +447,12 @@ async def save_project(
                 "is_edited": filename in project_data.edited_files
             })
 
+            # Create translation record linking original to translated
             translation = Translation(
                 translation_id=uuid4(),
-                file_id=subtitle_file.file_id,
-                translated_file_id=subtitle_file.file_id,
-                target_language=project_data.target_languages[idx],
+                file_id=original_subtitle_file.file_id if original_subtitle_file else translated_file_id,  # Reference original if it exists
+                translated_file_id=translated_file_id,  # Reference the translated file
+                target_language=project_data.target_languages[idx] if idx < len(project_data.target_languages) else project_data.target_languages[0],
                 translation_status="completed",
                 requested_at=current_time,
                 completed_at=current_time,
@@ -415,25 +462,13 @@ async def save_project(
                 last_updated=user.user_id,
                 last_edited_at=None,
                 project_id=project_id,
-                blob_url=subtitle_file.blob_url
+                blob_url=f"https://{os.getenv('AZURE_STORAGE_ACCOUNT_NAME')}.blob.core.windows.net/{AZURE_STORAGE_CONTAINER_NAME}/{blob_name}"
             )
             db.add(translation)
 
         if not uploaded_files:
             return JSONResponse(status_code=400, content={"error": "No valid files uploaded"})
 
-        if project_data.original_filename:
-            orig_path = project_data.original_file_path
-            if os.path.exists(orig_path):
-                orig_blob_name = f"projects/{project_id}/original_{project_data.original_filename}"
-                with open(orig_path, "rb") as f:
-                    blob_client.get_blob_client(container=AZURE_STORAGE_CONTAINER_NAME, blob=orig_blob_name).upload_blob(f.read(), overwrite=True)
-                uploaded_files.append({
-                    "filename": f"original_{project_data.original_filename}",
-                    "blob_path": orig_blob_name,
-                    "size": os.path.getsize(orig_path),
-                    "is_original": True
-                })
 
         transcription_project = TranscriptionProject(
             project_id=project_id,
@@ -466,3 +501,149 @@ async def save_project(
     except Exception as e:
         db.rollback()
         return JSONResponse(status_code=500, content={"error": f"Failed to save project: {str(e)}"})
+
+# Add this endpoint to your router.py file
+
+@router.get("/project/{project_id}/original")
+async def get_original_file_content(
+    project_id: str,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """
+    Get the original file content for a project for comparison viewing
+    """
+    try:
+        # Check authentication
+        session_user = request.session.get("user")
+        if not session_user or not session_user.get("email"):
+            return JSONResponse(status_code=401, content={"error": "User not authenticated"})
+
+        user = db.query(User).filter(User.email == session_user["email"]).first()
+        if not user:
+            return JSONResponse(status_code=404, content={"error": "User not found"})
+
+        # Get the project
+        project = db.query(TranslationProject).filter(
+            TranslationProject.project_id == project_id
+        ).first()
+
+        if not project:
+            return JSONResponse(status_code=404, content={"error": "Project not found"})
+
+        # Check if user has access to this project
+        if not project.is_public and project.user_id != user.user_id:
+            return JSONResponse(status_code=403, content={"error": "Access denied"})
+
+        # Get the original subtitle file
+        original_file = db.query(SubtitleFile).filter(
+            and_(
+                SubtitleFile.project_id == project_id,
+                SubtitleFile.is_original == True
+            )
+        ).first()
+
+        if not original_file:
+            return JSONResponse(
+                status_code=404,
+                content={
+                    "error": "Original file not found",
+                    "message": "This project was created before original file storage was implemented.",
+                    "project_details": {
+                        "project_name": project.project_name,
+                        "created_at": project.created_at.isoformat(),
+                    }
+                }
+            )
+
+        # Try to get the file content from blob storage
+        try:
+            blob_client = get_blob_client()
+
+            # Try multiple possible blob locations for the original file
+            possible_blob_names = []
+
+            # First try: the blob_url from the database record
+            if original_file.blob_url:
+                try:
+                    # Extract blob name from URL - handle both formats
+                    url_parts = original_file.blob_url.split('/')
+                    if len(url_parts) >= 2:
+                        possible_blob_names.append('/'.join(url_parts[-2:]))
+                except:
+                    pass
+
+            # Second try: standard project structure
+            possible_blob_names.append(f"projects/{project_id}/{original_file.original_file_name}")
+
+            # Third try: the "original_" prefixed version (your backend creates this too)
+            possible_blob_names.append(f"projects/{project_id}/original_{original_file.original_file_name}")
+
+            # Fourth try: just the filename in the project folder
+            if original_file.original_file_name:
+                possible_blob_names.append(f"projects/{project_id}/{original_file.original_file_name}")
+
+            content = None
+            successful_blob_name = None
+
+            # Try each possible location
+            for blob_name in possible_blob_names:
+                try:
+                    print(f"Trying to fetch blob: {blob_name}")
+                    blob_client_instance = blob_client.get_blob_client(
+                        container=AZURE_STORAGE_CONTAINER_NAME,
+                        blob=blob_name
+                    )
+
+                    blob_data = blob_client_instance.download_blob()
+                    content = blob_data.readall().decode('utf-8')
+                    successful_blob_name = blob_name
+                    print(f"✅ Successfully found original file at: {blob_name}")
+                    break
+                except Exception as e:
+                    print(f"❌ Failed to fetch from {blob_name}: {str(e)}")
+                    continue
+
+            if content:
+                return {
+                    "success": True,
+                    "content": content,
+                    "filename": original_file.original_file_name,
+                    "source_language": original_file.source_language,
+                    "file_format": original_file.file_format,
+                    "size": len(content),
+                    "blob_location": successful_blob_name
+                }
+            else:
+                # No content found in any location
+                return JSONResponse(
+                    status_code=404,
+                    content={
+                        "error": "Original file content not found",
+                        "message": "The original file exists in the database but cannot be found in blob storage.",
+                        "attempted_locations": possible_blob_names,
+                        "project_details": {
+                            "project_name": project.project_name,
+                            "original_filename": original_file.original_file_name,
+                            "created_at": project.created_at.isoformat(),
+                        }
+                    }
+                )
+
+        except Exception as blob_error:
+            print(f"Error retrieving blob content: {blob_error}")
+            return JSONResponse(
+                status_code=404,
+                content={
+                    "error": "Original file content not accessible",
+                    "message": "The original file exists in the database but cannot be retrieved from storage.",
+                    "details": str(blob_error)
+                }
+            )
+
+    except Exception as e:
+        print(f"Error in get_original_file_content: {e}")
+        return JSONResponse(
+            status_code=500,
+            content={"error": f"Failed to retrieve original file: {str(e)}"}
+        )

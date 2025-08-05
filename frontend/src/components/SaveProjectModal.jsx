@@ -11,21 +11,72 @@ const SaveProjectModal = ({
   languages,
   isSaving,
   editedFiles,
+  isDarkMode = false,
 }) => {
   const [projectName, setProjectName] = useState("");
   const [description, setDescription] = useState("");
   const [error, setError] = useState("");
-
   const [isPublic, setIsPublic] = useState(false);
 
   const handleSave = () => {
+    console.log("💾 Save button clicked");
+    console.log("📋 Current form state:", {
+      projectName: projectName,
+      projectNameTrimmed: projectName.trim(),
+      projectNameLength: projectName.trim().length,
+      description: description,
+      descriptionTrimmed: description.trim(),
+      isPublic: isPublic,
+      translatedFiles: translatedFiles,
+      translatedFilesLength: translatedFiles?.length,
+      targetLanguages: targetLanguages,
+      targetLanguagesLength: targetLanguages?.length,
+      originalFilename: originalFilename,
+      editedFiles: editedFiles,
+      editedFilesKeys: Object.keys(editedFiles || {}),
+    });
+
     if (!projectName.trim()) {
+      console.error("❌ Project name is required");
       setError("Project name is required");
       return;
     }
 
     if (projectName.length < 3) {
+      console.error("❌ Project name too short");
       setError("Project name must be at least 3 characters long");
+      return;
+    }
+
+    if (!translatedFiles || translatedFiles.length === 0) {
+      console.error("❌ No translated files available");
+      setError("No translated files available to save");
+      return;
+    }
+
+    if (!targetLanguages || targetLanguages.length === 0) {
+      console.error("❌ No target languages specified");
+      setError("No target languages specified");
+      return;
+    }
+
+    // Check if all filenames are valid
+    const invalidFiles = translatedFiles.filter(
+      (file) => !file.filename || typeof file.filename !== "string",
+    );
+    if (invalidFiles.length > 0) {
+      console.error("❌ Invalid files found:", invalidFiles);
+      setError("Some translated files have invalid filenames");
+      return;
+    }
+
+    // Check if all target languages are valid
+    const invalidLanguages = targetLanguages.filter(
+      (lang) => !lang || typeof lang !== "string",
+    );
+    if (invalidLanguages.length > 0) {
+      console.error("❌ Invalid languages found:", invalidLanguages);
+      setError("Some target languages are invalid");
       return;
     }
 
@@ -34,12 +85,29 @@ const SaveProjectModal = ({
     const projectData = {
       project_name: projectName.trim(),
       description: description.trim(),
-      filenames: translatedFiles.map((file) => file.filename),
-      original_filename: originalFilename,
-      target_languages: targetLanguages,
-      is_public: isPublic,
+      filenames: translatedFiles.map((file) => file.filename).filter(Boolean),
+      original_filename: originalFilename || "",
+      target_languages: targetLanguages.filter(Boolean),
+      is_public: Boolean(isPublic),
       edited_files: editedFiles || {},
     };
+
+    console.log("📦 Final project data being sent:", projectData);
+    console.log("🔍 Project data validation:", {
+      projectNameValid:
+        typeof projectData.project_name === "string" &&
+        projectData.project_name.length >= 3,
+      filenamesValid:
+        Array.isArray(projectData.filenames) &&
+        projectData.filenames.length > 0,
+      targetLanguagesValid:
+        Array.isArray(projectData.target_languages) &&
+        projectData.target_languages.length > 0,
+      originalFilenameValid: typeof projectData.original_filename === "string",
+      descriptionValid: typeof projectData.description === "string",
+      isPublicValid: typeof projectData.is_public === "boolean",
+      editedFilesValid: typeof projectData.edited_files === "object",
+    });
 
     onSave(projectData);
   };
@@ -49,9 +117,7 @@ const SaveProjectModal = ({
       setProjectName("");
       setDescription("");
       setError("");
-
       setIsPublic(false);
-
       onClose();
     }
   };
@@ -69,19 +135,35 @@ const SaveProjectModal = ({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+      <div
+        className={`rounded-xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto transition-colors duration-300 ${
+          isDarkMode ? "bg-gray-800" : "bg-white"
+        }`}
+      >
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+        <div
+          className={`flex items-center justify-between p-6 border-b transition-colors duration-300 ${
+            isDarkMode ? "border-gray-600" : "border-gray-200"
+          }`}
+        >
           <div className="flex items-center space-x-3">
             <FolderPlus className="w-6 h-6 text-blue-500" />
-            <h2 className="text-xl font-semibold text-gray-900">
+            <h2
+              className={`text-xl font-semibold transition-colors duration-300 ${
+                isDarkMode ? "text-white" : "text-gray-900"
+              }`}
+            >
               Save as Project
             </h2>
           </div>
           <button
             onClick={handleClose}
             disabled={isSaving}
-            className="text-gray-400 hover:text-gray-600 disabled:cursor-not-allowed"
+            className={`transition-colors duration-300 disabled:cursor-not-allowed ${
+              isDarkMode
+                ? "text-gray-400 hover:text-gray-200"
+                : "text-gray-400 hover:text-gray-600"
+            }`}
           >
             <X className="w-6 h-6" />
           </button>
@@ -90,9 +172,23 @@ const SaveProjectModal = ({
         {/* Content */}
         <div className="p-6 space-y-6">
           {/* Project Info */}
-          <div className="bg-blue-50 p-4 rounded-lg">
-            <h3 className="font-medium text-blue-900 mb-2">Project Summary</h3>
-            <div className="text-sm text-blue-800 space-y-1">
+          <div
+            className={`p-4 rounded-lg transition-colors duration-300 ${
+              isDarkMode ? "bg-blue-900/20" : "bg-blue-50"
+            }`}
+          >
+            <h3
+              className={`font-medium mb-2 transition-colors duration-300 ${
+                isDarkMode ? "text-blue-300" : "text-blue-900"
+              }`}
+            >
+              Project Summary
+            </h3>
+            <div
+              className={`text-sm space-y-1 transition-colors duration-300 ${
+                isDarkMode ? "text-blue-200" : "text-blue-800"
+              }`}
+            >
               <p>
                 <span className="font-medium">Original File:</span>{" "}
                 {originalFilename}
@@ -110,10 +206,22 @@ const SaveProjectModal = ({
 
           {/* Error Display */}
           {error && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <div
+              className={`border rounded-lg p-4 transition-colors duration-300 ${
+                isDarkMode
+                  ? "bg-red-900/20 border-red-800"
+                  : "bg-red-50 border-red-200"
+              }`}
+            >
               <div className="flex items-start space-x-2">
                 <AlertCircle className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" />
-                <div className="text-red-800 text-sm">{error}</div>
+                <div
+                  className={`text-sm transition-colors duration-300 ${
+                    isDarkMode ? "text-red-300" : "text-red-800"
+                  }`}
+                >
+                  {error}
+                </div>
               </div>
             </div>
           )}
@@ -121,7 +229,11 @@ const SaveProjectModal = ({
           {/* Form Fields */}
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label
+                className={`block text-sm font-medium mb-2 transition-colors duration-300 ${
+                  isDarkMode ? "text-gray-200" : "text-gray-700"
+                }`}
+              >
                 Project Name *
               </label>
               <input
@@ -130,17 +242,36 @@ const SaveProjectModal = ({
                 onChange={(e) => setProjectName(e.target.value)}
                 disabled={isSaving}
                 placeholder="Enter project name..."
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:cursor-not-allowed transition-colors duration-300 ${
+                  isDarkMode
+                    ? "border-gray-600 bg-gray-700 text-gray-200 disabled:bg-gray-600"
+                    : "border-gray-300 bg-white text-gray-900 disabled:bg-gray-100"
+                }`}
                 maxLength={100}
               />
-              <div className="text-xs text-gray-500 mt-1">
+              <div
+                className={`text-xs mt-1 transition-colors duration-300 ${
+                  isDarkMode ? "text-gray-400" : "text-gray-500"
+                }`}
+              >
                 {projectName.length}/100 characters
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Description <span className="text-gray-400">(optional)</span>
+              <label
+                className={`block text-sm font-medium mb-2 transition-colors duration-300 ${
+                  isDarkMode ? "text-gray-200" : "text-gray-700"
+                }`}
+              >
+                Description{" "}
+                <span
+                  className={`transition-colors duration-300 ${
+                    isDarkMode ? "text-gray-500" : "text-gray-400"
+                  }`}
+                >
+                  (optional)
+                </span>
               </label>
               <textarea
                 value={description}
@@ -148,10 +279,18 @@ const SaveProjectModal = ({
                 disabled={isSaving}
                 placeholder="Add a description for your project..."
                 rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed resize-none"
+                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:cursor-not-allowed resize-none transition-colors duration-300 ${
+                  isDarkMode
+                    ? "border-gray-600 bg-gray-700 text-gray-200 disabled:bg-gray-600"
+                    : "border-gray-300 bg-white text-gray-900 disabled:bg-gray-100"
+                }`}
                 maxLength={500}
               />
-              <div className="text-xs text-gray-500 mt-1">
+              <div
+                className={`text-xs mt-1 transition-colors duration-300 ${
+                  isDarkMode ? "text-gray-400" : "text-gray-500"
+                }`}
+              >
                 {description.length}/500 characters
               </div>
             </div>
@@ -167,10 +306,18 @@ const SaveProjectModal = ({
                 className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2 disabled:cursor-not-allowed"
               />
               <div className="flex-1">
-                <span className="text-sm font-medium text-gray-700">
+                <span
+                  className={`text-sm font-medium transition-colors duration-300 ${
+                    isDarkMode ? "text-gray-200" : "text-gray-700"
+                  }`}
+                >
                   Make this project public
                 </span>
-                <p className="text-xs text-gray-500 mt-1">
+                <p
+                  className={`text-xs mt-1 transition-colors duration-300 ${
+                    isDarkMode ? "text-gray-400" : "text-gray-500"
+                  }`}
+                >
                   Public projects can be viewed and downloaded by other users
                 </p>
               </div>
@@ -179,7 +326,11 @@ const SaveProjectModal = ({
 
           {/* Files List */}
           <div>
-            <h4 className="text-sm font-medium text-gray-700 mb-3">
+            <h4
+              className={`text-sm font-medium mb-3 transition-colors duration-300 ${
+                isDarkMode ? "text-gray-200" : "text-gray-700"
+              }`}
+            >
               Files to be saved:
             </h4>
             <div className="space-y-2 max-h-32 overflow-y-auto">
@@ -190,7 +341,9 @@ const SaveProjectModal = ({
                 >
                   <Check className="w-4 h-4 text-green-500 flex-shrink-0" />
                   <span
-                    className="text-gray-600 truncate"
+                    className={`truncate transition-colors duration-300 ${
+                      isDarkMode ? "text-gray-300" : "text-gray-600"
+                    }`}
                     title={file.filename}
                   >
                     {file.filename}
@@ -202,18 +355,26 @@ const SaveProjectModal = ({
         </div>
 
         {/* Footer */}
-        <div className="flex justify-end space-x-3 p-6 border-t border-gray-200">
+        <div
+          className={`flex justify-end space-x-3 p-6 border-t transition-colors duration-300 ${
+            isDarkMode ? "border-gray-600" : "border-gray-200"
+          }`}
+        >
           <button
             onClick={handleClose}
             disabled={isSaving}
-            className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            className={`px-4 py-2 border rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-300 ${
+              isDarkMode
+                ? "text-gray-300 border-gray-600 hover:bg-gray-700"
+                : "text-gray-700 border-gray-300 hover:bg-gray-50"
+            }`}
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
             disabled={isSaving || !projectName.trim()}
-            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center space-x-2"
+            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center space-x-2 transition-colors duration-300"
           >
             {isSaving ? (
               <>

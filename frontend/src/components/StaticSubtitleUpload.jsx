@@ -20,28 +20,115 @@ import {
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
-
 // API Configuration for Static Upload only
 const API_BASE_URL = `${BACKEND_URL}/api`;
 const MAX_SELECTED_LANGUAGES = 5;
 
 const apiCall = async (endpoint, options = {}) => {
   try {
+    console.log(`🔥 API Call Details:`, {
+      endpoint: `${API_BASE_URL}${endpoint}`,
+      method: options.method || "GET",
+      headers: options.headers,
+      bodyType: typeof options.body,
+      bodyContent: options.body
+        ? options.body instanceof FormData
+          ? "FormData (cannot log)"
+          : options.body
+        : null,
+    });
+
+    // If it's JSON, let's parse and validate it
+    if (
+      options.body &&
+      options.headers?.["Content-Type"] === "application/json"
+    ) {
+      try {
+        const parsedBody = JSON.parse(options.body);
+        console.log(`📋 Parsed JSON body:`, parsedBody);
+
+        // Validate the structure
+        console.log(`🔍 Body validation:`, {
+          hasProjectName: !!parsedBody.project_name,
+          projectNameType: typeof parsedBody.project_name,
+          projectNameValue: parsedBody.project_name,
+          hasFilenames: !!parsedBody.filenames,
+          filenamesIsArray: Array.isArray(parsedBody.filenames),
+          filenamesLength: parsedBody.filenames?.length,
+          filenamesValues: parsedBody.filenames,
+          hasTargetLanguages: !!parsedBody.target_languages,
+          targetLanguagesIsArray: Array.isArray(parsedBody.target_languages),
+          targetLanguagesLength: parsedBody.target_languages?.length,
+          targetLanguagesValues: parsedBody.target_languages,
+          hasOriginalFilename: !!parsedBody.original_filename,
+          originalFilenameValue: parsedBody.original_filename,
+          hasDescription: "description" in parsedBody,
+          descriptionValue: parsedBody.description,
+          hasIsPublic: "is_public" in parsedBody,
+          isPublicValue: parsedBody.is_public,
+          hasEditedFiles: "edited_files" in parsedBody,
+          editedFilesValue: parsedBody.edited_files,
+        });
+      } catch (parseError) {
+        console.error(`❌ Failed to parse JSON body:`, parseError);
+      }
+    }
+
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       ...options,
       credentials: "include",
     });
 
+    console.log(`📡 Response status: ${response.status}`);
+    console.log(
+      `📡 Response headers:`,
+      Object.fromEntries(response.headers.entries()),
+    );
+
     if (!response.ok) {
-      const errorData = await response.json();
+      let errorData;
+      const responseText = await response.text();
+      console.log(`❌ Raw error response:`, responseText);
+
+      try {
+        errorData = JSON.parse(responseText);
+        console.error(`❌ Parsed error response:`, errorData);
+
+        // Log detailed validation errors if they exist
+        if (errorData.detail && Array.isArray(errorData.detail)) {
+          console.error(
+            `🔍 Validation errors:`,
+            errorData.detail.map((err) => ({
+              location: err.loc,
+              message: err.msg,
+              type: err.type,
+              input: err.input,
+            })),
+          );
+        }
+      } catch (parseError) {
+        console.error("❌ Could not parse error response as JSON:", parseError);
+        errorData = {
+          error: `HTTP error! status: ${response.status}`,
+          raw: responseText,
+        };
+      }
+
       throw new Error(
-        errorData.error || `HTTP error! status: ${response.status}`,
+        errorData.error ||
+          errorData.detail ||
+          (Array.isArray(errorData.detail)
+            ? JSON.stringify(errorData.detail)
+            : null) ||
+          `HTTP error! status: ${response.status}`,
       );
     }
 
-    return await response.json();
+    const result = await response.json();
+    console.log(`✅ Success response:`, result);
+    return result;
   } catch (error) {
-    console.error("API call failed:", error);
+    console.error("💥 API call failed:", error);
     throw error;
   }
 };
@@ -493,10 +580,14 @@ const StaticSubtitleUpload = ({
       original_filename: uploadedFile?.name || "",
       target_languages: targetLanguages,
       is_public: false,
-      original_file_path: translatedFiles.map((file) => file.originalFilePath)[0],
-      translated_file_path: translatedFiles.map((file) => file.translatedFilePath),
+      original_file_path: translatedFiles.map(
+        (file) => file.originalFilePath,
+      )[0],
+      translated_file_path: translatedFiles.map(
+        (file) => file.translatedFilePath,
+      ),
       source_language: translatedFiles.map((file) => file.sourceLanguage)[0],
-      edited_files: editedFiles
+      edited_files: editedFiles,
     };
 
     await saveAsProject(projectData);
@@ -504,29 +595,56 @@ const StaticSubtitleUpload = ({
 
   const handleCustomizeSave = () => {
     setShowAutoSaveModal(false);
-    setShowSaveProjectModal(true);
+    // Add a small delay to ensure the AutoSave modal is fully closed
+    setTimeout(() => {
+      setShowSaveProjectModal(true);
+    }, 100);
   };
 
-  const handleDontSave = () => {
-    setShowAutoSaveModal(false);
-    setProjectSaveAttempted(true);
-  };
-
+  // Update the saveAsProject function to properly handle the flow
   const saveAsProject = async (projectData) => {
     if (!backendConnected) {
       setError("Backend not connected. Cannot save project.");
       return;
     }
 
+    // Validate required data before sending
+    console.log("🔍 Validating project data:", projectData);
+
+    if (
+      !projectData.project_name ||
+      projectData.project_name.trim().length === 0
+    ) {
+      setError("Project name is required");
+      return;
+    }
+
+    if (
+      !projectData.filenames ||
+      !Array.isArray(projectData.filenames) ||
+      projectData.filenames.length === 0
+    ) {
+      setError("No files to save");
+      return;
+    }
+
+    if (
+      !projectData.target_languages ||
+      !Array.isArray(projectData.target_languages)
+    ) {
+      setError("Target languages are required");
+      return;
+    }
+
     const requestKey = `save_${projectData.project_name}_${JSON.stringify(projectData.filenames)}`;
 
     if (pendingRequests.has(requestKey)) {
-      console.log("Duplicate save request detected, ignoring...");
+      console.log("🔄 Duplicate save request detected, ignoring...");
       return;
     }
 
     if (isSavingProject) {
-      console.log("Save already in progress, skipping duplicate request");
+      console.log("⏳ Save already in progress, skipping duplicate request");
       return;
     }
 
@@ -535,38 +653,97 @@ const StaticSubtitleUpload = ({
     setError(null);
 
     try {
+      // Upload original file if coming from transcription
+      let originalFilePathOnServer = projectData.original_filename || "";
+
+      if (fromTranscription) {
+        setError("Preparing original file...");
+        try {
+          const serverPath = await uploadOriginalFileIfNeeded();
+          if (serverPath) {
+            originalFilePathOnServer = serverPath;
+          }
+        } catch (uploadError) {
+          setError(`Failed to prepare original file: ${uploadError.message}`);
+          return;
+        }
+      }
+
+      setError("Saving project...");
+
+      // Clean and validate the project data - include all required fields
+      const cleanProjectData = {
+        project_name: projectData.project_name.trim(),
+        description: projectData.description?.trim() || "",
+        filenames: projectData.filenames.filter(
+          (filename) => filename && filename.trim().length > 0,
+        ),
+        original_filename: projectData.original_filename || "",
+        target_languages: projectData.target_languages.filter(
+          (lang) => lang && lang.trim().length > 0,
+        ),
+        is_public: Boolean(projectData.is_public),
+        edited_files: projectData.edited_files || {},
+        // Add the missing required fields that the backend expects
+        source_language: "auto",
+        original_file_path: originalFilePathOnServer,
+        translated_file_path: projectData.filenames.filter(
+          (filename) => filename && filename.trim().length > 0,
+        ),
+      };
+
+      console.log("✨ Cleaned project data:", cleanProjectData);
+      console.log("🚀 Sending save request...");
+
       const response = await apiCall("/save-project", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(projectData),
+        body: JSON.stringify(cleanProjectData),
       });
 
+      console.log("🎉 Project saved successfully:", response);
+
       setProjectSaveSuccess({
-        projectName: projectData.project_name,
+        projectName: cleanProjectData.project_name,
         projectId: response.project_id,
         fileCount: response.files_saved,
       });
 
+      // Close the save modal and mark as saved
       setShowSaveProjectModal(false);
       setProjectSaved(true);
       setProjectSaveAttempted(true);
+      setHasAutoSaved(true);
 
       setTimeout(() => {
         setProjectSaveSuccess(null);
       }, 5000);
     } catch (err) {
-      console.error("Project save error:", err);
-      setError(`Save failed: ${err.message}`);
+      console.error("💥 Project save error:", err);
+
+      // More specific error messages based on common 422 issues
+      let errorMessage = err.message;
+      if (err.message.includes("422")) {
+        errorMessage = `Validation error: ${err.message}. Please check that all required fields are properly filled and files exist.`;
+      }
+
+      setError(`Save failed: ${errorMessage}`);
     } finally {
       setIsSavingProject(false);
+      setError(null);
       setPendingRequests((prev) => {
         const newSet = new Set(prev);
         newSet.delete(requestKey);
         return newSet;
       });
     }
+  };
+
+  const handleDontSave = () => {
+    setShowAutoSaveModal(false);
+    setProjectSaveAttempted(true);
   };
 
   const downloadFile = async (filename) => {
@@ -904,6 +1081,37 @@ const StaticSubtitleUpload = ({
       );
     } finally {
       setLoadingLanguages(false);
+    }
+  };
+
+  const uploadOriginalFileIfNeeded = async () => {
+    if (!fromTranscription || !uploadedFile) {
+      return null; // No need to upload if it's already on the server
+    }
+
+    console.log("📤 Uploading original transcription file to server...");
+
+    try {
+      const formData = new FormData();
+      formData.append("file", uploadedFile);
+
+      // Use a simple upload endpoint (you might need to create this in your backend)
+      const response = await fetch(`${API_BASE_URL}/upload-original`, {
+        method: "POST",
+        body: formData,
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        throw new Error(`Upload failed: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log("✅ Original file uploaded to server:", result);
+      return result.file_path; // Return the server file path
+    } catch (error) {
+      console.error("❌ Failed to upload original file:", error);
+      throw error;
     }
   };
 
@@ -1806,8 +2014,16 @@ const StaticSubtitleUpload = ({
 
       <SaveProjectModal
         isOpen={showSaveProjectModal}
-        onClose={() => setShowSaveProjectModal(false)}
-        onSave={saveAsProject}
+        onClose={() => {
+          setShowSaveProjectModal(false);
+          // Reset any errors when closing
+          setError(null);
+        }}
+        onSave={(projectData) => {
+          // Ensure we call saveAsProject with the correct data
+          console.log("Saving project with data:", projectData);
+          saveAsProject(projectData);
+        }}
         translatedFiles={translatedFiles}
         originalFilename={uploadedFile?.name || ""}
         targetLanguages={targetLanguages}
