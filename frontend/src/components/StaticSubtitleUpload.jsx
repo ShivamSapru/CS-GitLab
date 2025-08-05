@@ -420,12 +420,12 @@ const StaticSubtitleUpload = ({
 
         const formData = new FormData();
         formData.append("file", uploadedFile);
-        formData.append("source_language", "auto");
+        // formData.append("source_language", "auto");
         formData.append("censor_profanity", censorProfanity);
         formData.append("target_language", targetLang);
 
         try {
-          const result = await apiCall("/upload-file", {
+          const result = await apiCall("/translate", {
             method: "POST",
             body: formData,
           });
@@ -435,6 +435,9 @@ const StaticSubtitleUpload = ({
             languageName: targetLangName,
             filename: result.translated_filename,
             originalFilename: result.original_filename,
+            originalFilePath: result.original_file_path,
+            translatedFilePath: result.translated_file_path,
+            sourceLanguage: result.source_language,
             message: result.message,
           });
 
@@ -490,7 +493,10 @@ const StaticSubtitleUpload = ({
       original_filename: uploadedFile?.name || "",
       target_languages: targetLanguages,
       is_public: false,
-      edited_files: editedFiles,
+      original_file_path: translatedFiles.map((file) => file.originalFilePath)[0],
+      translated_file_path: translatedFiles.map((file) => file.translatedFilePath),
+      source_language: translatedFiles.map((file) => file.sourceLanguage)[0],
+      edited_files: editedFiles
     };
 
     await saveAsProject(projectData);

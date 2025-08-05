@@ -38,6 +38,8 @@ from backend.api.auth_email import router as email_auth_router
 from backend.database.db import create_db_tables
 from backend.database import models
 from backend.api.twoFA import router as two_fa_router
+from backend.api.profile import router as profile_router
+from backend.api.library import router as  library_router
 
 app = FastAPI(
     title="Subtitle Translator API",
@@ -120,6 +122,8 @@ app.include_router(transcription_router, prefix="/api")
 app.include_router(email_auth_router)
 app.include_router(auth_router)
 app.include_router(two_fa_router)
+app.include_router(profile_router, prefix="/api")
+app.include_router(library_router, prefix="/api")
 
 @app.get("/")
 def read_root():
