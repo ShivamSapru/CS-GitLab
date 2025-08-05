@@ -75,7 +75,7 @@ describe('Chrome Extension Manifest', () => {
     });
 
     test('should have descriptive name and description', () => {
-      expect(manifest.name).toBe("Real-time Subtitle Generator & Translator");
+      expect(manifest.name).toBe("Real-time Subtitle Translator");
       expect(manifest.description).toContain('subtitle');
       expect(manifest.description).toContain('translate');
       expect(manifest.description).toContain('Azure');
