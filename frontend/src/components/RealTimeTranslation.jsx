@@ -27,10 +27,6 @@ const ChromeExtensionPage = ({ isDarkMode = false }) => {
     { icon: Zap, title: "Real-time Translation", color: "bg-green-500" },
     { icon: Shield, title: "Privacy-focused", color: "bg-purple-500" },
     { icon: Package, title: "Free to Use", color: "bg-yellow-500" },
-    { icon: Move, title: "Drag & Resize", color: "bg-orange-500" },
-    { icon: Type, title: "Font Controls", color: "bg-pink-500" },
-    { icon: Filter, title: "Profanity Filter", color: "bg-red-500" },
-    { icon: Palette, title: "Theme Switching", color: "bg-indigo-500" },
   ];
 
   const sections = {

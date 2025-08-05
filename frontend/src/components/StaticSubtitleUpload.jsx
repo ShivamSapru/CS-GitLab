@@ -381,6 +381,12 @@ const StaticSubtitleUpload = ({
   const previewSectionRef = useRef(null);
   const editTextareaRef = useRef(null);
 
+  const [translationData, setTranslationData] = useState({
+    sourceLanguage: "",
+    originalFilePath: "",
+    translatedFilePaths: [],
+  });
+
   // Load languages from Microsoft Translator API
   useEffect(() => {
     const loadLanguages = async () => {
@@ -528,6 +534,25 @@ const StaticSubtitleUpload = ({
             message: result.message,
           });
 
+          // Store translation data for project saving
+          if (i === 0) {
+            // Only set once, on first translation
+            setTranslationData({
+              sourceLanguage: result.source_language || "auto",
+              originalFilePath: result.original_file_path || "",
+              translatedFilePaths: [],
+            });
+          }
+
+          // Update translated file paths array
+          setTranslationData((prev) => ({
+            ...prev,
+            translatedFilePaths: [
+              ...prev.translatedFilePaths,
+              result.translated_file_path || result.translated_filename,
+            ],
+          }));
+
           const progress = ((i + 1) / totalLanguages) * 100;
           setTranslationProgress(progress);
 
@@ -566,7 +591,6 @@ const StaticSubtitleUpload = ({
 
     const autoProjectName =
       uploadedFile?.name.replace(/\.[^/.]+$/, "") || "Untitled Project";
-
     const timestamp = new Date()
       .toISOString()
       .slice(0, 19)
@@ -580,13 +604,10 @@ const StaticSubtitleUpload = ({
       original_filename: uploadedFile?.name || "",
       target_languages: targetLanguages,
       is_public: false,
-      original_file_path: translatedFiles.map(
-        (file) => file.originalFilePath,
-      )[0],
-      translated_file_path: translatedFiles.map(
-        (file) => file.translatedFilePath,
-      ),
-      source_language: translatedFiles.map((file) => file.sourceLanguage)[0],
+      // Use translationData state instead of mapping from translatedFiles
+      original_file_path: translationData.originalFilePath,
+      translated_file_path: translationData.translatedFilePaths,
+      source_language: translationData.sourceLanguage,
       edited_files: editedFiles,
     };
 
@@ -653,25 +674,10 @@ const StaticSubtitleUpload = ({
     setError(null);
 
     try {
-      // Upload original file if coming from transcription
-      let originalFilePathOnServer = projectData.original_filename || "";
+      // NO NEED TO UPLOAD - Files are already on server from translation
+      console.log("📦 Using existing files from translation process");
 
-      if (fromTranscription) {
-        setError("Preparing original file...");
-        try {
-          const serverPath = await uploadOriginalFileIfNeeded();
-          if (serverPath) {
-            originalFilePathOnServer = serverPath;
-          }
-        } catch (uploadError) {
-          setError(`Failed to prepare original file: ${uploadError.message}`);
-          return;
-        }
-      }
-
-      setError("Saving project...");
-
-      // Clean and validate the project data - include all required fields
+      // Clean and validate the project data
       const cleanProjectData = {
         project_name: projectData.project_name.trim(),
         description: projectData.description?.trim() || "",
@@ -684,12 +690,19 @@ const StaticSubtitleUpload = ({
         ),
         is_public: Boolean(projectData.is_public),
         edited_files: projectData.edited_files || {},
-        // Add the missing required fields that the backend expects
-        source_language: "auto",
-        original_file_path: originalFilePathOnServer,
-        translated_file_path: projectData.filenames.filter(
-          (filename) => filename && filename.trim().length > 0,
-        ),
+        // Use the actual translation data from the state
+        source_language:
+          projectData.source_language ||
+          translationData.sourceLanguage ||
+          "auto",
+        original_file_path:
+          projectData.original_file_path ||
+          translationData.originalFilePath ||
+          "",
+        translated_file_path:
+          projectData.translated_file_path ||
+          translationData.translatedFilePaths ||
+          [],
       };
 
       console.log("✨ Cleaned project data:", cleanProjectData);
@@ -723,7 +736,6 @@ const StaticSubtitleUpload = ({
     } catch (err) {
       console.error("💥 Project save error:", err);
 
-      // More specific error messages based on common 422 issues
       let errorMessage = err.message;
       if (err.message.includes("422")) {
         errorMessage = `Validation error: ${err.message}. Please check that all required fields are properly filled and files exist.`;
@@ -1050,6 +1062,11 @@ const StaticSubtitleUpload = ({
     setFromTranscription(false);
     setTranscriptionFile(null);
     setShowAutoSaveModal(false);
+    setTranslationData({
+      sourceLanguage: "",
+      originalFilePath: "",
+      translatedFilePaths: [],
+    });
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -1081,37 +1098,6 @@ const StaticSubtitleUpload = ({
       );
     } finally {
       setLoadingLanguages(false);
-    }
-  };
-
-  const uploadOriginalFileIfNeeded = async () => {
-    if (!fromTranscription || !uploadedFile) {
-      return null; // No need to upload if it's already on the server
-    }
-
-    console.log("📤 Uploading original transcription file to server...");
-
-    try {
-      const formData = new FormData();
-      formData.append("file", uploadedFile);
-
-      // Use a simple upload endpoint (you might need to create this in your backend)
-      const response = await fetch(`${API_BASE_URL}/upload-original`, {
-        method: "POST",
-        body: formData,
-        credentials: "include",
-      });
-
-      if (!response.ok) {
-        throw new Error(`Upload failed: ${response.status}`);
-      }
-
-      const result = await response.json();
-      console.log("✅ Original file uploaded to server:", result);
-      return result.file_path; // Return the server file path
-    } catch (error) {
-      console.error("❌ Failed to upload original file:", error);
-      throw error;
     }
   };
 
@@ -2020,9 +2006,18 @@ const StaticSubtitleUpload = ({
           setError(null);
         }}
         onSave={(projectData) => {
-          // Ensure we call saveAsProject with the correct data
-          console.log("Saving project with data:", projectData);
-          saveAsProject(projectData);
+          // Merge modal data with translation data
+          const completeProjectData = {
+            ...projectData,
+            source_language: translationData.sourceLanguage || "auto",
+            original_file_path: translationData.originalFilePath || "",
+            translated_file_path: translationData.translatedFilePaths || [],
+          };
+          console.log(
+            "Saving project with complete data:",
+            completeProjectData,
+          );
+          saveAsProject(completeProjectData);
         }}
         translatedFiles={translatedFiles}
         originalFilename={uploadedFile?.name || ""}
