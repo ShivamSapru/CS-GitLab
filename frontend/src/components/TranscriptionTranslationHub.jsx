@@ -4,7 +4,11 @@ import TranslationReview from "./TranslationReview";
 import StaticSubtitleUpload from "./StaticSubtitleUpload";
 import { ArrowLeft, FileText, Languages } from "lucide-react";
 
-const TranscriptionTranslationHub = ({ isDarkMode }) => {
+const TranscriptionTranslationHub = ({
+  isDarkMode,
+  onNavigateAway,
+  transcriptionResults,
+}) => {
   const [activeMode, setActiveMode] = useState("transcription");
   const [transcriptionData, setTranscriptionData] = useState(null);
 
@@ -148,7 +152,9 @@ const TranscriptionTranslationHub = ({ isDarkMode }) => {
         {activeMode === "transcription" ? (
           <TranslationReview
             onTranslateTranscription={handleTranslateTranscription}
+            onNavigateAway={onNavigateAway}
             isDarkMode={isDarkMode}
+            transcriptionResults={transcriptionResults}
             accentColors={{
               light: "from-yellow-500 via-orange-500 to-red-500",
               dark: "from-yellow-600 via-orange-600 to-red-700",

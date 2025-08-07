@@ -15,6 +15,9 @@ import SignupModal from "./components/SignupModal";
 import Setup2FAModal from "./components/Setup2FAModal";
 import Verify2FAModal from "./components/Verify2FAModal";
 import TranscriptionTranslationHub from "./components/TranscriptionTranslationHub";
+import NotificationDisplay from "./components/NotificationDisplay";
+import notificationService from "./services/notificationService";
+import TranscriptionDebugger from "./components/TranscriptionDebugger";
 
 const SubtitleTranslatorApp = () => {
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -26,6 +29,7 @@ const SubtitleTranslatorApp = () => {
   const [showSignupModal, setShowSignupModal] = useState(false);
   const [showSetup2FAModal, setShowSetup2FAModal] = useState(false);
   const [showVerify2FAModal, setShowVerify2FAModal] = useState(false);
+  const [transcriptionResults, setTranscriptionResults] = useState(new Map());
 
   const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
@@ -95,7 +99,21 @@ const SubtitleTranslatorApp = () => {
   const handleNavigation = (templateId) => {
     const template = templates.find((t) => t.id === templateId);
     if (template) {
-      // IMPORTANT: Check if route requires authentication AND user is not logged in
+      // Check if there's an active transcription and we're trying to leave
+      if (
+        window.transcriptionNavigationHandler &&
+        location.pathname === "/transcribe"
+      ) {
+        const canNavigate = window.transcriptionNavigationHandler(
+          template.path,
+        );
+        if (!canNavigate) {
+          setIsMenuOpen(false);
+          return; // Navigation was blocked
+        }
+      }
+
+      // Check if route requires authentication AND user is not logged in
       if (template.requiresAuth && !user) {
         setShowLoginModal(true);
       } else {
@@ -253,6 +271,39 @@ const SubtitleTranslatorApp = () => {
     fetchUser();
   }, [location]);
 
+  {
+    process.env.NODE_ENV === "development" && (
+      <TranscriptionDebugger isDarkMode={isDarkMode} />
+    );
+  }
+
+  useEffect(() => {
+    const handleTranscriptionNavigation = (event) => {
+      const { projectId } = event.detail;
+      console.log("Navigate to transcription results:", projectId);
+
+      // Store the project ID for the transcription page
+      setTranscriptionResults(
+        (prev) => new Map(prev.set("currentProject", projectId)),
+      );
+
+      // Navigate to transcribe page
+      navigate("/transcribe");
+    };
+
+    window.addEventListener(
+      "navigateToTranscriptionResults",
+      handleTranscriptionNavigation,
+    );
+
+    return () => {
+      window.removeEventListener(
+        "navigateToTranscriptionResults",
+        handleTranscriptionNavigation,
+      );
+    };
+  }, [navigate]);
+
   // SIMPLIFIED ProtectedRoute - only used for actual protected routes
   const ProtectedRoute = ({ children }) => {
     if (loadingUser) {
@@ -329,7 +380,7 @@ const SubtitleTranslatorApp = () => {
                 <h1
                   className={`text-lg sm:text-xl lg:text-2xl font-bold ${isDarkMode ? "text-white" : "text-gray-900"}`}
                 >
-                  SubtitleTranslator
+                  SubLingo
                 </h1>
               </button>
             </div>
@@ -455,6 +506,7 @@ const SubtitleTranslatorApp = () => {
           isDarkMode={isDarkMode}
         />
       )}
+      <NotificationDisplay isDarkMode={isDarkMode} />
 
       {/* Routes */}
       <Routes>
@@ -502,7 +554,11 @@ const SubtitleTranslatorApp = () => {
           path="/transcribe"
           element={
             <ProtectedRoute>
-              <TranscriptionTranslationHub isDarkMode={isDarkMode} />
+              <TranscriptionTranslationHub
+                isDarkMode={isDarkMode}
+                onNavigateAway={(destination) => navigate(destination)}
+                transcriptionResults={transcriptionResults}
+              />
             </ProtectedRoute>
           }
         />

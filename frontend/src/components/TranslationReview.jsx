@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useRef } from "react";
-import srtWebVTT from "srt-webvtt";
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import NavigationWarningModal from "./NavigationWarningModal";
+import notificationService from "../services/notificationService";
 import {
   Upload,
   Download,
@@ -20,7 +21,7 @@ import {
   ChevronUp,
 } from "lucide-react";
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:8000";
 
 const convertSrtToVttManual = (srtContent) => {
   console.log("Starting manual SRT to VTT conversion...");
@@ -262,59 +263,6 @@ const VideoPreviewPlayer = ({
     }
   };
 
-  // Debug effect to check subtitle content
-  useEffect(() => {
-    console.log("=== SUBTITLE DEBUG ===");
-    console.log("convertedVttContent exists:", !!convertedVttContent);
-    console.log("previewContent exists:", !!previewContent);
-    console.log(
-      "convertedVttContent sample:",
-      convertedVttContent?.substring(0, 200),
-    );
-    console.log("previewContent sample:", previewContent?.substring(0, 200));
-
-    if (convertedVttContent) {
-      console.log("Using convertedVttContent for subtitles");
-    } else if (previewContent) {
-      console.log("Using previewContent for subtitles");
-    } else {
-      console.log("No subtitle content available");
-    }
-  }, [convertedVttContent, previewContent]);
-
-  // Add this effect to monitor video track loading
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
-
-    const checkTracks = () => {
-      console.log("Video text tracks:", video.textTracks.length);
-      if (video.textTracks.length > 0) {
-        const track = video.textTracks[0];
-        console.log("Track mode:", track.mode);
-        console.log("Track readyState:", track.readyState);
-        console.log("Track cues:", track.cues?.length || "not loaded");
-
-        // Force enable the track
-        track.mode = "showing";
-
-        // Listen for track load events
-        track.addEventListener("load", () => {
-          console.log("Track loaded successfully, cues:", track.cues?.length);
-        });
-
-        track.addEventListener("error", (e) => {
-          console.error("Track loading error:", e);
-        });
-      }
-    };
-
-    // Check immediately and after a delay
-    checkTracks();
-    setTimeout(checkTracks, 500);
-    setTimeout(checkTracks, 1000);
-  }, [videoUrl, convertedVttContent, previewContent]);
-
   const togglePlay = () => {
     const video = videoRef.current;
     if (!video) return;
@@ -465,7 +413,7 @@ const VideoPreviewPlayer = ({
               )}
             </video>
 
-            {/* Overlay backup */}
+            {/* Overlay backup subtitles */}
             {currentSubtitleIndex >= 0 &&
               parsedSubtitles[currentSubtitleIndex] && (
                 <div className="absolute bottom-20 left-4 right-4 text-center pointer-events-none z-30">
@@ -490,7 +438,7 @@ const VideoPreviewPlayer = ({
                 </div>
               )}
 
-            {/* Your existing controls */}
+            {/* Video Controls */}
             <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-3">
               <div className="flex items-center space-x-3">
                 <button
@@ -586,9 +534,11 @@ const VideoPreviewPlayer = ({
 
 const TranscriptionApp = ({
   onTranslateTranscription,
+  onNavigateAway,
   isDarkMode,
   accentColors,
 }) => {
+  // File and transcription states
   const [activeTab, setActiveTab] = useState("upload");
   const [file, setFile] = useState(null);
   const [locales, setLocales] = useState({});
@@ -610,35 +560,243 @@ const TranscriptionApp = ({
   const [editHistory, setEditHistory] = useState([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
 
-  const previewRef = useRef(null);
-  const editTextareaRef = useRef(null);
-
+  // UI states
   const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
 
+  // Video preview states
   const [videoUrl, setVideoUrl] = useState(null);
   const [showVideoPreview, setShowVideoPreview] = useState(false);
-  const videoRef = useRef(null);
-
   const [parsedSubtitles, setParsedSubtitles] = useState([]);
   const [currentSubtitleIndex, setCurrentSubtitleIndex] = useState(-1);
   const [convertedVttContent, setConvertedVttContent] = useState("");
 
-  // Get API URL - simple approach
-  const getApiUrl = () => {
-    return BACKEND_URL;
-  };
+  // Polling states
+  const [isPolling, setIsPolling] = useState(false);
+  const [projectId, setProjectId] = useState(null);
+
+  const [eventSource, setEventSource] = useState(null);
+  const [transcriptionStage, setTranscriptionStage] = useState("");
+  const [notifications, setNotifications] = useState([]);
+
+  const [showNavigationWarning, setShowNavigationWarning] = useState(false);
+  const [pendingNavigation, setPendingNavigation] = useState(null);
+
+  // Refs
+  const previewRef = useRef(null);
+  const editTextareaRef = useRef(null);
+  const videoRef = useRef(null);
+
+  const [hasRestoredState, setHasRestoredState] = useState(false);
+
+  // Save state to sessionStorage
+  const saveTranscriptionState = useCallback(() => {
+    if (projectId && (isTranscribing || transcriptionResult)) {
+      const state = {
+        projectId,
+        isTranscribing,
+        transcriptionResult,
+        file: file
+          ? {
+              name: file.name,
+              size: file.size,
+              type: file.type,
+            }
+          : null,
+        selectedLocale,
+        outputFormat,
+        maxSpeakers,
+        censorProfanity,
+        timestamp: Date.now(),
+      };
+
+      sessionStorage.setItem("transcriptionState", JSON.stringify(state));
+      console.log("💾 Saved transcription state:", state);
+    }
+  }, [
+    projectId,
+    isTranscribing,
+    transcriptionResult,
+    file,
+    selectedLocale,
+    outputFormat,
+    maxSpeakers,
+    censorProfanity,
+  ]);
+
+  // Restore state from sessionStorage
+  const restoreTranscriptionState = useCallback(() => {
+    const savedState = sessionStorage.getItem("transcriptionState");
+    if (savedState && !hasRestoredState) {
+      try {
+        const state = JSON.parse(savedState);
+        console.log("🔄 Restoring transcription state:", state);
+
+        // Only restore if the state is recent (within 2 hours)
+        const now = Date.now();
+        const stateAge = now - (state.timestamp || 0);
+        const maxAge = 2 * 60 * 60 * 1000; // 2 hours
+
+        if (stateAge < maxAge) {
+          setProjectId(state.projectId);
+          setTranscriptionResult(state.transcriptionResult);
+          setSelectedLocale(state.selectedLocale);
+          setOutputFormat(state.outputFormat);
+          setMaxSpeakers(state.maxSpeakers);
+          setCensorProfanity(state.censorProfanity);
+
+          // Create a mock file object for display purposes
+          if (state.file) {
+            const mockFile = new File([""], state.file.name, {
+              type: state.file.type,
+            });
+            Object.defineProperty(mockFile, "size", { value: state.file.size });
+            setFile(mockFile);
+          }
+
+          // Always check current status when restoring, regardless of saved state
+          checkTranscriptionStatus(state.projectId);
+
+          setHasRestoredState(true);
+        } else {
+          // Clear old state
+          sessionStorage.removeItem("transcriptionState");
+        }
+      } catch (error) {
+        console.error("Failed to restore transcription state:", error);
+        sessionStorage.removeItem("transcriptionState");
+      }
+    }
+  }, [hasRestoredState]);
+
+  useEffect(() => {
+    // On component mount, if we have a projectId, always check fresh status
+    if (projectId && !hasRestoredState) {
+      console.log(
+        "🚀 Component mounted, checking fresh status for:",
+        projectId,
+      );
+      setTimeout(() => {
+        checkTranscriptionStatus(projectId);
+      }, 500);
+    }
+  }, [projectId, hasRestoredState]);
 
   // Fetch available locales on component mount
   useEffect(() => {
     fetchLocales();
   }, []);
 
+  // Add this function before your existing functions
+  const checkTranscriptionStatus = async (projectId) => {
+    try {
+      console.log("🔍 Checking status for project:", projectId);
+      const response = await fetch(
+        `${BACKEND_URL}/api/transcription-status-check/${projectId}`,
+        { credentials: "include" },
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log("📊 Status response:", data);
+
+        if (data.status === "Completed") {
+          console.log("✅ Transcription completed, updating UI");
+
+          // Force update the UI to completed state
+          setIsTranscribing(false);
+
+          const filename =
+            data.filename ||
+            transcriptionResult?.transcribed_filename ||
+            `transcription_${projectId.slice(0, 8)}.srt`;
+
+          setTranscriptionResult((prev) => ({
+            ...prev,
+            status: "Completed",
+            transcribed_filename: filename,
+          }));
+
+          // Force switch to results tab
+          setActiveTab("result");
+
+          // Update session storage to reflect completed state
+          const savedState = sessionStorage.getItem("transcriptionState");
+          if (savedState) {
+            try {
+              const state = JSON.parse(savedState);
+              state.isTranscribing = false;
+              state.transcriptionResult = {
+                ...state.transcriptionResult,
+                status: "Completed",
+                transcribed_filename: filename,
+              };
+              sessionStorage.setItem(
+                "transcriptionState",
+                JSON.stringify(state),
+              );
+              console.log("💾 Updated session storage with completed state");
+            } catch (e) {
+              console.error("Failed to update session storage:", e);
+            }
+          }
+
+          // Show success notification if not already shown
+          showNotification("Transcription completed successfully!", "success");
+
+          // Stop any background monitoring
+          if (notificationService.isMonitoring(projectId)) {
+            notificationService.stopMonitoring(projectId);
+          }
+        } else if (data.status === "Failed") {
+          console.log("❌ Transcription failed");
+          setIsTranscribing(false);
+          setError(data.message || "Transcription failed");
+
+          if (notificationService.isMonitoring(projectId)) {
+            notificationService.stopMonitoring(projectId);
+          }
+        } else if (data.status === "In Progress") {
+          console.log("⏳ Transcription still in progress");
+          setIsTranscribing(true);
+          // Only start polling if not already polling
+          if (!isTranscribing) {
+            connectToTranscriptionEvents(projectId);
+          }
+        } else {
+          console.log(
+            "❓ Unknown status:",
+            data.status,
+            "treating as completed",
+          );
+          // If status is unknown but we have a filename, treat as completed
+          if (data.filename) {
+            setIsTranscribing(false);
+            setTranscriptionResult((prev) => ({
+              ...prev,
+              status: "Completed",
+              transcribed_filename: data.filename,
+            }));
+            setActiveTab("result");
+          }
+        }
+      } else {
+        console.error(
+          "Status check failed:",
+          response.status,
+          response.statusText,
+        );
+      }
+    } catch (error) {
+      console.error("Status check error:", error);
+      setIsTranscribing(false);
+    }
+  };
+
   const fetchLocales = async () => {
     try {
-      const baseUrl = getApiUrl();
-      console.log("Fetching locales from:", baseUrl); // Debug log
-
-      const response = await fetch(`${baseUrl}/api/locales`);
+      const response = await fetch(`${BACKEND_URL}/api/locales`, {
+        credentials: "include",
+      });
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -699,26 +857,26 @@ const TranscriptionApp = ({
     formData.append("output_format", outputFormat);
 
     try {
-      const baseUrl = getApiUrl();
-      console.log("Transcribing with URL:", baseUrl); // Debug log
-      console.log("Form data:", {
-        filename: file.name,
-        locale: selectedLocale,
-        maxSpeakers,
-        censorProfanity,
-        outputFormat,
-      }); // Debug log
-
-      const response = await fetch(`${baseUrl}/api/transcribe`, {
+      console.log("🚀 Starting transcription...");
+      const response = await fetch(`${BACKEND_URL}/api/transcribe`, {
         method: "POST",
         body: formData,
+        credentials: "include",
       });
 
       const data = await response.json();
 
       if (response.ok) {
+        console.log("✅ Transcription job started:", data);
         setTranscriptionResult(data);
-        setActiveTab("result");
+        setProjectId(data.project_id);
+
+        // Connect to real-time updates via SSE
+        connectToTranscriptionEvents(data.project_id);
+
+        // Don't set to result tab immediately, wait for completion
+        // setActiveTab("result");
+
         // Reset preview state when new transcription is done
         setShowPreview(false);
         setPreviewContent("");
@@ -726,11 +884,11 @@ const TranscriptionApp = ({
         setEditedContent("");
       } else {
         setError(data.error || "Transcription failed");
+        setIsTranscribing(false);
       }
     } catch (err) {
       console.error("Transcription error:", err);
       setError(`Network error occurred: ${err.message}`);
-    } finally {
       setIsTranscribing(false);
     }
   };
@@ -752,9 +910,11 @@ const TranscriptionApp = ({
     if (!transcriptionResult?.transcribed_filename) return;
 
     try {
-      const baseUrl = getApiUrl();
       const response = await fetch(
-        `${baseUrl}/api/download-transcription?filename=${encodeURIComponent(transcriptionResult.transcribed_filename)}`,
+        `${BACKEND_URL}/api/download-transcription?filename=${encodeURIComponent(transcriptionResult.transcribed_filename)}`,
+        {
+          credentials: "include",
+        },
       );
 
       if (response.ok) {
@@ -778,6 +938,20 @@ const TranscriptionApp = ({
   };
 
   const resetForm = () => {
+    if (eventSource) {
+      eventSource.close();
+      setEventSource(null);
+    }
+
+    // Clear sessionStorage
+    sessionStorage.removeItem("transcriptionState");
+
+    // Stop background monitoring if active
+    if (projectId && notificationService.isMonitoring(projectId)) {
+      notificationService.stopMonitoring(projectId);
+    }
+
+    // Reset all state
     setFile(null);
     setTranscriptionResult(null);
     setError("");
@@ -789,6 +963,19 @@ const TranscriptionApp = ({
     setEditedContent("");
     setEditHistory([]);
     setHistoryIndex(-1);
+    setIsPolling(false);
+    setProjectId(null);
+    setIsTranscribing(false);
+    setHasRestoredState(false);
+
+    // Clean up video preview
+    if (videoUrl) {
+      URL.revokeObjectURL(videoUrl);
+      setVideoUrl(null);
+    }
+    setShowVideoPreview(false);
+    setParsedSubtitles([]);
+    setCurrentSubtitleIndex(-1);
   };
 
   const formatFileSize = (bytes) => {
@@ -807,39 +994,22 @@ const TranscriptionApp = ({
     setError("");
 
     try {
-      const baseUrl = getApiUrl();
-
       // Fetch transcription content
       const transcriptionResponse = await fetch(
-        `${baseUrl}/api/download-transcription?filename=${encodeURIComponent(transcriptionResult.transcribed_filename)}`,
+        `${BACKEND_URL}/api/download-transcription?filename=${encodeURIComponent(transcriptionResult.transcribed_filename)}`,
+        {
+          credentials: "include",
+        },
       );
 
       if (transcriptionResponse.ok) {
         const content = await transcriptionResponse.text();
         setPreviewContent(content);
 
-        console.log("=== CONVERSION CHECK ===");
-        console.log("outputFormat:", outputFormat);
-        console.log("Will convert SRT?", outputFormat === "srt");
-
         // Convert SRT to VTT for video preview if needed
         if (outputFormat === "srt") {
           try {
-            console.log("Starting manual SRT to VTT conversion...");
-            console.log(
-              "SRT content to convert (first 300 chars):",
-              content.substring(0, 300),
-            );
-
-            // Use manual conversion instead of npm package
             const vttContentForVideo = convertSrtToVttManual(content);
-
-            console.log(
-              "Manual conversion complete. VTT content (first 300 chars):",
-              vttContentForVideo.substring(0, 300),
-            );
-            console.log("VTT content length:", vttContentForVideo.length);
-
             setConvertedVttContent(vttContentForVideo);
           } catch (conversionError) {
             console.error(
@@ -853,25 +1023,10 @@ const TranscriptionApp = ({
           }
         } else {
           // For VTT files, use original content
-          console.log(
-            "Using original VTT content (first 300 chars):",
-            content.substring(0, 300),
-          );
           setConvertedVttContent(content);
         }
 
         setShowPreview(true);
-
-        // Add this after the SRT to VTT conversion in handlePreview
-        console.log("=== PREVIEW DEBUG ===");
-        console.log("Output format:", outputFormat);
-        console.log("Original content sample:", content.substring(0, 200));
-        if (outputFormat === "srt") {
-          console.log(
-            "Converted VTT content sample:",
-            convertedVttContent?.substring(0, 200),
-          );
-        }
 
         // Parse subtitles for navigation
         const parsed = parseSubtitles(content, outputFormat);
@@ -921,7 +1076,6 @@ const TranscriptionApp = ({
     setConvertedVttContent("");
 
     // Clean up video preview
-    setShowVideoPreview(false);
     if (videoUrl) {
       URL.revokeObjectURL(videoUrl);
       setVideoUrl(null);
@@ -1134,6 +1288,249 @@ const TranscriptionApp = ({
     return [];
   };
 
+  const showNotification = (message, type = "info", duration = 5000) => {
+    const notification = {
+      id: Date.now(),
+      message,
+      type,
+      timestamp: new Date(),
+    };
+
+    setNotifications((prev) => [...prev, notification]);
+
+    // Auto remove after duration
+    setTimeout(() => {
+      setNotifications((prev) => prev.filter((n) => n.id !== notification.id));
+    }, duration);
+  };
+
+  // Add the main SSE connection function
+  // Replace your existing connectToTranscriptionEvents function
+  const connectToTranscriptionEvents = (projectId) => {
+    console.log(`🔄 Starting smart polling for project: ${projectId}`);
+
+    let pollCount = 0;
+    const maxPolls = 120; // 10 minutes max
+
+    const smartPoll = async () => {
+      try {
+        const response = await fetch(
+          `${BACKEND_URL}/api/transcription-status-check/${projectId}`,
+          { credentials: "include" },
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          console.log(`📊 Poll ${pollCount + 1}: ${data.status}`);
+
+          if (data.status === "Completed") {
+            console.log("✅ Transcription completed via polling!");
+            setIsTranscribing(false);
+
+            const updatedResult = {
+              ...transcriptionResult,
+              status: "Completed",
+              transcribed_filename: data.filename,
+            };
+
+            setTranscriptionResult(updatedResult);
+            setActiveTab("result");
+
+            // Show success notification
+            showNotification(
+              "Transcription completed successfully!",
+              "success",
+            );
+
+            // IMPORTANT: Also emit via notification service for consistency
+            notificationService.emit({
+              id: `poll-complete-${projectId}`,
+              type: "success",
+              title: "Transcription Complete!",
+              message: `Your transcription has been completed successfully`,
+              duration: 8000,
+              projectId,
+              clickable: false,
+            });
+
+            return; // Stop polling
+          } else if (data.status === "Failed") {
+            console.log("❌ Transcription failed via polling!");
+            setIsTranscribing(false);
+            setError(data.message || "Transcription failed");
+            showNotification(data.message || "Transcription failed", "error");
+            return; // Stop polling
+          }
+
+          // Continue polling if still in progress
+          pollCount++;
+          if (pollCount < maxPolls) {
+            const delay = Math.min(3000 + pollCount * 200, 10000);
+            setTimeout(smartPoll, delay);
+          } else {
+            setIsTranscribing(false);
+            setError("Transcription timed out");
+          }
+        }
+      } catch (error) {
+        console.error("Polling error:", error);
+        pollCount++;
+        if (pollCount < maxPolls && isTranscribing) {
+          setTimeout(smartPoll, 5000); // Retry after 5 seconds
+        }
+      }
+    };
+
+    // Start polling immediately
+    smartPoll();
+  };
+
+  // Add this useEffect before the return statement
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      if (isTranscribing && !showNavigationWarning) {
+        e.preventDefault();
+        e.returnValue =
+          "Your transcription is still in progress. Are you sure you want to leave?";
+        return e.returnValue;
+      }
+    };
+
+    const handleNavigationAttempt = (destination) => {
+      if (isTranscribing) {
+        setShowNavigationWarning(true);
+        setPendingNavigation(destination);
+        return false; // Prevent navigation
+      }
+      return true; // Allow navigation
+    };
+
+    // Expose navigation handler to parent
+    if (onNavigateAway) {
+      window.transcriptionNavigationHandler = handleNavigationAttempt;
+    }
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      if (window.transcriptionNavigationHandler) {
+        delete window.transcriptionNavigationHandler;
+      }
+    };
+  }, [isTranscribing, showNavigationWarning, onNavigateAway]);
+
+  // Add these functions before the return statement
+  const handleNavigationWarningClose = () => {
+    setShowNavigationWarning(false);
+    setPendingNavigation(null);
+  };
+
+  const handleNavigationConfirm = () => {
+    console.log("🚀 Confirming navigation - adding to background monitoring");
+    console.log("Project ID:", projectId);
+    console.log("Transcription Result:", transcriptionResult);
+    console.log("File:", file);
+
+    if (projectId && (isTranscribing || transcriptionResult)) {
+      // Add to background monitoring
+      const transcriptionData = {
+        projectId: projectId,
+        filename:
+          transcriptionResult?.transcribed_filename ||
+          file?.name ||
+          "Unknown file",
+        originalFilename: file?.name || "Unknown file",
+        format: outputFormat,
+        locale: selectedLocale,
+        isTranscribing: isTranscribing,
+      };
+
+      console.log("📱 Adding to background monitoring:", transcriptionData);
+
+      notificationService.addBackgroundTranscription(
+        projectId,
+        transcriptionData,
+        (completionData) => {
+          console.log("🎉 Background transcription completed:", completionData);
+          // Update the stored state when background completes
+          const savedState = sessionStorage.getItem("transcriptionState");
+          if (savedState) {
+            try {
+              const state = JSON.parse(savedState);
+              state.isTranscribing = false;
+              state.transcriptionResult = {
+                ...state.transcriptionResult,
+                status: "Completed",
+                transcribed_filename: completionData.filename,
+              };
+              sessionStorage.setItem(
+                "transcriptionState",
+                JSON.stringify(state),
+              );
+            } catch (e) {
+              console.error("Failed to update stored state:", e);
+            }
+          }
+        },
+      );
+
+      // Stop the current polling to avoid conflicts
+      if (eventSource) {
+        eventSource.close();
+        setEventSource(null);
+      }
+    }
+
+    setShowNavigationWarning(false);
+    setIsTranscribing(false); // Stop local processing
+
+    // Execute the pending navigation
+    if (pendingNavigation && onNavigateAway) {
+      onNavigateAway(pendingNavigation);
+    }
+
+    setPendingNavigation(null);
+  };
+  // Add this useEffect after your existing ones
+  useEffect(() => {
+    // Restore state on component mount
+    if (!hasRestoredState) {
+      restoreTranscriptionState();
+    }
+  }, [restoreTranscriptionState, hasRestoredState]);
+
+  useEffect(() => {
+    // Save state whenever it changes
+    saveTranscriptionState();
+  }, [saveTranscriptionState]);
+
+  useEffect(() => {
+    // Handle navigation events from notifications
+    const handleNavigationEvent = (event) => {
+      const { projectId: targetProjectId } = event.detail;
+      console.log("📱 Received navigation event for project:", targetProjectId);
+
+      if (targetProjectId && targetProjectId !== projectId) {
+        // Load the specific transcription
+        checkTranscriptionStatus(targetProjectId);
+        setActiveTab("result");
+      }
+    };
+
+    window.addEventListener(
+      "navigateToTranscriptionResults",
+      handleNavigationEvent,
+    );
+
+    return () => {
+      window.removeEventListener(
+        "navigateToTranscriptionResults",
+        handleNavigationEvent,
+      );
+    };
+  }, [projectId]);
+
   return (
     <div
       className={`max-w-4xl mx-auto p-6 min-h-screen transition-colors duration-300 ${
@@ -1183,10 +1580,10 @@ const TranscriptionApp = ({
             onClick={() => setActiveTab("upload")}
             className={`px-6 py-3 font-medium transition-colors duration-300 ${
               activeTab === "upload"
-                ? `border-b-2 border-${accentColors?.border || "orange-500"} text-${accentColors?.primary || "orange-600"}`
+                ? `border-b-2 border-orange-500 text-orange-600`
                 : isDarkMode
-                  ? `text-gray-300 hover:text-${accentColors?.primary || "orange-400"}`
-                  : `text-gray-600 hover:text-${accentColors?.primary || "orange-600"}`
+                  ? `text-gray-300 hover:text-orange-400`
+                  : `text-gray-600 hover:text-orange-600`
             }`}
           >
             <div className="flex items-center space-x-2">
@@ -1211,10 +1608,10 @@ const TranscriptionApp = ({
             onClick={() => setActiveTab("result")}
             className={`px-6 py-3 font-medium transition-colors duration-300 ${
               activeTab === "result"
-                ? `border-b-2 border-${accentColors?.border || "orange-500"} text-${accentColors?.primary || "orange-600"}`
+                ? `border-b-2 border-orange-500 text-orange-600`
                 : isDarkMode
-                  ? `text-gray-300 hover:text-${accentColors?.primary || "orange-400"}`
-                  : `text-gray-600 hover:text-${accentColors?.primary || "orange-600"}`
+                  ? `text-gray-300 hover:text-orange-400`
+                  : `text-gray-600 hover:text-orange-600`
             } ${!transcriptionResult ? "opacity-50 cursor-not-allowed" : ""}`}
           >
             <div className="flex items-center space-x-2">
@@ -1236,6 +1633,73 @@ const TranscriptionApp = ({
             </div>
           </button>
         </div>
+
+        {/* Notification Display */}
+        {notifications.length > 0 && (
+          <div className="fixed top-4 right-4 z-50 space-y-2">
+            {notifications.map((notification) => (
+              <div
+                key={notification.id}
+                className={`p-3 rounded-lg shadow-lg max-w-sm animate-slide-in ${
+                  notification.type === "success"
+                    ? "bg-green-500 text-white"
+                    : notification.type === "error"
+                      ? "bg-red-500 text-white"
+                      : notification.type === "warning"
+                        ? "bg-yellow-500 text-black"
+                        : "bg-blue-500 text-white"
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-sm">{notification.message}</span>
+                  <button
+                    onClick={() =>
+                      setNotifications((prev) =>
+                        prev.filter((n) => n.id !== notification.id),
+                      )
+                    }
+                    className="ml-2 text-sm opacity-70 hover:opacity-100"
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Progress Indicator for Processing */}
+        {isTranscribing && (
+          <div
+            className={`border-l-4 border-blue-400 p-4 m-6 transition-colors duration-300 ${
+              isDarkMode ? "bg-blue-900/20" : "bg-blue-50"
+            }`}
+          >
+            <div className="flex items-center">
+              <Loader2 className="h-5 w-5 text-blue-400 animate-spin mr-3" />
+              <div>
+                <p
+                  className={`font-medium transition-colors duration-300 ${
+                    isDarkMode ? "text-blue-300" : "text-blue-700"
+                  }`}
+                >
+                  Processing transcription...
+                </p>
+                <p
+                  className={`text-sm mt-1 transition-colors duration-300 ${
+                    isDarkMode ? "text-blue-400" : "text-blue-600"
+                  }`}
+                >
+                  {transcriptionStage || "Initializing transcription job..."}
+                </p>
+                <div className="mt-2 flex items-center text-xs text-blue-500">
+                  <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
+                  Real-time updates active
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Error Display */}
         {error && (
@@ -1275,8 +1739,8 @@ const TranscriptionApp = ({
                 <div
                   className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors duration-300 ${
                     isDarkMode
-                      ? `border-gray-600 hover:border-${accentColors?.border || "orange-500"} bg-gray-800`
-                      : `border-gray-300 hover:border-${accentColors?.border || "orange-400"} bg-white`
+                      ? `border-gray-600 hover:border-orange-500 bg-gray-800`
+                      : `border-gray-300 hover:border-orange-400 bg-white`
                   }`}
                 >
                   <input
@@ -1355,14 +1819,14 @@ const TranscriptionApp = ({
                     <select
                       value={outputFormat}
                       onChange={(e) => setOutputFormat(e.target.value)}
-                      className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-${accentColors?.ring || "orange-500"} focus:border-${accentColors?.border || "orange-500"} transition-colors duration-300 ${
+                      className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-colors duration-300 ${
                         isDarkMode
                           ? "border-gray-600 bg-gray-700 text-gray-200"
                           : "border-gray-300 bg-white text-gray-900"
                       }`}
                     >
-                      <option value="vtt">VTT </option>
-                      <option value="srt">SRT </option>
+                      <option value="vtt">VTT</option>
+                      <option value="srt">SRT</option>
                     </select>
                   </div>
 
@@ -1381,7 +1845,7 @@ const TranscriptionApp = ({
                         id="censor-profanity"
                         checked={censorProfanity}
                         onChange={(e) => setCensorProfanity(e.target.checked)}
-                        className={`h-4 w-4 text-${accentColors?.primary || "orange-600"} focus:ring-${accentColors?.ring || "orange-500"} border-gray-300 rounded`}
+                        className="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded"
                       />
                       <label
                         htmlFor="censor-profanity"
@@ -1402,7 +1866,7 @@ const TranscriptionApp = ({
                     onClick={() =>
                       setShowAdvancedSettings(!showAdvancedSettings)
                     }
-                    className={`flex items-center space-x-2 font-medium transition-colors duration-300 text-${accentColors?.primary || "orange-600"} hover:text-${accentColors?.primaryHover || "orange-800"}`}
+                    className="flex items-center space-x-2 font-medium transition-colors duration-300 text-orange-600 hover:text-orange-800"
                   >
                     <Settings className="w-4 h-4" />
                     <span>Advanced</span>
@@ -1435,7 +1899,7 @@ const TranscriptionApp = ({
                           <select
                             value={selectedLocale}
                             onChange={(e) => setSelectedLocale(e.target.value)}
-                            className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-${accentColors?.ring || "orange-500"} focus:border-${accentColors?.border || "orange-500"} transition-colors duration-300 ${
+                            className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-colors duration-300 ${
                               isDarkMode
                                 ? "border-gray-600 bg-gray-700 text-gray-200"
                                 : "border-gray-300 bg-white text-gray-900"
@@ -1472,7 +1936,7 @@ const TranscriptionApp = ({
                             onChange={(e) =>
                               setMaxSpeakers(parseInt(e.target.value))
                             }
-                            className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-${accentColors?.ring || "orange-500"} focus:border-${accentColors?.border || "orange-500"} transition-colors duration-300 ${
+                            className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-colors duration-300 ${
                               isDarkMode
                                 ? "border-gray-600 bg-gray-700 text-gray-200"
                                 : "border-gray-300 bg-white text-gray-900"
@@ -1523,7 +1987,7 @@ const TranscriptionApp = ({
                   {isTranscribing ? (
                     <>
                       <Loader2 className="w-5 h-5 animate-spin" />
-                      <span>Transcribing...</span>
+                      <span>{isPolling ? "Processing..." : "Starting..."}</span>
                     </>
                   ) : (
                     <>
@@ -1538,391 +2002,401 @@ const TranscriptionApp = ({
         )}
 
         {/* Results Tab */}
-        {activeTab === "result" && transcriptionResult && (
+        {activeTab === "result" && (
           <div className="p-6">
-            <div className="space-y-6">
-              {/* Success Message */}
-              <div
-                className={`border-l-4 border-green-400 p-4 transition-colors duration-300 ${
-                  isDarkMode ? "bg-green-900/20" : "bg-green-50"
-                }`}
-              >
-                <div className="flex">
-                  <Check className="h-5 w-5 text-green-400" />
-                  <div className="ml-3">
-                    <p
-                      className={`text-sm mt-1 transition-colors duration-300 ${
-                        isDarkMode ? "text-green-300" : "text-green-700"
-                      }`}
-                    >
-                      {transcriptionResult.message}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* File Information */}
-              <div
-                className={`rounded-lg p-6 transition-colors duration-300 ${
-                  isDarkMode ? "bg-gray-700" : "bg-gray-50"
-                }`}
-              >
-                <h3
-                  className={`text-lg font-semibold mb-4 transition-colors duration-300 ${
-                    isDarkMode ? "text-white" : "text-gray-900"
-                  }`}
-                >
-                  Transcription Details
-                </h3>
-                <div className="space-y-4">
-                  <div>
-                    <span
-                      className={`text-sm font-medium transition-colors duration-300 ${
-                        isDarkMode ? "text-gray-400" : "text-gray-500"
-                      }`}
-                    >
-                      Original File:
-                    </span>
-                    <p
-                      className={`transition-colors duration-300 ${
-                        isDarkMode ? "text-gray-200" : "text-gray-900"
-                      }`}
-                    >
-                      {file?.name}
-                    </p>
-                  </div>
-                  <div>
-                    <span
-                      className={`text-sm font-medium transition-colors duration-300 ${
-                        isDarkMode ? "text-gray-400" : "text-gray-500"
-                      }`}
-                    >
-                      Output File:
-                    </span>
-                    <p
-                      className={`transition-colors duration-300 ${
-                        isDarkMode ? "text-gray-200" : "text-gray-900"
-                      }`}
-                    >
-                      {transcriptionResult.transcribed_filename}
-                    </p>
-                  </div>
-                  <div>
-                    <span
-                      className={`text-sm font-medium transition-colors duration-300 ${
-                        isDarkMode ? "text-gray-400" : "text-gray-500"
-                      }`}
-                    >
-                      Language:
-                    </span>
-                    <p
-                      className={`transition-colors duration-300 ${
-                        isDarkMode ? "text-gray-200" : "text-gray-900"
-                      }`}
-                    >
-                      {locales[selectedLocale]} ({selectedLocale})
-                    </p>
-                  </div>
-                  <div>
-                    <span
-                      className={`text-sm font-medium transition-colors duration-300 ${
-                        isDarkMode ? "text-gray-400" : "text-gray-500"
-                      }`}
-                    >
-                      Format:
-                    </span>
-                    <p
-                      className={`transition-colors duration-300 ${
-                        isDarkMode ? "text-gray-200" : "text-gray-900"
-                      }`}
-                    >
-                      {outputFormat.toUpperCase()}
-                    </p>
-                  </div>
-                  <div>
-                    <span
-                      className={`text-sm font-medium transition-colors duration-300 ${
-                        isDarkMode ? "text-gray-400" : "text-gray-500"
-                      }`}
-                    >
-                      Max Speakers:
-                    </span>
-                    <p
-                      className={`transition-colors duration-300 ${
-                        isDarkMode ? "text-gray-200" : "text-gray-900"
-                      }`}
-                    >
-                      {maxSpeakers}
-                    </p>
-                  </div>
-                  <div>
-                    <span
-                      className={`text-sm font-medium transition-colors duration-300 ${
-                        isDarkMode ? "text-gray-400" : "text-gray-500"
-                      }`}
-                    >
-                      Profanity Filter:
-                    </span>
-                    <p
-                      className={`transition-colors duration-300 ${
-                        isDarkMode ? "text-gray-200" : "text-gray-900"
-                      }`}
-                    >
-                      {censorProfanity ? "Enabled" : "Disabled"}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex space-x-4">
-                <button
-                  onClick={handleDownload}
-                  className="flex-1 bg-green-500 text-white py-3 px-6 rounded-lg hover:bg-green-600 font-medium transition-colors duration-300 flex items-center justify-center space-x-2"
-                >
-                  <Download className="w-5 h-5" />
-                  <span>Download Transcription</span>
-                </button>
-
-                <button
-                  onClick={handlePreview}
-                  disabled={loadingPreview}
-                  className={`flex-1 py-3 px-6 rounded-lg font-medium transition-colors duration-300 flex items-center justify-center space-x-2 ${
-                    loadingPreview
-                      ? isDarkMode
-                        ? "bg-gray-600 text-gray-400"
-                        : "bg-gray-400 text-gray-600"
-                      : `bg-gradient-to-r ${
-                          isDarkMode
-                            ? accentColors?.dark ||
-                              "from-yellow-600 via-orange-600 to-red-700"
-                            : accentColors?.light ||
-                              "from-yellow-500 via-orange-500 to-red-500"
-                        } text-white hover:opacity-90`
-                  }`}
-                >
-                  {loadingPreview ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Loading...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Eye className="w-4 h-4" />
-                      <span>Load Preview</span>
-                    </>
-                  )}
-                </button>
-
-                <button
-                  onClick={handleTranslateTranscription}
-                  className="flex-1 bg-purple-500 text-white py-3 px-6 rounded-lg hover:bg-purple-600 font-medium transition-colors duration-300 flex items-center justify-center space-x-2"
-                >
-                  <svg
-                    className="w-5 h-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
-                    />
-                  </svg>
-                  <span>Translate Transcription</span>
-                </button>
-              </div>
-
-              {/* Preview Section - Shows below action buttons when loaded */}
-              {showPreview && (
+            {transcriptionResult ? (
+              <div className="space-y-6">
+                {/* Status Message */}
                 <div
-                  ref={previewRef}
-                  className={`rounded-lg border shadow-sm transition-colors duration-300 ${
+                  className={`border-l-4 ${
+                    transcriptionResult.status === "Completed"
+                      ? "border-green-400"
+                      : transcriptionResult.status === "Failed"
+                        ? "border-red-400"
+                        : "border-blue-400"
+                  } p-4 transition-colors duration-300 ${
                     isDarkMode
-                      ? "bg-gray-800 border-gray-600"
-                      : "bg-white border-gray-200"
+                      ? transcriptionResult.status === "Completed"
+                        ? "bg-green-900/20"
+                        : transcriptionResult.status === "Failed"
+                          ? "bg-red-900/20"
+                          : "bg-blue-900/20"
+                      : transcriptionResult.status === "Completed"
+                        ? "bg-green-50"
+                        : transcriptionResult.status === "Failed"
+                          ? "bg-red-50"
+                          : "bg-blue-50"
                   }`}
                 >
-                  <div
-                    className={`px-4 py-3 border-b rounded-t-lg transition-colors duration-300 ${
-                      isDarkMode
-                        ? "bg-gray-700 border-gray-600"
-                        : "bg-gray-50 border-gray-200"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <h4
-                        className={`font-medium flex items-center transition-colors duration-300 ${
-                          isDarkMode ? "text-gray-200" : "text-gray-700"
+                  <div className="flex">
+                    {transcriptionResult.status === "Completed" ? (
+                      <Check className="h-5 w-5 text-green-400" />
+                    ) : transcriptionResult.status === "Failed" ? (
+                      <AlertCircle className="h-5 w-5 text-red-400" />
+                    ) : (
+                      <Loader2 className="h-5 w-5 text-blue-400 animate-spin" />
+                    )}
+                    <div className="ml-3">
+                      <p
+                        className={`text-sm mt-1 transition-colors duration-300 ${
+                          isDarkMode
+                            ? transcriptionResult.status === "Completed"
+                              ? "text-green-300"
+                              : transcriptionResult.status === "Failed"
+                                ? "text-red-300"
+                                : "text-blue-300"
+                            : transcriptionResult.status === "Completed"
+                              ? "text-green-700"
+                              : transcriptionResult.status === "Failed"
+                                ? "text-red-700"
+                                : "text-blue-700"
                         }`}
                       >
-                        <span
-                          className={`w-3 h-3 rounded-full mr-2 bg-gradient-to-r ${
-                            isDarkMode
-                              ? accentColors?.dark ||
-                                "from-yellow-600 via-orange-600 to-red-700"
-                              : accentColors?.light ||
-                                "from-yellow-500 via-orange-500 to-red-500"
-                          }`}
-                        ></span>
-                        Transcribed Content ({selectedLocale}) -{" "}
-                        {outputFormat.toUpperCase()}
-                      </h4>
-                      <div className="flex items-center space-x-2">
-                        {!isEditing ? (
-                          <button
-                            onClick={startEditing}
-                            className={`text-sm flex items-center space-x-1 px-2 py-1 rounded transition-colors duration-300 text-${accentColors?.primary || "orange-600"} hover:text-${accentColors?.primaryHover || "orange-800"} hover:bg-${isDarkMode ? "orange-900/20" : "orange-50"}`}
-                          >
-                            <Edit className="w-4 h-4" />
-                            <span>Edit</span>
-                          </button>
-                        ) : (
-                          <div className="flex items-center space-x-2">
-                            <button
-                              onClick={saveEditedFile}
-                              disabled={isSaving}
-                              className={`text-sm flex items-center space-x-1 px-2 py-1 rounded transition-colors duration-300 ${
-                                isDarkMode
-                                  ? "text-green-400 hover:text-green-300 hover:bg-green-900/20"
-                                  : "text-green-600 hover:text-green-800 hover:bg-green-50"
-                              }`}
-                            >
-                              <Save className="w-4 h-4" />
-                              <span>{isSaving ? "Saving..." : "Save"}</span>
-                            </button>
-                            <button
-                              onClick={cancelEditing}
-                              disabled={isSaving}
-                              className={`text-sm flex items-center space-x-1 px-2 py-1 rounded transition-colors duration-300 ${
-                                isDarkMode
-                                  ? "text-gray-400 hover:text-gray-300 hover:bg-gray-700"
-                                  : "text-gray-600 hover:text-gray-800 hover:bg-gray-50"
-                              }`}
-                            >
-                              <X className="w-4 h-4" />
-                              <span>Cancel</span>
-                            </button>
-                          </div>
-                        )}
-                        <button
-                          onClick={closePreview}
-                          className={`p-1 rounded transition-colors duration-300 ${
-                            isDarkMode
-                              ? "text-gray-500 hover:text-gray-300 hover:bg-gray-700"
-                              : "text-gray-400 hover:text-gray-600 hover:bg-gray-50"
-                          }`}
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
+                        {transcriptionResult.status === "Completed"
+                          ? "Transcription completed successfully!"
+                          : transcriptionResult.status === "Failed"
+                            ? "Transcription failed"
+                            : "Transcription is being processed..."}
+                      </p>
                     </div>
                   </div>
+                </div>
 
-                  <div className="p-4">
-                    {showVideoPreview && videoUrl && (
-                      <VideoPreviewPlayer
-                        videoUrl={videoUrl}
-                        videoRef={videoRef}
-                        parsedSubtitles={parsedSubtitles}
-                        convertedVttContent={convertedVttContent}
-                        previewContent={previewContent}
-                        selectedLocale={selectedLocale}
-                        isDarkMode={isDarkMode}
-                        currentSubtitleIndex={currentSubtitleIndex}
-                        setCurrentSubtitleIndex={setCurrentSubtitleIndex}
-                        accentColors={accentColors}
-                      />
-                    )}
-                    {isEditing ? (
-                      <div className="space-y-3">
-                        {/* Undo/Redo buttons */}
-                        <div
-                          className={`flex items-center space-x-2 pb-2 border-b transition-colors duration-300 ${
-                            isDarkMode ? "border-gray-600" : "border-gray-200"
+                {transcriptionResult && (
+                  <button
+                    onClick={() => {
+                      console.log("🔄 Force refreshing status...");
+                      if (projectId) {
+                        checkTranscriptionStatus(projectId);
+                      }
+                    }}
+                    className="mb-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                  >
+                    Refresh
+                  </button>
+                )}
+
+                {/* File Information */}
+                <div
+                  className={`rounded-lg p-6 transition-colors duration-300 ${
+                    isDarkMode ? "bg-gray-700" : "bg-gray-50"
+                  }`}
+                >
+                  <h3
+                    className={`text-lg font-semibold mb-4 transition-colors duration-300 ${
+                      isDarkMode ? "text-white" : "text-gray-900"
+                    }`}
+                  >
+                    Transcription Details
+                  </h3>
+                  <div className="space-y-4">
+                    <div>
+                      <span
+                        className={`text-sm font-medium transition-colors duration-300 ${
+                          isDarkMode ? "text-gray-400" : "text-gray-500"
+                        }`}
+                      >
+                        Original File:
+                      </span>
+                      <p
+                        className={`transition-colors duration-300 ${
+                          isDarkMode ? "text-gray-200" : "text-gray-900"
+                        }`}
+                      >
+                        {file?.name}
+                      </p>
+                    </div>
+                    <div></div>
+                    <div>
+                      <span
+                        className={`text-sm font-medium transition-colors duration-300 ${
+                          isDarkMode ? "text-gray-400" : "text-gray-500"
+                        }`}
+                      >
+                        Language:
+                      </span>
+                      <p
+                        className={`transition-colors duration-300 ${
+                          isDarkMode ? "text-gray-200" : "text-gray-900"
+                        }`}
+                      >
+                        {locales[selectedLocale]} ({selectedLocale})
+                      </p>
+                    </div>
+                    <div>
+                      <span
+                        className={`text-sm font-medium transition-colors duration-300 ${
+                          isDarkMode ? "text-gray-400" : "text-gray-500"
+                        }`}
+                      >
+                        Format:
+                      </span>
+                      <p
+                        className={`transition-colors duration-300 ${
+                          isDarkMode ? "text-gray-200" : "text-gray-900"
+                        }`}
+                      >
+                        {outputFormat.toUpperCase()}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Action Buttons - Only show when completed */}
+                {transcriptionResult.status === "Completed" && (
+                  <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4">
+                    <button
+                      onClick={handleDownload}
+                      className="flex-1 bg-green-500 text-white py-3 px-6 rounded-lg hover:bg-green-600 font-medium transition-colors duration-300 flex items-center justify-center space-x-2"
+                    >
+                      <Download className="w-5 h-5" />
+                      <span>Download Transcription</span>
+                    </button>
+
+                    <button
+                      onClick={handlePreview}
+                      disabled={loadingPreview}
+                      className={`flex-1 py-3 px-6 rounded-lg font-medium transition-colors duration-300 flex items-center justify-center space-x-2 ${
+                        loadingPreview
+                          ? isDarkMode
+                            ? "bg-gray-600 text-gray-400"
+                            : "bg-gray-400 text-gray-600"
+                          : `bg-gradient-to-r ${
+                              isDarkMode
+                                ? accentColors?.dark ||
+                                  "from-yellow-600 via-orange-600 to-red-700"
+                                : accentColors?.light ||
+                                  "from-yellow-500 via-orange-500 to-red-500"
+                            } text-white hover:opacity-90`
+                      }`}
+                    >
+                      {loadingPreview ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span>Loading...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Eye className="w-4 h-4" />
+                          <span>Load Preview</span>
+                        </>
+                      )}
+                    </button>
+
+                    <button
+                      onClick={handleTranslateTranscription}
+                      className="flex-1 bg-purple-500 text-white py-3 px-6 rounded-lg hover:bg-purple-600 font-medium transition-colors duration-300 flex items-center justify-center space-x-2"
+                    >
+                      <svg
+                        className="w-5 h-5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
+                        />
+                      </svg>
+                      <span>Translate Transcription</span>
+                    </button>
+                  </div>
+                )}
+
+                {/* Preview Section */}
+                {showPreview && (
+                  <div
+                    ref={previewRef}
+                    className={`rounded-lg border shadow-sm transition-colors duration-300 ${
+                      isDarkMode
+                        ? "bg-gray-800 border-gray-600"
+                        : "bg-white border-gray-200"
+                    }`}
+                  >
+                    <div
+                      className={`px-4 py-3 border-b rounded-t-lg transition-colors duration-300 ${
+                        isDarkMode
+                          ? "bg-gray-700 border-gray-600"
+                          : "bg-gray-50 border-gray-200"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <h4
+                          className={`font-medium flex items-center transition-colors duration-300 ${
+                            isDarkMode ? "text-gray-200" : "text-gray-700"
                           }`}
                         >
-                          <button
-                            onClick={handleUndo}
-                            disabled={historyIndex <= 0}
-                            className={`flex items-center space-x-1 px-3 py-1 rounded text-sm transition-colors duration-300 ${
-                              historyIndex <= 0
-                                ? isDarkMode
-                                  ? "bg-gray-700 text-gray-600 cursor-not-allowed"
-                                  : "bg-gray-100 text-gray-400 cursor-not-allowed"
-                                : isDarkMode
-                                  ? `bg-orange-800/40 text-orange-200 hover:bg-orange-700/40`
-                                  : `bg-orange-100 text-orange-700 hover:bg-orange-200`
+                          <span
+                            className={`w-3 h-3 rounded-full mr-2 bg-gradient-to-r ${
+                              isDarkMode
+                                ? accentColors?.dark ||
+                                  "from-yellow-600 via-orange-600 to-red-700"
+                                : accentColors?.light ||
+                                  "from-yellow-500 via-orange-500 to-red-500"
                             }`}
-                            title="Undo (Ctrl+Z)"
-                          >
-                            <Undo className="w-4 h-4" />
-                            <span>Undo</span>
-                          </button>
+                          ></span>
+                          Transcribed Content ({selectedLocale}) -{" "}
+                          {outputFormat.toUpperCase()}
+                        </h4>
+                        <div className="flex items-center space-x-2">
+                          {!isEditing ? (
+                            <button
+                              onClick={startEditing}
+                              className="text-sm flex items-center space-x-1 px-2 py-1 rounded transition-colors duration-300 text-orange-600 hover:text-orange-800 hover:bg-orange-50"
+                            >
+                              <Edit className="w-4 h-4" />
+                              <span>Edit</span>
+                            </button>
+                          ) : (
+                            <div className="flex items-center space-x-2">
+                              <button
+                                onClick={saveEditedFile}
+                                disabled={isSaving}
+                                className={`text-sm flex items-center space-x-1 px-2 py-1 rounded transition-colors duration-300 ${
+                                  isDarkMode
+                                    ? "text-green-400 hover:text-green-300 hover:bg-green-900/20"
+                                    : "text-green-600 hover:text-green-800 hover:bg-green-50"
+                                }`}
+                              >
+                                <Save className="w-4 h-4" />
+                                <span>{isSaving ? "Saving..." : "Save"}</span>
+                              </button>
+                              <button
+                                onClick={cancelEditing}
+                                disabled={isSaving}
+                                className={`text-sm flex items-center space-x-1 px-2 py-1 rounded transition-colors duration-300 ${
+                                  isDarkMode
+                                    ? "text-gray-400 hover:text-gray-300 hover:bg-gray-700"
+                                    : "text-gray-600 hover:text-gray-800 hover:bg-gray-50"
+                                }`}
+                              >
+                                <X className="w-4 h-4" />
+                                <span>Cancel</span>
+                              </button>
+                            </div>
+                          )}
                           <button
-                            onClick={handleRedo}
-                            disabled={historyIndex >= editHistory.length - 1}
-                            className={`flex items-center space-x-1 px-3 py-1 rounded text-sm transition-colors duration-300 ${
-                              historyIndex >= editHistory.length - 1
-                                ? isDarkMode
-                                  ? "bg-gray-700 text-gray-600 cursor-not-allowed"
-                                  : "bg-gray-100 text-gray-400 cursor-not-allowed"
-                                : isDarkMode
-                                  ? `bg-orange-800/40 text-orange-200 hover:bg-orange-700/40`
-                                  : `bg-orange-100 text-orange-700 hover:bg-orange-200`
+                            onClick={closePreview}
+                            className={`p-1 rounded transition-colors duration-300 ${
+                              isDarkMode
+                                ? "text-gray-500 hover:text-gray-300 hover:bg-gray-700"
+                                : "text-gray-400 hover:text-gray-600 hover:bg-gray-50"
                             }`}
-                            title="Redo (Ctrl+Shift+Z or Ctrl+Y)"
                           >
-                            <Redo className="w-4 h-4" />
-                            <span>Redo</span>
+                            <X className="w-4 h-4" />
                           </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="p-4">
+                      {/* Video Preview Player */}
+                      {showVideoPreview && videoUrl && (
+                        <VideoPreviewPlayer
+                          videoUrl={videoUrl}
+                          videoRef={videoRef}
+                          parsedSubtitles={parsedSubtitles}
+                          convertedVttContent={convertedVttContent}
+                          previewContent={previewContent}
+                          selectedLocale={selectedLocale}
+                          isDarkMode={isDarkMode}
+                          currentSubtitleIndex={currentSubtitleIndex}
+                          setCurrentSubtitleIndex={setCurrentSubtitleIndex}
+                          accentColors={accentColors}
+                        />
+                      )}
+
+                      {/* Content Display */}
+                      {isEditing ? (
+                        <div className="space-y-3">
+                          {/* Undo/Redo buttons */}
                           <div
-                            className={`text-xs ml-auto transition-colors duration-300 ${
-                              isDarkMode ? "text-gray-400" : "text-gray-500"
+                            className={`flex items-center space-x-2 pb-2 border-b transition-colors duration-300 ${
+                              isDarkMode ? "border-gray-600" : "border-gray-200"
                             }`}
                           >
-                            History: {historyIndex + 1}/{editHistory.length}
+                            <button
+                              onClick={handleUndo}
+                              disabled={historyIndex <= 0}
+                              className={`flex items-center space-x-1 px-3 py-1 rounded text-sm transition-colors duration-300 ${
+                                historyIndex <= 0
+                                  ? isDarkMode
+                                    ? "bg-gray-700 text-gray-600 cursor-not-allowed"
+                                    : "bg-gray-100 text-gray-400 cursor-not-allowed"
+                                  : isDarkMode
+                                    ? "bg-orange-800/40 text-orange-200 hover:bg-orange-700/40"
+                                    : "bg-orange-100 text-orange-700 hover:bg-orange-200"
+                              }`}
+                              title="Undo (Ctrl+Z)"
+                            >
+                              <Undo className="w-4 h-4" />
+                              <span>Undo</span>
+                            </button>
+                            <button
+                              onClick={handleRedo}
+                              disabled={historyIndex >= editHistory.length - 1}
+                              className={`flex items-center space-x-1 px-3 py-1 rounded text-sm transition-colors duration-300 ${
+                                historyIndex >= editHistory.length - 1
+                                  ? isDarkMode
+                                    ? "bg-gray-700 text-gray-600 cursor-not-allowed"
+                                    : "bg-gray-100 text-gray-400 cursor-not-allowed"
+                                  : isDarkMode
+                                    ? "bg-orange-800/40 text-orange-200 hover:bg-orange-700/40"
+                                    : "bg-orange-100 text-orange-700 hover:bg-orange-200"
+                              }`}
+                              title="Redo (Ctrl+Shift+Z or Ctrl+Y)"
+                            >
+                              <Redo className="w-4 h-4" />
+                              <span>Redo</span>
+                            </button>
+                            <div
+                              className={`text-xs ml-auto transition-colors duration-300 ${
+                                isDarkMode ? "text-gray-400" : "text-gray-500"
+                              }`}
+                            >
+                              History: {historyIndex + 1}/{editHistory.length}
+                            </div>
+                          </div>
+
+                          <textarea
+                            ref={editTextareaRef}
+                            value={editedContent}
+                            onChange={(e) => handleTextChange(e.target.value)}
+                            onKeyDown={handleKeyDown}
+                            className={`w-full h-96 p-3 border rounded font-mono text-sm resize-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-colors duration-300 ${
+                              isDarkMode
+                                ? "border-gray-600 bg-gray-800 text-gray-200"
+                                : "border-gray-300 bg-white text-gray-900"
+                            }`}
+                            placeholder="Edit your subtitle content here..."
+                          />
+                          <div
+                            className={`flex justify-between text-xs transition-colors duration-300 ${
+                              isDarkMode ? "text-gray-500" : "text-gray-400"
+                            }`}
+                          >
+                            <span>
+                              Lines: {editedContent.split("\n").length}
+                            </span>
+                            <span>Characters: {editedContent.length}</span>
                           </div>
                         </div>
-
-                        <textarea
-                          ref={editTextareaRef}
-                          value={editedContent}
-                          onChange={(e) => handleTextChange(e.target.value)}
-                          onKeyDown={handleKeyDown}
-                          className={`w-full h-96 p-3 border rounded font-mono text-sm resize-none focus:ring-2 focus:ring-${accentColors?.ring || "orange-500"} focus:border-${accentColors?.border || "orange-500"} transition-colors duration-300 ${
-                            isDarkMode
-                              ? "border-gray-600 bg-gray-800 text-gray-200"
-                              : "border-gray-300 bg-white text-gray-900"
-                          }`}
-                          placeholder="Edit your subtitle content here..."
-                        />
-                        <div
-                          className={`flex justify-between text-xs transition-colors duration-300 ${
-                            isDarkMode ? "text-gray-500" : "text-gray-400"
-                          }`}
-                        >
-                          <span>Lines: {editedContent.split("\n").length}</span>
-                          <span>Characters: {editedContent.length}</span>
+                      ) : (
+                        <div className="max-h-96 overflow-auto">
+                          <pre
+                            className={`text-sm whitespace-pre-wrap font-mono leading-relaxed transition-colors duration-300 ${
+                              isDarkMode ? "text-gray-300" : "text-gray-700"
+                            }`}
+                          >
+                            {previewContent}
+                          </pre>
                         </div>
-                      </div>
-                    ) : (
-                      <div className="max-h-96 overflow-auto">
-                        <pre
-                          className={`text-sm whitespace-pre-wrap font-mono leading-relaxed transition-colors duration-300 ${
-                            isDarkMode ? "text-gray-300" : "text-gray-700"
-                          }`}
-                        >
-                          {previewContent}
-                        </pre>
-                      </div>
-                    )}
-                  </div>
+                      )}
+                    </div>
 
-                  {/* Preview Action Buttons */}
-                  {showPreview && (
+                    {/* Preview Action Buttons */}
                     <div
                       className={`px-4 py-3 border-t rounded-b-lg transition-colors duration-300 ${
                         isDarkMode
@@ -1974,13 +2448,83 @@ const TranscriptionApp = ({
                         </div>
                       </div>
                     </div>
-                  )}
+                  </div>
+                )}
+
+                {/* New Transcription Button */}
+                <div className="pt-4 border-t border-gray-200 dark:border-gray-600">
+                  <button
+                    onClick={resetForm}
+                    className={`w-full py-2 px-4 rounded-lg font-medium transition-colors duration-300 ${
+                      isDarkMode
+                        ? "bg-gray-700 text-gray-200 hover:bg-gray-600 border border-gray-600"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300"
+                    }`}
+                  >
+                    <div className="flex items-center justify-center space-x-2">
+                      <Upload className="w-4 h-4" />
+                      <span>New Transcription</span>
+                    </div>
+                  </button>
                 </div>
-              )}
-            </div>
+              </div>
+            ) : (
+              // No transcription result state
+              <div
+                className={`text-center py-12 transition-colors duration-300 ${
+                  isDarkMode ? "text-gray-400" : "text-gray-500"
+                }`}
+              >
+                <FileText className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                <h3 className="text-lg font-medium mb-2">
+                  No transcription results
+                </h3>
+                <p className="text-sm">
+                  Upload a video file to get started with transcription
+                </p>
+                <button
+                  onClick={() => setActiveTab("upload")}
+                  className={`mt-4 px-6 py-2 rounded-lg font-medium transition-colors duration-300 ${
+                    isDarkMode
+                      ? "bg-gray-700 text-gray-200 hover:bg-gray-600"
+                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  }`}
+                >
+                  Go to Upload
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
+
+      {/* Footer with Reset Option */}
+      {transcriptionResult && (
+        <div className="mt-6 text-center">
+          <button
+            onClick={resetForm}
+            className={`px-4 py-2 text-sm rounded-lg transition-colors duration-300 ${
+              isDarkMode
+                ? "text-gray-400 hover:text-gray-200 hover:bg-gray-800"
+                : "text-gray-600 hover:text-gray-800 hover:bg-gray-100"
+            }`}
+          >
+            Start New Transcription
+          </button>
+          {/* Navigation Warning Modal */}
+          {showNavigationWarning && (
+            <NavigationWarningModal
+              isOpen={showNavigationWarning}
+              onClose={handleNavigationWarningClose}
+              onConfirm={handleNavigationConfirm}
+              isDarkMode={isDarkMode}
+              transcriptionProgress={
+                transcriptionStage || "Processing your transcription..."
+              }
+            />
+          )}
+        </div>
+      )}
     </div>
   );
 };
