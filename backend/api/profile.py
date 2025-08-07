@@ -1,16 +1,24 @@
 import os
 import httpx
+from pydantic import BaseModel
  
 from fastapi import APIRouter, Request, Depends
 from fastapi.responses import JSONResponse
 from typing import Dict
- 
+from passlib.context import CryptContext
 from backend.database.models import SubtitleFile, User
 from backend.database.models import Translation
 from backend.database.models import TranslationProject
 from backend.database.db import SessionLocal
 from sqlalchemy.orm import Session
 from datetime import datetime, timezone
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+# --- Pydantic Models ---
+class PasswordChangeRequest(BaseModel):
+    current_password: str
+    new_password: str
  
 # Environment variables
 AZURE_TRANSLATOR_LANGUAGES = os.getenv("AZURE_TRANSLATOR_LANGUAGES")
@@ -213,3 +221,30 @@ async def update_user_profile(
             status_code=500,
             content={"error": f"Failed to update profile: {str(e)}"}
         )
+@router.put("/profile/change-password")
+async def change_password(
+    request: Request,
+    passwords: PasswordChangeRequest,
+    db: Session = Depends(get_db)
+):
+    """Change user password"""
+    try:
+        session_user = request.session.get("user")
+        if not session_user or not session_user.get("email"):
+            return JSONResponse(status_code=401, content={"error": "User not authenticated"})
+
+        user = db.query(User).filter(User.email == session_user["email"]).first()
+        if not user:
+            return JSONResponse(status_code=404, content={"error": "User not found"})
+
+        if not pwd_context.verify(passwords.current_password, user.password_hash):
+            return JSONResponse(status_code=400, content={"error": "Incorrect current password"})
+
+        user.password_hash = pwd_context.hash(passwords.new_password)
+        db.commit()
+
+        return {"message": "Password updated successfully"}
+
+    except Exception as e:
+        db.rollback()
+        return JSONResponse(status_code=500, content={"error": f"An unexpected error occurred: {e}"})

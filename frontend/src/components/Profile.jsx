@@ -21,6 +21,7 @@ import {
   Settings,
 } from "lucide-react";
 import Projects from "./Projects";
+import ChangePasswordModal from "./ChangePasswordModal";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
@@ -59,6 +60,8 @@ const Profile = ({ isDarkMode, onLogout }) => {
     email: "",
   });
   const [isSaving, setIsSaving] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
 
   // Projects state
   const [projects, setProjects] = useState([]);
@@ -155,6 +158,23 @@ const Profile = ({ isDarkMode, onLogout }) => {
     }
   };
 
+  const handlePasswordChange = async (passwords) => {
+    try {
+      setIsChangingPassword(true);
+      setError(null);
+      await apiCall("/profile/change-password", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(passwords),
+      });
+      setShowPasswordModal(false);
+    } catch (err) {
+      setError(`Password change failed: ${err.message}`);
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
+
   const handleProjectClick = (project) => {
     setViewingProject(project.project_id);
     setShowProjectDetail(true);
@@ -218,6 +238,13 @@ const Profile = ({ isDarkMode, onLogout }) => {
         isDarkMode ? "bg-gray-900" : "bg-gray-50"
       }`}
     >
+      <ChangePasswordModal
+        isOpen={showPasswordModal}
+        onClose={() => setShowPasswordModal(false)}
+        onPasswordChange={handlePasswordChange}
+        isChanging={isChangingPassword}
+        isDarkMode={isDarkMode}
+      />
       <div
         className={`rounded-xl shadow-lg overflow-hidden transition-colors duration-300 ${
           isDarkMode ? "bg-gray-800" : "bg-white"
@@ -679,6 +706,7 @@ const Profile = ({ isDarkMode, onLogout }) => {
                       </p>
                     </div>
                     <button
+                      onClick={() => setShowPasswordModal(true)}
                       className={`px-4 py-2 border rounded-lg transition-colors duration-300 ${
                         isDarkMode
                           ? "border-gray-600 text-gray-300 hover:bg-gray-700"
@@ -686,36 +714,6 @@ const Profile = ({ isDarkMode, onLogout }) => {
                       }`}
                     >
                       Change Password
-                    </button>
-                  </div>
-                </div>
-
-                <div className="border border-gray-200 rounded-lg p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3
-                        className={`font-medium transition-colors duration-300 ${
-                          isDarkMode ? "text-white" : "text-gray-900"
-                        }`}
-                      >
-                        Two-Factor Authentication
-                      </h3>
-                      <p
-                        className={`text-sm transition-colors duration-300 ${
-                          isDarkMode ? "text-gray-400" : "text-gray-500"
-                        }`}
-                      >
-                        Add an extra layer of security to your account
-                      </p>
-                    </div>
-                    <button
-                      className={`px-4 py-2 border rounded-lg transition-colors duration-300 ${
-                        isDarkMode
-                          ? "border-gray-600 text-gray-300 hover:bg-gray-700"
-                          : "border-gray-300 text-gray-700 hover:bg-gray-50"
-                      }`}
-                    >
-                      Enable 2FA
                     </button>
                   </div>
                 </div>
