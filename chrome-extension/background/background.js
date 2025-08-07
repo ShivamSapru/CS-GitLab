@@ -2,21 +2,29 @@
 
 import { CONFIG } from './config.js';
 
-// Azure Translator Service Configuration
+// Azure API Configuration
+const AZURE_TRANSLATOR_ENDPOINT = CONFIG.AZURE_TRANSLATOR_ENDPOINT;
 const AZURE_TRANSLATOR_KEY = CONFIG.AZURE_TRANSLATOR_KEY;
 const AZURE_TRANSLATOR_REGION = CONFIG.AZURE_TRANSLATOR_REGION;
-const AZURE_TRANSLATOR_ENDPOINT = CONFIG.AZURE_TRANSLATOR_ENDPOINT;
 
 // Global variables
 let isCapturing = false;
+let captureTabId = null;
 let currentSettings = {
   targetLanguage: 'en',
-  censorProfanity: true
+  censorProfanity: true,
+  showOriginal: false
 };
 
 // Initialize extension
 chrome.runtime.onInstalled.addListener(() => {
   console.log('Live Subtitle Translator installed');
+  // Initialize settings from storage
+  chrome.storage.sync.get(['subtitleSettings'], (result) => {
+    if (result.subtitleSettings) {
+      currentSettings = { ...currentSettings, ...result.subtitleSettings };
+    }
+  });
 });
 
 // Handle messages from popup and content scripts
@@ -25,7 +33,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   
   switch (message.type) {
     case 'START_CAPTURE':
-      handleStartCapture(message.tabId, sendResponse);
+      handleStartCapture(message.tabId, message.settings, sendResponse);
       return true;
 
     case 'STOP_CAPTURE':
@@ -33,7 +41,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return true;
 
     case 'GET_STATUS':
-      sendResponse({ isCapturing });
+      sendResponse({ 
+        isCapturing: isCapturing,
+        tabId: captureTabId 
+      });
       break;
 
     case 'TRANSLATE_TEXT':
@@ -43,6 +54,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     case 'UPDATE_SETTINGS':
       console.log('Settings updated:', message.settings);
       currentSettings = { ...currentSettings, ...message.settings };
+      // Save settings to storage
+      chrome.storage.sync.set({ subtitleSettings: currentSettings });
       sendResponse({ success: true });
       break;
 
@@ -50,11 +63,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       console.log('Unknown message type:', message.type);
   }
   
-  // Handle action-based messages from platform scrapers
+  // CRITICAL: Only handle caption updates when actively capturing
+  // This prevents automatic processing before user consent
   if (message.action === 'updateCaption') {
-    console.log('Real caption:', message.platform, '-', message.text);
-    handleRealCaptionUpdate(message.text, message.platform, message.author, sendResponse);
-    return true;
+    if (isCapturing && sender.tab && sender.tab.id === captureTabId) {
+      console.log('Processing caption from authorized tab:', message.platform, '-', message.text);
+      handleRealCaptionUpdate(message.text, message.platform, message.author, sendResponse);
+      return true;
+    } else {
+      // Silently ignore captions when not capturing or from wrong tab
+      console.log('Ignoring caption update - not capturing or wrong tab');
+      sendResponse({ status: false, error: 'Not actively capturing from this tab' });
+      return true;
+    }
   }
 });
 
@@ -65,7 +86,8 @@ chrome.runtime.onConnect.addListener(function(port) {
     if (port.name === "youtube-caption-port" || port.name === "teams-caption-port") {
         port.onMessage.addListener(function(message) {
             console.log("Background: Received message on port:", message.action, "from", port.name);
-            if (message.action === 'updateCaption') {
+            // Only process if actively capturing from the correct tab
+            if (message.action === 'updateCaption' && isCapturing) {
                 handleRealCaptionUpdate(message.text, message.platform, message.author, (response) => {
                     console.log("Background: handleRealCaptionUpdate response status:", response?.status);
                 });
@@ -78,15 +100,38 @@ chrome.runtime.onConnect.addListener(function(port) {
 });
 
 // Handle start capture
-async function handleStartCapture(tabId, sendResponse) {
+async function handleStartCapture(tabId, settings, sendResponse) {
   try {
     if (isCapturing) {
       sendResponse({ success: false, error: 'Already capturing captions' });
       return;
     }
 
-    console.log('Starting real caption mode');
+    // Test API connection before starting capture if target language is set
+    if (settings && settings.targetLanguage && settings.targetLanguage !== 'none' && settings.targetLanguage !== 'en') {
+      console.log('Testing Azure API connection before starting capture...');
+      try {
+        await callAzureTranslator('Test connection', settings.targetLanguage, false);
+        console.log('API connection test successful');
+      } catch (apiError) {
+        console.error('API connection test failed:', apiError);
+        sendResponse({ 
+          success: false, 
+          error: `Translation API connection failed: ${apiError.message}. Please check your Azure configuration.` 
+        });
+        return;
+      }
+    }
+
+    console.log('Starting caption capture mode');
     isCapturing = true;
+    captureTabId = tabId;
+    
+    // Update settings if provided
+    if (settings) {
+      currentSettings = { ...currentSettings, ...settings };
+      chrome.storage.sync.set({ subtitleSettings: currentSettings });
+    }
     
     // Get active tab if tabId not provided
     if (!tabId) {
@@ -95,14 +140,19 @@ async function handleStartCapture(tabId, sendResponse) {
         throw new Error('No active tab found');
       }
       tabId = tabs[0].id;
+      captureTabId = tabId;
     }
 
     // Notify content script that capture started
     try {
-      await chrome.tabs.sendMessage(tabId, { type: 'CAPTURE_STARTED' });
-      console.log('Subtitle display activated');
+      await chrome.tabs.sendMessage(tabId, { 
+        type: 'CAPTURE_STARTED',
+        settings: currentSettings
+      });
+      console.log('Caption capture activated on tab:', tabId);
     } catch (e) {
       console.log('Could not notify content script:', e.message);
+      // Don't fail if content script not ready, it will get status on next message
     }
 
     sendResponse({ success: true });
@@ -110,6 +160,7 @@ async function handleStartCapture(tabId, sendResponse) {
   } catch (error) {
     console.error('Failed to start caption mode:', error);
     isCapturing = false;
+    captureTabId = null;
     sendResponse({ 
       success: false, 
       error: error.message || 'Failed to start caption mode'
@@ -122,13 +173,24 @@ async function handleStopCapture(sendResponse) {
   try {
     console.log('Stopping caption capture');
     isCapturing = false;
+    const previousTabId = captureTabId;
+    captureTabId = null;
 
-    // Notify all tabs that capture stopped
+    // Notify specific tab if we know which one was capturing
+    if (previousTabId) {
+      try {
+        await chrome.tabs.sendMessage(previousTabId, { type: 'CAPTURE_STOPPED' });
+        console.log('Notified tab', previousTabId, 'that capture stopped');
+      } catch (e) {
+        console.log('Could not notify previous capture tab:', e.message);
+      }
+    }
+
+    // Also notify all tabs as fallback
     const tabs = await chrome.tabs.query({});
     for (const tab of tabs) {
       try {
         await chrome.tabs.sendMessage(tab.id, { type: 'CAPTURE_STOPPED' });
-        console.log('Notified tab', tab.id, 'that capture stopped');
       } catch (e) {
         // Ignore errors for tabs that can't receive messages
       }
@@ -146,18 +208,23 @@ async function handleStopCapture(sendResponse) {
   }
 }
 
-// Handle real caption updates from platform scrapers
+// Handle real caption updates from platform scrapers (only when capturing)
 async function handleRealCaptionUpdate(text, platform, author, sendResponse) {
   try {
+    if (!isCapturing) {
+      sendResponse({ status: false, error: 'Not currently capturing' });
+      return;
+    }
+
     console.log('Processing real caption:', platform, '-', text);
     
-    if (!text) {
+    if (!text || text.trim().length === 0) {
       sendResponse({ status: false, error: 'No text captured' });
       return;
     }
     
-    // Skip status/detection messages
-    if (text.includes('detected') || text.includes('waiting')) {
+    // Skip status/detection messages to prevent auto-overlay creation
+    if (text.includes('detected') || text.includes('waiting') || text.includes('ready')) {
       sendResponse({ status: true });
       return;
     }
@@ -165,27 +232,40 @@ async function handleRealCaptionUpdate(text, platform, author, sendResponse) {
     // Get translation if needed
     let translatedText = text;
     const captionAuthor = author ? `${author}: ` : "";
-    if (currentSettings.targetLanguage && currentSettings.targetLanguage !== 'none') {
+    
+    if (currentSettings.targetLanguage && currentSettings.targetLanguage !== 'none' && currentSettings.targetLanguage !== 'en') {
+      console.log(`Translating "${text}" to ${currentSettings.targetLanguage}`);
       try {
-        translatedText = captionAuthor + await callAzureTranslator(text, currentSettings.targetLanguage, currentSettings.censorProfanity);
+        const translationResult = await callAzureTranslator(text, currentSettings.targetLanguage, currentSettings.censorProfanity);
+        translatedText = captionAuthor + translationResult;
+        console.log(`Translation successful: "${translationResult}"`);
       } catch (error) {
         console.error('Translation failed:', error);
         translatedText = captionAuthor + text; // Fallback to original
+        
+        // Notify user of translation failure
+        chrome.tabs.sendMessage(captureTabId, {
+          type: 'TRANSLATION_ERROR',
+          error: `Translation failed: ${error.message}`
+        }).catch(() => {});
       }
+    } else {
+      translatedText = captionAuthor + text;
+      console.log('No translation needed - showing original text');
     }
     
-    // Send caption to content script for display
-    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (tabs[0]) {
+    // Send caption to the specific tab that's capturing
+    const targetTabId = captureTabId;
+    if (targetTabId) {
       try {
-        await chrome.tabs.sendMessage(tabs[0].id, {
+        await chrome.tabs.sendMessage(targetTabId, {
           type: 'REAL_CAPTION_UPDATE',
           originalText: captionAuthor + text,
           translatedText: translatedText,
           platform: platform,
           timestamp: Date.now()
         });
-        console.log('Caption sent to content script for display');
+        console.log('Caption sent to content script for display on tab:', targetTabId);
       } catch (e) {
         console.log('Could not send caption to content script:', e.message);
       }
@@ -198,12 +278,12 @@ async function handleRealCaptionUpdate(text, platform, author, sendResponse) {
   }
 }
 
-// Handle text translation using Azure Translator Service
+// Handle text translation
 async function handleTranslateText(text, targetLanguage, sendResponse) {
   try {
-    console.log('Translating with Azure Translator:', text, 'to:', targetLanguage);
+    console.log('Translating with Azure Translator API:', text, 'to:', targetLanguage);
     
-    if (targetLanguage === 'none') {
+    if (targetLanguage === 'none' || targetLanguage === 'en') {
       sendResponse({ success: true, translatedText: text });
       return;
     }
@@ -224,21 +304,32 @@ async function handleTranslateText(text, targetLanguage, sendResponse) {
   }
 }
 
-// Call Azure API Management
+// Call Azure Translator API
 async function callAzureTranslator(text, targetLanguage, censorProfanity) {
   try {
     let url = `${AZURE_TRANSLATOR_ENDPOINT}/translate?api-version=3.0&to=${targetLanguage}`;
     if (censorProfanity) {
-      url += "&profanityAction=Marked"
+      url += "&profanityAction=Marked";
     }
     
+    // Build headers based on available configuration
     const headers = {
       'Content-Type': 'application/json'
     };
     
+    // Add authentication headers if available
+    if (AZURE_TRANSLATOR_KEY && AZURE_TRANSLATOR_KEY.trim()) {
+      headers['Ocp-Apim-Subscription-Key'] = AZURE_TRANSLATOR_KEY;
+    }
+    
+    if (AZURE_TRANSLATOR_REGION && AZURE_TRANSLATOR_REGION.trim()) {
+      headers['Ocp-Apim-Subscription-Region'] = AZURE_TRANSLATOR_REGION;
+    }
+    
     const body = JSON.stringify([{ text: text }]);
     
-    console.log('Calling Azure API Management:', url);
+    console.log('Calling Azure Translator API:', url);
+    console.log('Headers:', Object.keys(headers));
     
     const response = await fetch(url, {
       method: 'POST',
@@ -248,53 +339,44 @@ async function callAzureTranslator(text, targetLanguage, censorProfanity) {
     
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`API Management error: ${response.status} ${response.statusText} - ${errorText}`);
+      console.error('API Response Error:', response.status, response.statusText, errorText);
+      throw new Error(`Azure Translator API error: ${response.status} ${response.statusText} - ${errorText}`);
     }
     
     const result = await response.json();
-    console.log('API Management response:', result);
+    console.log('Azure Translator API response:', result);
     
     if (result && result[0] && result[0].translations && result[0].translations[0]) {
       return result[0].translations[0].text;
     } else {
-      throw new Error('Invalid response format from API Management');
+      console.error('Invalid response format:', result);
+      throw new Error('Invalid response format from Azure Translator API');
     }
     
   } catch (error) {
-    console.error('API Management call failed:', error);
+    console.error('Azure Translator API call failed:', error);
     throw error;
   }
 }
 
-// Generate GUID for Azure API tracking
-function generateGUID() {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-    const r = Math.random() * 16 | 0;
-    const v = c == 'x' ? r : (r & 0x3 | 0x8);
-    return v.toString(16);
-  });
-}
-
-// Handle tab updates
+// Handle tab updates - stop capture if active tab changes
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-  if (changeInfo.status === 'complete' && isCapturing) {
-    // Notify the reloaded tab if capture is active
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      if (tabs[0] && tabs[0].id === tabId) {
-        chrome.tabs.sendMessage(tabId, {
-          type: 'CAPTURE_STATUS',
-          isCapturing: true
-        }).catch(() => {}); // Ignore errors
-      }
-    });
+  if (changeInfo.status === 'complete' && isCapturing && tabId === captureTabId) {
+    // Notify the reloaded tab if it's the one we're capturing
+    chrome.tabs.sendMessage(tabId, {
+      type: 'CAPTURE_STATUS',
+      isCapturing: true,
+      settings: currentSettings
+    }).catch(() => {}); // Ignore errors
   }
 });
 
-// Handle tab removal
+// Handle tab removal - stop capture if the capturing tab is closed
 chrome.tabs.onRemoved.addListener((tabId, removeInfo) => {
-  if (isCapturing) {
-    console.log('Active tab closed, stopping capture');
-    handleStopCapture();
+  if (isCapturing && tabId === captureTabId) {
+    console.log('Active capture tab closed, stopping capture');
+    isCapturing = false;
+    captureTabId = null;
   }
 });
 
@@ -306,6 +388,4 @@ chrome.runtime.onSuspend.addListener(() => {
   }
 });
 
-console.log('Background script loaded');
-// console.log('Azure Translator Key configured:', AZURE_TRANSLATOR_KEY.substring(0, 20) + '...');
-// console.log('Translator Region:', AZURE_TRANSLATOR_REGION);
+console.log('Background script loaded with Azure Translator API support');

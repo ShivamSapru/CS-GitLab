@@ -2,7 +2,7 @@
 
 // DOM elements
 let startBtn, stopBtn, statusDot, statusText;
-let targetLanguageInput, showOriginalCheckbox;
+let targetLanguageInput, showOriginalCheckbox, censorProfanityCheckbox;
 let languageSearch, languageDropdown, searchableSelect;
 let themeToggle, themeIcon;
 
@@ -18,11 +18,14 @@ let currentSettings = {
 // Initialize popup
 document.addEventListener('DOMContentLoaded', function() {
   initializeElements();
-  loadSettings(); // This will call initializeTheme after settings are loaded
+  loadSettings(); // Load saved settings first
   bindEvents();
-  updateStatus();
-  fetchAndPopulateLanguages(currentSettings);
-  initializeSearchableSelect();
+  updateStatus(); // Check current capture status
+  // Wait for settings to load before populating languages
+  setTimeout(() => {
+    fetchAndPopulateLanguages(currentSettings);
+    initializeSearchableSelect();
+  }, 100);
 });
 
 // Initialize DOM elements
@@ -34,6 +37,7 @@ function initializeElements() {
   
   targetLanguageInput = document.getElementById('targetLanguage');
   showOriginalCheckbox = document.getElementById('showOriginal');
+  censorProfanityCheckbox = document.getElementById('censorProfanity');
   
   languageSearch = document.getElementById('languageSearch');
   languageDropdown = document.getElementById('languageDropdown');
@@ -86,35 +90,66 @@ async function fetchAndPopulateLanguages(currentSettings) {
 
     // Clear existing options
     languageDropdown.innerHTML = "";
+    
+    // Add "No Translation" option first
+    const noTranslationDiv = document.createElement("div");
+    noTranslationDiv.className = "language-option";
+    noTranslationDiv.setAttribute("data-value", "none");
+    noTranslationDiv.textContent = "🚫 No Translation";
+    languageDropdown.appendChild(noTranslationDiv);
 
     // Populate new sorted options
     for (const [code, info] of sortedLanguages) {
       const div = document.createElement("div");
       div.className = "language-option";
-      const val = document.createAttribute("data-value");
-      val.value = code;
-      div.setAttributeNode(val);
+      div.setAttribute("data-value", code);
       div.textContent = `${info.name}`;
       languageDropdown.appendChild(div);
     }
 
-    // Optionally, set a default selected language
-    languageDropdown.value = currentSettings.targetLanguage;
+    // CRITICAL FIX: Set the saved language selection without overriding
+    const savedLanguage = currentSettings.targetLanguage;
+    const savedLanguageOption = languageDropdown.querySelector(`[data-value="${savedLanguage}"]`);
+    if (savedLanguageOption) {
+      // Don't call selectLanguage which triggers onSettingChange
+      // Just update the UI to reflect the saved choice
+      languageSearch.value = savedLanguageOption.textContent;
+      languageSearch.setAttribute('data-value', savedLanguage);
+      targetLanguageInput.value = savedLanguage;
+      
+      // Clear previous selection visual state
+      const previousSelected = languageDropdown.querySelector('.language-option.selected');
+      if (previousSelected) {
+        previousSelected.classList.remove('selected');
+        previousSelected.removeAttribute('data-selected');
+      }
+      
+      // Set new selection visual state
+      savedLanguageOption.classList.add('selected');
+      savedLanguageOption.setAttribute('data-selected', 'true');
+    }
+
   } catch (error) {
     console.error("Failed to load language options:", error);
+    // Create a fallback with saved language preserved
+    const savedLanguage = currentSettings.targetLanguage;
+    languageDropdown.innerHTML = `
+      <div class="language-option" data-value="none">🚫 No Translation</div>
+      <div class="language-option" data-value="en">English</div>
+      <div class="language-option" data-value="hi">Hindi</div>
+    `;
+    
+    // Set saved language in fallback
+    const fallbackOption = languageDropdown.querySelector(`[data-value="${savedLanguage}"]`);
+    if (fallbackOption) {
+      languageSearch.value = fallbackOption.textContent;
+      targetLanguageInput.value = savedLanguage;
+    }
   }
 }
 
 // Initialize searchable select functionality
 function initializeSearchableSelect() {
-  // Set initial display text
-  const selectedOption = languageDropdown.querySelector('[data-selected="true"]');
-  if (selectedOption) {
-    languageSearch.value = selectedOption.textContent;
-    languageSearch.setAttribute('data-value', selectedOption.dataset.value);
-    targetLanguageInput.value = selectedOption.dataset.value;
-  }
-  
   // Filter options based on search
   languageSearch.addEventListener('input', function() {
     const searchTerm = this.value.toLowerCase();
@@ -249,6 +284,7 @@ function bindEvents() {
   
   // Settings
   showOriginalCheckbox.addEventListener('change', onSettingChange);
+  censorProfanityCheckbox.addEventListener('change', onSettingChange);
   
   // Theme toggle
   themeToggle.addEventListener('click', toggleTheme);
@@ -278,6 +314,13 @@ async function startCapture() {
     } else {
       updateUI(false, 'error');
       showNotification('Failed to start capture: ' + response.error, 'error');
+      
+      // If it's an API connection error, show additional help
+      if (response.error && response.error.includes('Translation API connection failed')) {
+        setTimeout(() => {
+          showNotification('Check your Azure configuration in config.js', 'warning');
+        }, 3500);
+      }
     }
   } catch (error) {
     console.error('Start capture error:', error);
@@ -340,6 +383,7 @@ function updateUI(capturing, status) {
 function onSettingChange() {
   currentSettings.targetLanguage = targetLanguageInput.value;
   currentSettings.showOriginal = showOriginalCheckbox.checked;
+  currentSettings.censorProfanity = censorProfanityCheckbox.checked;
   
   saveSettings();
   
@@ -367,7 +411,8 @@ function loadSettings() {
       currentSettings = { ...currentSettings, ...result.subtitleSettings };
     }
     
-    updateSettingsUI();
+    // Update UI after settings are loaded but don't trigger save
+    updateSettingsUIWithoutSave();
     initializeTheme();
   });
 }
@@ -379,15 +424,22 @@ function saveSettings() {
   });
 }
 
+// Update settings UI with current values (without triggering save)
+function updateSettingsUIWithoutSave() {
+  if (showOriginalCheckbox) {
+    showOriginalCheckbox.checked = currentSettings.showOriginal;
+  }
+  if (censorProfanityCheckbox) {
+    censorProfanityCheckbox.checked = currentSettings.censorProfanity;
+  }
+  if (targetLanguageInput) {
+    targetLanguageInput.value = currentSettings.targetLanguage;
+  }
+}
+
 // Update settings UI with current values
 function updateSettingsUI() {
-  showOriginalCheckbox.checked = currentSettings.showOriginal;
-  
-  // Update language selection
-  const selectedOption = languageDropdown.querySelector(`[data-value="${currentSettings.targetLanguage}"]`);
-  if (selectedOption) {
-    selectLanguage(selectedOption);
-  }
+  updateSettingsUIWithoutSave();
 }
 
 // Get current tab ID
@@ -429,7 +481,8 @@ function handleBackgroundMessage(message, sender, sendResponse) {
 async function updateStatus() {
   try {
     const response = await sendMessageToBackground({ type: 'GET_STATUS' });
-    updateUI(response.isCapturing, response.isCapturing ? 'active' : 'ready');
+    isCapturing = response.isCapturing || false;
+    updateUI(isCapturing, isCapturing ? 'active' : 'ready');
   } catch (error) {
     console.error('Failed to get status:', error);
   }
