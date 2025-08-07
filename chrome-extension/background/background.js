@@ -4,8 +4,6 @@ import { CONFIG } from './config.js';
 
 // Azure API Configuration
 const AZURE_TRANSLATOR_ENDPOINT = CONFIG.AZURE_TRANSLATOR_ENDPOINT;
-const AZURE_TRANSLATOR_KEY = CONFIG.AZURE_TRANSLATOR_KEY;
-const AZURE_TRANSLATOR_REGION = CONFIG.AZURE_TRANSLATOR_REGION;
 
 // Global variables
 let isCapturing = false;
@@ -18,7 +16,7 @@ let currentSettings = {
 
 // Initialize extension
 chrome.runtime.onInstalled.addListener(() => {
-  console.log('Live Subtitle Translator installed');
+  console.log('SubLingo installed');
   // Initialize settings from storage
   chrome.storage.sync.get(['subtitleSettings'], (result) => {
     if (result.subtitleSettings) {
@@ -29,7 +27,7 @@ chrome.runtime.onInstalled.addListener(() => {
 
 // Handle messages from popup and content scripts
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  console.log('Background: Received message:', message.type || message.action);
+  // console.log('Background: Received message:', message.type || message.action);
   
   switch (message.type) {
     case 'START_CAPTURE':
@@ -60,19 +58,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       break;
 
     default:
-      console.log('Unknown message type:', message.type);
+      // console.log('Unknown message type:', message.type);
   }
   
   // CRITICAL: Only handle caption updates when actively capturing
   // This prevents automatic processing before user consent
   if (message.action === 'updateCaption') {
     if (isCapturing && sender.tab && sender.tab.id === captureTabId) {
-      console.log('Processing caption from authorized tab:', message.platform, '-', message.text);
+      // console.log('Processing caption from authorized tab:', message.platform, '-', message.text);
       handleRealCaptionUpdate(message.text, message.platform, message.author, sendResponse);
       return true;
     } else {
       // Silently ignore captions when not capturing or from wrong tab
-      console.log('Ignoring caption update - not capturing or wrong tab');
+      // console.log('Ignoring caption update - not capturing or wrong tab');
       sendResponse({ status: false, error: 'Not actively capturing from this tab' });
       return true;
     }
@@ -85,11 +83,11 @@ chrome.runtime.onConnect.addListener(function(port) {
 
     if (port.name === "youtube-caption-port" || port.name === "teams-caption-port") {
         port.onMessage.addListener(function(message) {
-            console.log("Background: Received message on port:", message.action, "from", port.name);
+            // console.log("Background: Received message on port:", message.action, "from", port.name);
             // Only process if actively capturing from the correct tab
             if (message.action === 'updateCaption' && isCapturing) {
                 handleRealCaptionUpdate(message.text, message.platform, message.author, (response) => {
-                    console.log("Background: handleRealCaptionUpdate response status:", response?.status);
+                    // console.log("Background: handleRealCaptionUpdate response status:", response?.status);
                 });
             }
         });
@@ -108,7 +106,7 @@ async function handleStartCapture(tabId, settings, sendResponse) {
     }
 
     // Test API connection before starting capture if target language is set
-    if (settings && settings.targetLanguage && settings.targetLanguage !== 'none' && settings.targetLanguage !== 'en') {
+    if (settings && settings.targetLanguage && settings.targetLanguage !== 'none') {
       console.log('Testing Azure API connection before starting capture...');
       try {
         await callAzureTranslator('Test connection', settings.targetLanguage, false);
@@ -216,9 +214,9 @@ async function handleRealCaptionUpdate(text, platform, author, sendResponse) {
       return;
     }
 
-    console.log('Processing real caption:', platform, '-', text);
+    // console.log('Processing real caption:', platform, '-', text);
     
-    if (!text || text.trim().length === 0) {
+    if (!text) {
       sendResponse({ status: false, error: 'No text captured' });
       return;
     }
@@ -233,12 +231,12 @@ async function handleRealCaptionUpdate(text, platform, author, sendResponse) {
     let translatedText = text;
     const captionAuthor = author ? `${author}: ` : "";
     
-    if (currentSettings.targetLanguage && currentSettings.targetLanguage !== 'none' && currentSettings.targetLanguage !== 'en') {
-      console.log(`Translating "${text}" to ${currentSettings.targetLanguage}`);
+    if (currentSettings.targetLanguage && currentSettings.targetLanguage !== 'none') {
+      // console.log(`Translating "${text}" to ${currentSettings.targetLanguage}`);
       try {
         const translationResult = await callAzureTranslator(text, currentSettings.targetLanguage, currentSettings.censorProfanity);
         translatedText = captionAuthor + translationResult;
-        console.log(`Translation successful: "${translationResult}"`);
+        // console.log(`Translation successful: "${translationResult}"`);
       } catch (error) {
         console.error('Translation failed:', error);
         translatedText = captionAuthor + text; // Fallback to original
@@ -251,7 +249,7 @@ async function handleRealCaptionUpdate(text, platform, author, sendResponse) {
       }
     } else {
       translatedText = captionAuthor + text;
-      console.log('No translation needed - showing original text');
+      // console.log('No translation needed - showing original text');
     }
     
     // Send caption to the specific tab that's capturing
@@ -265,9 +263,9 @@ async function handleRealCaptionUpdate(text, platform, author, sendResponse) {
           platform: platform,
           timestamp: Date.now()
         });
-        console.log('Caption sent to content script for display on tab:', targetTabId);
+        // console.log('Caption sent to content script for display on tab:', targetTabId);
       } catch (e) {
-        console.log('Could not send caption to content script:', e.message);
+        console.error('Could not send caption to content script:', e.message);
       }
     }
     
@@ -281,9 +279,9 @@ async function handleRealCaptionUpdate(text, platform, author, sendResponse) {
 // Handle text translation
 async function handleTranslateText(text, targetLanguage, sendResponse) {
   try {
-    console.log('Translating with Azure Translator API:', text, 'to:', targetLanguage);
+    // console.log('Translating with Azure Translator API:', text, 'to:', targetLanguage);
     
-    if (targetLanguage === 'none' || targetLanguage === 'en') {
+    if (targetLanguage === 'none') {
       sendResponse({ success: true, translatedText: text });
       return;
     }
@@ -291,7 +289,7 @@ async function handleTranslateText(text, targetLanguage, sendResponse) {
     // Call Azure Translator API
     const translatedText = await callAzureTranslator(text, targetLanguage, currentSettings.censorProfanity);
     
-    console.log('Azure Translator Result:', translatedText);
+    // console.log('Azure Translator Result:', translatedText);
     sendResponse({ success: true, translatedText });
     
   } catch (error) {
@@ -317,19 +315,10 @@ async function callAzureTranslator(text, targetLanguage, censorProfanity) {
       'Content-Type': 'application/json'
     };
     
-    // Add authentication headers if available
-    if (AZURE_TRANSLATOR_KEY && AZURE_TRANSLATOR_KEY.trim()) {
-      headers['Ocp-Apim-Subscription-Key'] = AZURE_TRANSLATOR_KEY;
-    }
-    
-    if (AZURE_TRANSLATOR_REGION && AZURE_TRANSLATOR_REGION.trim()) {
-      headers['Ocp-Apim-Subscription-Region'] = AZURE_TRANSLATOR_REGION;
-    }
-    
     const body = JSON.stringify([{ text: text }]);
     
-    console.log('Calling Azure Translator API:', url);
-    console.log('Headers:', Object.keys(headers));
+    // console.log('Calling Azure Translator API:', url);
+    // console.log('Headers:', Object.keys(headers));
     
     const response = await fetch(url, {
       method: 'POST',
@@ -344,7 +333,7 @@ async function callAzureTranslator(text, targetLanguage, censorProfanity) {
     }
     
     const result = await response.json();
-    console.log('Azure Translator API response:', result);
+    // console.log('Azure Translator API response:', result);
     
     if (result && result[0] && result[0].translations && result[0].translations[0]) {
       return result[0].translations[0].text;

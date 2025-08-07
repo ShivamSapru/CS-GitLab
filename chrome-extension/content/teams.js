@@ -14,7 +14,7 @@ function initTeamsCaptions() {
   
   // Listen for messages from background script
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    console.log('Teams: Received message:', message.type);
+    // console.log('Teams: Received message:', message.type);
     
     switch (message.type) {
       case 'CAPTURE_STARTED':
@@ -66,7 +66,7 @@ async function sendCaptionUpdate(text, platform, author = null) {
     if (!response?.status) {
       console.log("Teams: Caption update ignored (not capturing or from wrong tab)");
     } else {
-      console.log("Teams: Caption sent successfully:", text);
+      // console.log("Teams: Caption sent successfully:", text);
     }
   } catch (error) {
     console.error("Teams: Failed to send caption update:", error);
@@ -116,7 +116,7 @@ async function startCaptionMonitoring() {
       const captionData = getTeamsCaptions();
 
       if (captionData && captionData.text && captionData.text !== lastCaptionText) {
-        console.log("Teams: New caption detected:", captionData.text, "by", captionData.author);
+        // console.log("Teams: New caption detected:", captionData.text, "by", captionData.author);
         lastCaptionText = captionData.text;
         await sendCaptionUpdate(captionData.text, "Teams", captionData.author);
       }

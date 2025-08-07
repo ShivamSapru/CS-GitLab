@@ -14,7 +14,7 @@ async function initYouTubeCaptions() {
   
   // Listen for messages from background script
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    console.log('YouTube: Received message:', message.type);
+    // console.log('YouTube: Received message:', message.type);
     
     switch (message.type) {
       case 'CAPTURE_STARTED':
@@ -60,13 +60,13 @@ async function startCaptionMonitoring() {
   lastCaption = ''; // Reset caption tracking
 
   // Main caption monitoring loop
-  const POLL_INTERVAL = 300; // Reduced frequency to 300ms for better performance
+  const POLL_INTERVAL = 100; // Reduced frequency to 300ms for better performance
   
   monitoringInterval = setInterval(async () => {
     try {
       const caption = getCurrentCaptions();
-      if (caption && caption !== lastCaption && caption.trim().length > 0) {
-        console.log("YouTube: New caption detected:", caption);
+      if (caption && caption !== lastCaption) {
+        // console.log("YouTube: New caption detected:", caption);
         lastCaption = caption;
         await sendCaptionUpdate(caption, "YouTube");
       }
@@ -111,10 +111,12 @@ function getCurrentCaptions() {
       const text = Array.from(elements)
         .map(el => el.textContent.trim())
         .filter(text => text.length > 0)
-        .join(' ');
+        .join('<br />');
       if (text && text.length > 0) {
         return text;
       }
+    } else {
+        return " ";
     }
   }
   return null;
@@ -133,7 +135,7 @@ async function sendCaptionUpdate(text, platform) {
     if (!response?.status) {
       console.log("YouTube: Caption update ignored (not capturing or from wrong tab)");
     } else {
-      console.log("YouTube: Caption sent successfully");
+      // console.log("YouTube: Caption sent successfully");
     }
   } catch (error) {
     console.error("YouTube: Failed to send caption update:", error);

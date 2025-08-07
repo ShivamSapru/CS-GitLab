@@ -15,7 +15,7 @@ function initZoomCaptions() {
   
   // Listen for messages from background script
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    console.log('Zoom: Received message:', message.type);
+    // console.log('Zoom: Received message:', message.type);
     
     switch (message.type) {
       case 'CAPTURE_STARTED':
@@ -67,7 +67,7 @@ async function sendCaptionUpdate(text, platform, author = null) {
     if (!response?.status) {
       console.log("Zoom: Caption update ignored (not capturing or from wrong tab)");
     } else {
-      console.log("Zoom: Caption sent successfully:", text);
+      // console.log("Zoom: Caption sent successfully:", text);
     }
   } catch (error) {
     console.error("Zoom: Failed to send caption update:", error);
@@ -135,7 +135,7 @@ async function startCaptionMonitoring() {
       const captionData = getZoomCaptions(zoomIframe);
 
       if (captionData && captionData.text && captionData.text !== lastCaptionText) {
-        console.log("Zoom: New caption detected:", captionData.text, "by", captionData.author);
+        // console.log("Zoom: New caption detected:", captionData.text, "by", captionData.author);
         lastCaptionText = captionData.text;
         await sendCaptionUpdate(captionData.text, "Zoom", captionData.author);
       }

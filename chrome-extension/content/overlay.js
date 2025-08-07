@@ -454,14 +454,14 @@ function setupOverlayInteractions(container) {
         opacitySlider.oninput = (e) => {
             currentOpacity = parseFloat(e.target.value) / 100;
             applyOpacity(container, currentOpacity);
-            console.log('Overlay opacity adjusted to:', currentOpacity);
+            // console.log('Overlay opacity adjusted to:', currentOpacity);
         };
     }
 }
 
 // Handle messages from background script
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    console.log('Overlay: Received message:', message.type || message.action);
+    // console.log('Overlay: Received message:', message.type || message.action);
 
     switch (message.type) {
         case 'SETTINGS_UPDATED':
@@ -519,7 +519,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 break;
             }
             
-            console.log('Overlay: Processing caption update:', message.originalText);
+            // console.log('Overlay: Processing caption update:', message.originalText);
 
             let textDiv = document.getElementById('real-caption-text');
             if (!textDiv) {
@@ -544,7 +544,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                     padding: 5px;
                     background: rgba(255,255,255,0.05);
                     border-radius: 4px;
-                    transition: opacity 0.2s ease-in-out;
+                    /* transition: opacity 0.2s ease-in-out; */
                     opacity: 0;
                     text-align: center;
                     justify-content: center;

@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Live Subtitle Translator",
+  "name": "SubLingo",
   "version": "1.0.0",
   "description": "Live translate video captions and subtitles into your preferred language.",
   "permissions": [
