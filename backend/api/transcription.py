@@ -70,34 +70,34 @@ CANDIDATE_LOCALES = list(candidate_locales.keys())
 def get_locales() -> Dict[str, str]:
     return LOCALE_LANGUAGES
 
-@router.get("/transcription-status-check/{project_id}")
-async def check_transcription_status(project_id: str, request: Request, db: Session = Depends(get_db)):
-    """Check if transcription is completed"""
+# @router.get("/transcription-status-check/{project_id}")
+# async def check_transcription_status(project_id: str, request: Request, db: Session = Depends(get_db)):
+#     """Check if transcription is completed"""
 
-    # Check if we have a completion status in memory first
-    if project_id in completed_transcriptions:
-        result = completed_transcriptions[project_id]
-        # Clean up old entries (optional)
-        if (datetime.now(timezone.utc) - result["timestamp"]).total_seconds() > 3600:  # 1 hour
-            del completed_transcriptions[project_id]
-        return result
+#     # Check if we have a completion status in memory first
+#     if project_id in completed_transcriptions:
+#         result = completed_transcriptions[project_id]
+#         # Clean up old entries (optional)
+#         if (datetime.now(timezone.utc) - result["timestamp"]).total_seconds() > 3600:  # 1 hour
+#             del completed_transcriptions[project_id]
+#         return result
 
-    # Check database status
-    user, user_id = get_or_create_user(db, request)
-    project = db.query(TranscriptionProject).filter_by(
-        project_id=project_id,
-        user_id=user_id
-    ).first()
+#     # Check database status
+#     user, user_id = get_or_create_user(db, request)
+#     project = db.query(TranscriptionProject).filter_by(
+#         project_id=project_id,
+#         user_id=user_id
+#     ).first()
 
-    if not project:
-        return {"status": "Not Found", "message": "Project not found"}
+#     if not project:
+#         return {"status": "Not Found", "message": "Project not found"}
 
-    # Return the actual filename from database
-    return {
-        "status": project.status,
-        "message": f"Transcription is {project.status.lower()}",
-        "filename": getattr(project, 'local_filename', None) or getattr(project, 'subtitle_file_url', None)
-    }
+#     # Return the actual filename from database
+#     return {
+#         "status": project.status,
+#         "message": f"Transcription is {project.status.lower()}",
+#         "filename": getattr(project, 'local_filename', None) or getattr(project, 'subtitle_file_url', None)
+#     }
 
 # Convert mono audio, 16kHz WAV
 def convert_to_wav(input_path, output_path):
@@ -267,7 +267,7 @@ def monitor_transcription_job(job_id, project_id, user_id, file_name, output_for
         # Save to Azure for backup
         try:
             blob_service = BlobServiceClient.from_connection_string(AZURE_STORAGE_CONNECTION_STRING)
-            blob_name = os.path.basename(out_path)
+            blob_name = os.path.basename(out_name)
             blob_client = blob_service.get_blob_client(container=AZURE_BLOB_CONTAINER, blob=blob_name)
             with open(out_path, "rb") as data:
                 blob_client.upload_blob(data, overwrite=True)
@@ -278,9 +278,10 @@ def monitor_transcription_job(job_id, project_id, user_id, file_name, output_for
                 blob_name=blob_name,
                 account_key=blob_service.credential.account_key,
                 permission=BlobSasPermissions(read=True),
-                expiry=datetime.now(timezone.utc) + timedelta(hours=24)
+                expiry=datetime.now(timezone.utc) + timedelta(hours=48)
             )
             subtitle_file_url = f"https://{blob_service.account_name}.blob.core.windows.net/{AZURE_BLOB_CONTAINER}/{blob_name}?{sas_token}"
+        
         except Exception as azure_error:
             print(f"Azure upload failed: {azure_error}")
             subtitle_file_url = None
@@ -290,7 +291,7 @@ def monitor_transcription_job(job_id, project_id, user_id, file_name, output_for
         if project:
             project.status = "Completed"
             project.subtitle_file_url = subtitle_file_url
-            project.local_filename = out_name
+            project.filename = out_name
             db.commit()
 
         # Create notification
@@ -374,13 +375,31 @@ async def transcribe_audio_video(
 
         with open(input_path, "wb") as f:
             f.write(await file.read())
+        
+        # Upload to Original file Azure for preview
+        blob_service = BlobServiceClient.from_connection_string(AZURE_STORAGE_CONNECTION_STRING)
+        blob_name = f"input_{uuid.uuid4().hex}_{os.path.basename(input_path)}"
+        blob_client = blob_service.get_blob_client(container=AZURE_BLOB_CONTAINER, blob=blob_name)
+
+        with open(input_path, "rb") as data:
+            blob_client.upload_blob(data, overwrite=True)
+        
+        # Generate SAS token
+        sas_token = generate_blob_sas(
+            account_name=blob_service.account_name,
+            container_name=AZURE_BLOB_CONTAINER,
+            blob_name=blob_name,
+            account_key=blob_service.credential.account_key,
+            permission=BlobSasPermissions(read=True),
+            expiry=datetime.now(timezone.utc) + timedelta(hours=48)
+        )
+        media_url = f"https://{blob_service.account_name}.blob.core.windows.net/{AZURE_BLOB_CONTAINER}/{blob_name}?{sas_token}"
 
         # Convert to WAV
         wav_path = os.path.join(temp_dir, f"{safe_name}_converted_{uuid.uuid4().hex[:8]}.wav")
         convert_to_wav(input_path, wav_path)
 
-        # Upload to Azure for transcription
-        blob_service = BlobServiceClient.from_connection_string(AZURE_STORAGE_CONNECTION_STRING)
+        # Upload to WAV file Azure for transcription
         blob_name = f"input_{uuid.uuid4().hex}_{os.path.basename(wav_path)}"
         blob_client = blob_service.get_blob_client(container=AZURE_BLOB_CONTAINER, blob=blob_name)
 
@@ -394,7 +413,7 @@ async def transcribe_audio_video(
             blob_name=blob_name,
             account_key=blob_service.credential.account_key,
             permission=BlobSasPermissions(read=True),
-            expiry=datetime.now(timezone.utc) + timedelta(hours=2)
+            expiry=datetime.now(timezone.utc) + timedelta(hours=6)
         )
         audio_url = f"https://{blob_service.account_name}.blob.core.windows.net/{AZURE_BLOB_CONTAINER}/{blob_name}?{sas_token}"
 
@@ -402,18 +421,20 @@ async def transcribe_audio_video(
         job_id = create_transcription_job(audio_url, censor_profanity, max_speakers, locale)
 
         # Create database record
-        tag = " and Censored" if censor_profanity else ""
-        file_name = f"{base_name} (Transcribed{tag}).{locale}"
-
         project = TranscriptionProject(
             user_id=user_id,
             status="In Progress",
             created_at=datetime.now(timezone.utc),
             subtitle_file_url=None,
+            media_url=media_url
         )
         db.add(project)
         db.commit()
         db.refresh(project)
+
+        # Initiate background task
+        tag = " and Censored" if censor_profanity else ""
+        file_name = f"{base_name} (Transcribed{tag}).{locale}"
 
         background_tasks.add_task(
             monitor_transcription_job,
@@ -456,16 +477,16 @@ async def download_transcribed_file(
 
         print(f"🔍 Download request for: {filename} by user: {user.email}")
 
-        # Method 1: Try to find exact local file
-        file_path = os.path.join(temp_dir, filename)
-        if os.path.exists(file_path):
-            print(f"✅ Found exact local file: {file_path}")
-            return FileResponse(
-                path=file_path,
-                media_type="application/octet-stream",
-                filename=filename,
-                headers={"Content-Disposition": f"attachment; filename={filename}"}
-            )
+        # # Method 1: Try to find exact local file
+        # file_path = os.path.join(temp_dir, filename)
+        # if os.path.exists(file_path):
+        #     print(f"✅ Found exact local file: {file_path}")
+        #     return FileResponse(
+        #         path=file_path,
+        #         media_type="application/octet-stream",
+        #         filename=filename,
+        #         headers={"Content-Disposition": f"attachment; filename={filename}"}
+        #     )
 
         # Method 2: Find in database by user and match filename pattern
         projects = db.query(TranscriptionProject).filter(
@@ -475,22 +496,22 @@ async def download_transcribed_file(
 
         print(f"🔍 Found {len(projects)} completed projects for user")
 
-        # Try to match by partial filename
-        for project in projects:
-            if hasattr(project, 'local_filename') and project.local_filename:
-                local_path = os.path.join(temp_dir, project.local_filename)
-                if os.path.exists(local_path):
-                    # Check if the requested filename matches the project's file
-                    if (filename in project.local_filename or
-                        project.local_filename in filename or
-                        filename.replace('.srt', '').replace('.vtt', '') in project.local_filename):
-                        print(f"✅ Found matching project file: {local_path}")
-                        return FileResponse(
-                            path=local_path,
-                            media_type="application/octet-stream",
-                            filename=filename,
-                            headers={"Content-Disposition": f"attachment; filename={filename}"}
-                        )
+        # # Try to match by partial filename
+        # for project in projects:
+        #     if hasattr(project, 'local_filename') and project.local_filename:
+        #         local_path = os.path.join(temp_dir, project.local_filename)
+        #         if os.path.exists(local_path):
+        #             # Check if the requested filename matches the project's file
+        #             if (filename in project.local_filename or
+        #                 project.local_filename in filename or
+        #                 filename.replace('.srt', '').replace('.vtt', '') in project.local_filename):
+        #                 print(f"✅ Found matching project file: {local_path}")
+        #                 return FileResponse(
+        #                     path=local_path,
+        #                     media_type="application/octet-stream",
+        #                     filename=filename,
+        #                     headers={"Content-Disposition": f"attachment; filename={filename}"}
+        #                 )
 
         # Method 3: Try Azure URL if available
         for project in projects:
@@ -506,30 +527,30 @@ async def download_transcribed_file(
                             return Response(
                                 content=response.content,
                                 media_type="application/octet-stream",
-                                headers={"Content-Disposition": f"attachment; filename={filename}"}
+                                headers={"Content-Disposition": f"attachment; filename={project.filename}"}
                             )
                 except Exception as e:
                     print(f"⚠️ Azure download failed: {e}")
                     continue
 
-        # Method 4: Fuzzy search in temp directory
-        import glob
-        pattern_searches = [
-            os.path.join(temp_dir, f"*{filename}*"),
-            os.path.join(temp_dir, f"*{filename.split('.')[0]}*"),
-        ]
+        # # Method 4: Fuzzy search in temp directory
+        # import glob
+        # pattern_searches = [
+        #     os.path.join(temp_dir, f"*{filename}*"),
+        #     os.path.join(temp_dir, f"*{filename.split('.')[0]}*"),
+        # ]
 
-        for pattern in pattern_searches:
-            matching_files = glob.glob(pattern)
-            if matching_files:
-                actual_file = matching_files[0]
-                print(f"✅ Found fuzzy match: {actual_file}")
-                return FileResponse(
-                    path=actual_file,
-                    media_type="application/octet-stream",
-                    filename=filename,
-                    headers={"Content-Disposition": f"attachment; filename={filename}"}
-                )
+        # for pattern in pattern_searches:
+        #     matching_files = glob.glob(pattern)
+        #     if matching_files:
+        #         actual_file = matching_files[0]
+        #         print(f"✅ Found fuzzy match: {actual_file}")
+        #         return FileResponse(
+        #             path=actual_file,
+        #             media_type="application/octet-stream",
+        #             filename=filename,
+        #             headers={"Content-Disposition": f"attachment; filename={filename}"}
+        #         )
 
         # Debug: List all files in temp directory
         temp_files = os.listdir(temp_dir) if os.path.exists(temp_dir) else []
@@ -583,10 +604,11 @@ async def get_transcription_status(
 
         if project.status == "Completed":
             # Generate a reasonable filename
-            filename = getattr(project, 'local_filename', f"transcription_{project_id[:8]}.srt")
+            # filename = getattr(project, 'local_filename', f"transcription_{project_id[:8]}.srt")
             response_data.update({
                 "subtitle_file_url": project.subtitle_file_url,
-                "filename": filename
+                "filename": project.filename,
+                "media_url": project.media_url
             })
 
         return response_data
