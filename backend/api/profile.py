@@ -145,7 +145,8 @@ async def get_current_user(request: Request, db: Session = Depends(get_db)):
         return {
             "user_id": str(user.user_id),
             "email": user.email,
-            "display_name": user.display_name,  # Make sure this is display_name, not name
+            "display_name": user.display_name,
+            "photo_url": session_user.get("picture"),
             "role": user.role,
             "credits": user.credits,
             "created_at": user.created_at.isoformat() if user.created_at else None,
@@ -237,6 +238,9 @@ async def change_password(
         if not user:
             return JSONResponse(status_code=404, content={"error": "User not found"})
 
+        if not user.password_hash:
+            return JSONResponse(status_code=400, content={"error": "Password cannot be changed for accounts created with social login."})
+        
         if not pwd_context.verify(passwords.current_password, user.password_hash):
             return JSONResponse(status_code=400, content={"error": "Incorrect current password"})
 
