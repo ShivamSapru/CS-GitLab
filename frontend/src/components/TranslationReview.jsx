@@ -34,9 +34,9 @@ const convertSrtToVttManual = (srtContent) => {
   blocks.forEach((block) => {
     const lines = block.trim().split("\n");
     if (lines.length >= 3) {
-      // Skip the subtitle number (first line)
+      // Skip the subtitle number (first line) - this was the problem!
       const timeLine = lines[1];
-      const textLines = lines.slice(2);
+      const textLines = lines.slice(2); // Get text lines (everything after timestamp)
 
       // Convert SRT timestamp format to VTT format
       // SRT: 00:00:01,000 --> 00:00:04,000
@@ -44,6 +44,8 @@ const convertSrtToVttManual = (srtContent) => {
       if (timeLine && timeLine.includes("-->")) {
         const vttTimeLine = timeLine.replace(/,/g, ".");
         vttContent += vttTimeLine + "\n";
+
+        // FIXED: Only add the text lines, don't include sequence numbers
         vttContent += textLines.join("\n") + "\n\n";
       }
     }
@@ -54,6 +56,66 @@ const convertSrtToVttManual = (srtContent) => {
     vttContent.substring(0, 300),
   );
   return vttContent;
+};
+
+// Also fix the parseVttSubtitles function to handle this properly:
+const parseVttSubtitles = (content) => {
+  console.log("🎯 Parsing VTT content, length:", content.length);
+  const lines = content.split("\n");
+  const subtitles = [];
+  let currentSubtitle = null;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+
+    // Skip WEBVTT header and empty lines
+    if (line === "WEBVTT" || line === "") continue;
+
+    // Skip sequence numbers (lines that are just digits)
+    if (/^\d+$/.test(line)) {
+      continue; // ADDED: Skip number-only lines
+    }
+
+    // Check for timestamp line
+    const timeMatch = line.match(
+      /(\d{1,2}:\d{2}:\d{2}\.\d{3})\s*-->\s*(\d{1,2}:\d{2}:\d{2}\.\d{3})/,
+    );
+
+    if (timeMatch) {
+      // If we have a previous subtitle, save it
+      if (currentSubtitle) {
+        subtitles.push(currentSubtitle);
+      }
+
+      // Start new subtitle
+      try {
+        currentSubtitle = {
+          startTime: parseTimestamp(timeMatch[1]),
+          endTime: parseTimestamp(timeMatch[2]),
+          text: "",
+          originalBlock: line,
+        };
+      } catch (parseError) {
+        console.error("❌ Failed to parse VTT timestamp:", parseError);
+        currentSubtitle = null;
+      }
+    } else if (currentSubtitle && line) {
+      // Add text to current subtitle (skip empty lines and numbers)
+      if (!/^\d+$/.test(line)) {
+        // ADDED: Don't add number-only lines to text
+        currentSubtitle.text += (currentSubtitle.text ? "\n" : "") + line;
+        currentSubtitle.originalBlock += "\n" + line;
+      }
+    }
+  }
+
+  // Don't forget the last subtitle
+  if (currentSubtitle) {
+    subtitles.push(currentSubtitle);
+  }
+
+  console.log("✅ Total parsed VTT subtitles:", subtitles.length);
+  return subtitles;
 };
 
 const VideoPreviewPlayer = ({
@@ -646,32 +708,6 @@ const VideoPreviewPlayer = ({
             </div>
           </div>
         </div>
-
-        {/* Current subtitle display */}
-        {currentSubtitleIndex >= 0 && parsedSubtitles[currentSubtitleIndex] && (
-          <div
-            className={`w-full p-3 border rounded-lg transition-colors duration-300 ${
-              isDarkMode
-                ? "bg-orange-900/30 border-orange-700"
-                : "bg-orange-50 border-orange-200"
-            }`}
-          >
-            <div
-              className={`text-xs font-medium mb-1 transition-colors duration-300 ${
-                isDarkMode ? "text-orange-300" : "text-orange-600"
-              }`}
-            >
-              Currently Playing:
-            </div>
-            <div
-              className={`text-sm transition-colors duration-300 ${
-                isDarkMode ? "text-gray-200" : "text-gray-800"
-              }`}
-            >
-              {parsedSubtitles[currentSubtitleIndex].text}
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
@@ -699,11 +735,6 @@ const TranscriptionApp = ({
   const [showPreview, setShowPreview] = useState(false);
   const [previewContent, setPreviewContent] = useState("");
   const [loadingPreview, setLoadingPreview] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
-  const [editedContent, setEditedContent] = useState("");
-  const [isSaving, setIsSaving] = useState(false);
-  const [editHistory, setEditHistory] = useState([]);
-  const [historyIndex, setHistoryIndex] = useState(-1);
 
   // UI states
   const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
@@ -1007,343 +1038,6 @@ const TranscriptionApp = ({
     }
   };
 
-  // Add this button temporarily in your component for testing
-  <button
-    onClick={() => {
-      console.log("🧪 Testing video setup...");
-      debugVideoSetup();
-    }}
-    className="mb-4 px-4 py-2 bg-purple-500 text-white rounded"
-  >
-    Debug Video Setup
-  </button>;
-
-  <button
-    onClick={debugBackendResponse}
-    className="px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600"
-  >
-    Test Backend Direct
-  </button>;
-
-  const debugMediaUrlDetailed = async () => {
-    console.log("🔍 DETAILED MEDIA URL DEBUG:");
-
-    // 1. Check current state
-    console.log("1. Current transcriptionResult:", transcriptionResult);
-    console.log("2. Project ID:", projectId);
-
-    // 2. Check if we can fetch debug info from backend
-    if (projectId) {
-      try {
-        console.log("3. Fetching debug info from backend...");
-        const debugResponse = await fetch(
-          `${BACKEND_URL}/api/debug-project/${projectId}`,
-          { credentials: "include" },
-        );
-
-        if (debugResponse.ok) {
-          const debugData = await debugResponse.json();
-          console.log("4. Backend debug data:", debugData);
-
-          // Check if media_url exists in database
-          if (debugData.database_data?.media_url) {
-            console.log(
-              "✅ Found media_url in database:",
-              debugData.database_data.media_url,
-            );
-          } else {
-            console.log("❌ No media_url in database");
-          }
-        } else {
-          console.log("❌ Debug endpoint failed:", debugResponse.status);
-        }
-      } catch (error) {
-        console.log("❌ Debug request failed:", error);
-      }
-    }
-
-    // 3. Check status endpoint specifically
-    if (projectId) {
-      try {
-        console.log("5. Testing status endpoint...");
-        const statusResponse = await fetch(
-          `${BACKEND_URL}/api/transcription-status-check/${projectId}`,
-          { credentials: "include" },
-        );
-
-        if (statusResponse.ok) {
-          const statusData = await statusResponse.json();
-          console.log("6. Status endpoint data:", statusData);
-
-          if (statusData.media_url) {
-            console.log(
-              "✅ Status endpoint has media_url:",
-              statusData.media_url,
-            );
-
-            // Test if this URL works
-            try {
-              const testResponse = await fetch(statusData.media_url, {
-                method: "HEAD",
-                credentials: "include",
-              });
-              console.log("7. Media URL test:", {
-                status: testResponse.status,
-                ok: testResponse.ok,
-                contentType: testResponse.headers.get("content-type"),
-              });
-            } catch (testError) {
-              console.log("7. Media URL test failed:", testError);
-            }
-          } else {
-            console.log("❌ Status endpoint missing media_url");
-          }
-        }
-      } catch (error) {
-        console.log("❌ Status request failed:", error);
-      }
-    }
-  };
-
-  // Enhanced preview handler that forces media URL refresh
-  const forceMediaUrlRefresh = async () => {
-    console.log("🔄 Force refreshing media URL...");
-
-    if (!projectId) {
-      console.log("❌ No project ID available");
-      return;
-    }
-
-    try {
-      // Get fresh status from backend
-      const statusResponse = await fetch(
-        `${BACKEND_URL}/api/transcription-status-check/${projectId}`,
-        {
-          credentials: "include",
-          headers: {
-            "Cache-Control": "no-cache",
-          },
-        },
-      );
-
-      if (statusResponse.ok) {
-        const freshData = await statusResponse.json();
-        console.log("📊 Fresh data from backend:", freshData);
-
-        if (freshData.media_url) {
-          console.log("✅ Found media_url, updating state");
-
-          // Update transcription result
-          setTranscriptionResult((prev) => ({
-            ...prev,
-            media_url: freshData.media_url,
-            subtitle_file_url: freshData.subtitle_file_url,
-            filename: freshData.filename,
-          }));
-
-          // Set video URL and show preview
-          setVideoUrl(freshData.media_url);
-          setShowVideoPreview(true);
-
-          console.log("✅ Video preview should now be visible");
-
-          return true;
-        } else {
-          console.log("❌ Still no media_url in fresh data");
-          return false;
-        }
-      } else {
-        console.log("❌ Status request failed:", statusResponse.status);
-        return false;
-      }
-    } catch (error) {
-      console.log("❌ Force refresh failed:", error);
-      return false;
-    }
-  };
-
-  const debugMediaUrl = async () => {
-    console.log("🔍 MEDIA URL DEBUG:");
-
-    // Check current transcription result
-    console.log("1. Current transcriptionResult:", {
-      status: transcriptionResult?.status,
-      media_url: transcriptionResult?.media_url,
-      subtitle_file_url: transcriptionResult?.subtitle_file_url,
-      transcribed_filename: transcriptionResult?.transcribed_filename,
-    });
-
-    // Check if projectId exists
-    console.log("2. Project ID:", projectId);
-
-    // Fetch fresh status from backend
-    if (projectId) {
-      try {
-        const response = await fetch(
-          `${BACKEND_URL}/api/transcription-status-check/${projectId}`,
-          { credentials: "include" },
-        );
-
-        if (response.ok) {
-          const freshData = await response.json();
-          console.log("3. Fresh backend data:", freshData);
-
-          if (freshData.media_url) {
-            console.log("✅ Found media_url in backend:", freshData.media_url);
-
-            // Test if media URL is accessible
-            try {
-              const testResponse = await fetch(freshData.media_url, {
-                method: "HEAD",
-                credentials: "include",
-              });
-              console.log("4. Media URL accessibility test:", {
-                status: testResponse.status,
-                ok: testResponse.ok,
-                contentType: testResponse.headers.get("content-type"),
-              });
-            } catch (testError) {
-              console.log("4. Media URL test failed:", testError.message);
-            }
-          } else {
-            console.log("❌ No media_url in backend response");
-          }
-        } else {
-          console.log("❌ Backend status check failed:", response.status);
-        }
-      } catch (error) {
-        console.log("❌ Backend request failed:", error);
-      }
-    }
-
-    // Check file type
-    console.log("5. File info:", {
-      name: file?.name,
-      type: file?.type,
-      isVideo: file?.type?.startsWith("video/"),
-      isAudio: file?.type?.startsWith("audio/"),
-    });
-  };
-
-  const debugVideoPreview = async () => {
-    console.log("🔍 COMPREHENSIVE VIDEO DEBUG:");
-
-    // 1. Check transcription result
-    console.log("1. Transcription Result:", {
-      hasResult: !!transcriptionResult,
-      status: transcriptionResult?.status,
-      media_url: transcriptionResult?.media_url,
-      subtitle_file_url: transcriptionResult?.subtitle_file_url,
-    });
-
-    // 2. Check current state
-    console.log("2. Current State:", {
-      videoUrl,
-      showVideoPreview,
-      projectId,
-      fileType: file?.type,
-      isVideoFile: file?.type?.startsWith("video/"),
-      isAudioFile: file?.type?.startsWith("audio/"),
-    });
-
-    // 3. Test media URL accessibility
-    if (transcriptionResult?.media_url) {
-      try {
-        console.log("3. Testing media URL accessibility...");
-        const testResponse = await fetch(transcriptionResult.media_url, {
-          method: "HEAD",
-          credentials: "include",
-        });
-        console.log("   Media URL test result:", {
-          status: testResponse.status,
-          ok: testResponse.ok,
-          contentType: testResponse.headers.get("content-type"),
-          contentLength: testResponse.headers.get("content-length"),
-        });
-      } catch (error) {
-        console.log("   Media URL test failed:", error.message);
-      }
-    }
-
-    // 4. Check video element state
-    const video = videoRef.current;
-    if (video) {
-      console.log("4. Video Element State:", {
-        src: video.src,
-        currentSrc: video.currentSrc,
-        readyState: video.readyState,
-        networkState: video.networkState,
-        error: video.error,
-        videoWidth: video.videoWidth,
-        videoHeight: video.videoHeight,
-        duration: video.duration,
-      });
-    } else {
-      console.log("4. Video element not found");
-    }
-
-    // 5. Check if video is in DOM
-    const videoElements = document.querySelectorAll("video");
-    console.log("5. Video elements in DOM:", videoElements.length);
-
-    // 6. Re-fetch project status to get latest media_url
-    if (projectId) {
-      try {
-        const response = await fetch(
-          `${BACKEND_URL}/api/transcription-status-check/${projectId}`,
-          {
-            credentials: "include",
-          },
-        );
-        if (response.ok) {
-          const data = await response.json();
-          console.log("6. Latest project status:", data);
-        }
-      } catch (error) {
-        console.log("6. Status fetch failed:", error);
-      }
-    }
-  };
-
-  // Add this manual video setup function
-  const manualVideoSetup = async () => {
-    console.log("🎬 Manual video setup initiated");
-
-    // Get latest status first
-    if (projectId) {
-      try {
-        const response = await fetch(
-          `${BACKEND_URL}/api/transcription-status-check/${projectId}`,
-          {
-            credentials: "include",
-          },
-        );
-        if (response.ok) {
-          const data = await response.json();
-          console.log("📊 Fresh status data:", data);
-
-          if (data.media_url) {
-            console.log("🎬 Setting video URL manually:", data.media_url);
-            setVideoUrl(data.media_url);
-            setShowVideoPreview(true);
-
-            // Update transcription result
-            setTranscriptionResult((prev) => ({
-              ...prev,
-              media_url: data.media_url,
-            }));
-
-            return;
-          }
-        }
-      } catch (error) {
-        console.error("Failed to get fresh status:", error);
-      }
-    }
-
-    console.log("❌ No media URL available for video setup");
-  };
-
   // Restore state from sessionStorage
   const restoreTranscriptionState = useCallback(() => {
     const savedState = sessionStorage.getItem("transcriptionState");
@@ -1460,14 +1154,6 @@ const TranscriptionApp = ({
       console.error("❌ Backend connection failed:", error);
     }
   };
-
-  // Add this button next to the Refresh button for testing:
-  <button
-    onClick={testBackendConnection}
-    className="mb-4 ml-2 px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
-  >
-    Test Backend
-  </button>;
 
   const checkTranscriptionStatus = async (projectId) => {
     try {
@@ -1631,8 +1317,6 @@ const TranscriptionApp = ({
       setCurrentSubtitleIndex(-1);
       setShowPreview(false);
       setShowVideoPreview(false);
-      setIsEditing(false);
-      setEditedContent("");
       // Check file type
       const allowedTypes = ["audio/", "video/"];
       const isAllowed = allowedTypes.some((type) =>
@@ -1666,12 +1350,6 @@ const TranscriptionApp = ({
     setConvertedVttContent("");
     setParsedSubtitles([]);
     setCurrentSubtitleIndex(-1);
-
-    // Clear editing states
-    setIsEditing(false);
-    setEditedContent("");
-    setEditHistory([]);
-    setHistoryIndex(-1);
 
     // ← SIMPLIFIED: Just clear video URL state, no blob URL cleanup needed
     setVideoUrl(null);
@@ -1770,8 +1448,6 @@ const TranscriptionApp = ({
         // Reset preview state when new transcription is done
         setShowPreview(false);
         setPreviewContent("");
-        setIsEditing(false);
-        setEditedContent("");
       } else {
         setError(data.error || "Transcription failed");
         setIsTranscribing(false);
@@ -1791,16 +1467,7 @@ const TranscriptionApp = ({
 
     console.log("🚀 Processing translation with current content...");
 
-    // Get the most current content
-    let actualContent = "";
-
-    if (isEditing && editedContent) {
-      actualContent = editedContent;
-      console.log("✅ Using edited content for translation");
-    } else if (previewContent) {
-      actualContent = previewContent;
-      console.log("✅ Using preview content for translation");
-    }
+    let actualContent = previewContent;
 
     // If still no content, try one more backend fetch as fallback
     if (!actualContent && projectId) {
@@ -1841,7 +1508,6 @@ const TranscriptionApp = ({
     console.log("✅ Final content validation passed:", {
       length: actualContent.length,
       preview: actualContent.substring(0, 100),
-      source: isEditing ? "edited" : "preview",
     });
 
     const transcriptionFileData = {
@@ -1850,7 +1516,6 @@ const TranscriptionApp = ({
       originalFilename: file.name,
       format: outputFormat,
       projectId: projectId,
-      contentSource: isEditing ? "edited" : "preview",
       timestamp: Date.now(),
     };
 
@@ -1928,42 +1593,6 @@ const TranscriptionApp = ({
     }
   };
 
-  // Also update the downloadEditedFile function:
-  const downloadEditedFile = async () => {
-    try {
-      const content = isEditing
-        ? editedContent
-        : editedContent || previewContent;
-      const blob = new Blob([content], { type: "text/plain" });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-
-      // Generate filename for edited version
-      let filename = "transcription_transcribed_edited_.en-US.srt"; // default
-
-      if (file?.name) {
-        const originalName = file.name.replace(/\.[^/.]+$/, "");
-        const locale = selectedLocale || "en-US";
-        const extension = outputFormat || "srt";
-        filename = `${originalName}_transcribed_edited_.${locale}.${extension}`;
-      }
-
-      // Clean filename
-      filename = filename.replace(/[^a-zA-Z0-9._-]/g, "_");
-
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
-
-      console.log("✅ Edited file downloaded:", filename);
-    } catch (err) {
-      setError(`Download failed: ${err.message}`);
-    }
-  };
-
   const resetForm = () => {
     if (eventSource) {
       eventSource.close();
@@ -1986,10 +1615,6 @@ const TranscriptionApp = ({
     setShowPreview(false);
     setPreviewContent("");
     setConvertedVttContent("");
-    setIsEditing(false);
-    setEditedContent("");
-    setEditHistory([]);
-    setHistoryIndex(-1);
     setIsPolling(false);
     setProjectId(null);
     setIsTranscribing(false);
@@ -2212,10 +1837,6 @@ const TranscriptionApp = ({
     setShowPreview(false);
     setPreviewContent("");
     setConvertedVttContent("");
-    setIsEditing(false);
-    setEditedContent("");
-    setEditHistory([]);
-    setHistoryIndex(-1);
     setShowVideoPreview(false);
     setParsedSubtitles([]);
     setCurrentSubtitleIndex(-1);
@@ -2231,88 +1852,6 @@ const TranscriptionApp = ({
       for (let i = 0; i < video.textTracks.length; i++) {
         video.textTracks[i].mode = "disabled";
       }
-    }
-  };
-
-  const startEditing = () => {
-    setEditedContent(previewContent);
-    setIsEditing(true);
-    initializeEditHistory(previewContent);
-  };
-
-  const cancelEditing = () => {
-    setIsEditing(false);
-    setEditedContent("");
-    setEditHistory([]);
-    setHistoryIndex(-1);
-  };
-
-  const saveEditedFile = async () => {
-    setIsSaving(true);
-    try {
-      setPreviewContent(editedContent);
-      setIsEditing(false);
-      setEditedContent("");
-    } catch (err) {
-      setError(`Save failed: ${err.message}`);
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const initializeEditHistory = (content) => {
-    setEditHistory([content]);
-    setHistoryIndex(0);
-  };
-
-  const addToHistory = (content) => {
-    setEditHistory((prev) => {
-      const newHistory = prev.slice(0, historyIndex + 1);
-      newHistory.push(content);
-      if (newHistory.length > 50) {
-        newHistory.shift();
-        setHistoryIndex(Math.min(historyIndex, newHistory.length - 1));
-        return newHistory;
-      }
-      setHistoryIndex(newHistory.length - 1);
-      return newHistory;
-    });
-  };
-
-  const handleUndo = () => {
-    if (historyIndex > 0) {
-      const newIndex = historyIndex - 1;
-      setHistoryIndex(newIndex);
-      setEditedContent(editHistory[newIndex]);
-    }
-  };
-
-  const handleRedo = () => {
-    if (historyIndex < editHistory.length - 1) {
-      const newIndex = historyIndex + 1;
-      setHistoryIndex(newIndex);
-      setEditedContent(editHistory[newIndex]);
-    }
-  };
-
-  const handleTextChange = (newContent) => {
-    setEditedContent(newContent);
-    clearTimeout(window.editHistoryTimeout);
-    window.editHistoryTimeout = setTimeout(() => {
-      addToHistory(newContent);
-    }, 500);
-  };
-
-  const handleKeyDown = (e) => {
-    if ((e.ctrlKey || e.metaKey) && e.key === "z" && !e.shiftKey) {
-      e.preventDefault();
-      handleUndo();
-    } else if (
-      ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === "Z") ||
-      ((e.ctrlKey || e.metaKey) && e.key === "y")
-    ) {
-      e.preventDefault();
-      handleRedo();
     }
   };
 
@@ -3405,7 +2944,6 @@ const TranscriptionApp = ({
                             hasFreshContent,
                             hasOldPatterns,
                             previewLength: previewContent?.length,
-                            isEditing,
                           });
 
                           // Step 2: Refresh content if needed
@@ -3464,274 +3002,130 @@ const TranscriptionApp = ({
                         <span>Translate Transcription</span>
                       </button>
                     </div>
-                  </>
-                )}
-                {/* Preview Section */}
-                {showPreview && (
-                  <div
-                    ref={previewRef}
-                    className={`rounded-lg border shadow-sm transition-colors duration-300 ${
-                      isDarkMode
-                        ? "bg-gray-800 border-gray-600"
-                        : "bg-white border-gray-200"
-                    }`}
-                  >
-                    <div
-                      className={`px-4 py-3 border-b rounded-t-lg transition-colors duration-300 ${
-                        isDarkMode
-                          ? "bg-gray-700 border-gray-600"
-                          : "bg-gray-50 border-gray-200"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <h4
-                          className={`font-medium flex items-center transition-colors duration-300 ${
-                            isDarkMode ? "text-gray-200" : "text-gray-700"
+
+                    {/* Preview Section */}
+                    {showPreview && (
+                      <div
+                        ref={previewRef}
+                        className={`rounded-lg border shadow-sm transition-colors duration-300 ${
+                          isDarkMode
+                            ? "bg-gray-800 border-gray-600"
+                            : "bg-white border-gray-200"
+                        }`}
+                      >
+                        <div
+                          className={`px-4 py-3 border-b rounded-t-lg transition-colors duration-300 ${
+                            isDarkMode
+                              ? "bg-gray-700 border-gray-600"
+                              : "bg-gray-50 border-gray-200"
                           }`}
                         >
-                          <span
-                            className={`w-3 h-3 rounded-full mr-2 bg-gradient-to-r ${
-                              isDarkMode
-                                ? accentColors?.dark ||
-                                  "from-yellow-600 via-orange-600 to-red-700"
-                                : accentColors?.light ||
-                                  "from-yellow-500 via-orange-500 to-red-500"
-                            }`}
-                          ></span>
-                          Transcribed Content ({selectedLocale}) -{" "}
-                          {outputFormat.toUpperCase()}
-                        </h4>
-                        <div className="flex items-center space-x-2">
-                          {!isEditing ? (
-                            <button
-                              onClick={startEditing}
-                              className="text-sm flex items-center space-x-1 px-2 py-1 rounded transition-colors duration-300 text-orange-600 hover:text-orange-800 hover:bg-orange-50"
+                          <div className="flex items-center justify-between">
+                            <h4
+                              className={`font-medium flex items-center transition-colors duration-300 ${
+                                isDarkMode ? "text-gray-200" : "text-gray-700"
+                              }`}
                             >
-                              <Edit className="w-4 h-4" />
-                              <span>Edit</span>
-                            </button>
-                          ) : (
+                              <span
+                                className={`w-3 h-3 rounded-full mr-2 bg-gradient-to-r ${
+                                  isDarkMode
+                                    ? accentColors?.dark ||
+                                      "from-yellow-600 via-orange-600 to-red-700"
+                                    : accentColors?.light ||
+                                      "from-yellow-500 via-orange-500 to-red-500"
+                                }`}
+                              ></span>
+                              Transcribed Content ({selectedLocale}) -{" "}
+                              {outputFormat.toUpperCase()}
+                            </h4>
                             <div className="flex items-center space-x-2">
                               <button
-                                onClick={saveEditedFile}
-                                disabled={isSaving}
-                                className={`text-sm flex items-center space-x-1 px-2 py-1 rounded transition-colors duration-300 ${
+                                onClick={closePreview}
+                                className={`p-1 rounded transition-colors duration-300 ${
                                   isDarkMode
-                                    ? "text-green-400 hover:text-green-300 hover:bg-green-900/20"
-                                    : "text-green-600 hover:text-green-800 hover:bg-green-50"
-                                }`}
-                              >
-                                <Save className="w-4 h-4" />
-                                <span>{isSaving ? "Saving..." : "Save"}</span>
-                              </button>
-                              <button
-                                onClick={cancelEditing}
-                                disabled={isSaving}
-                                className={`text-sm flex items-center space-x-1 px-2 py-1 rounded transition-colors duration-300 ${
-                                  isDarkMode
-                                    ? "text-gray-400 hover:text-gray-300 hover:bg-gray-700"
-                                    : "text-gray-600 hover:text-gray-800 hover:bg-gray-50"
+                                    ? "text-gray-500 hover:text-gray-300 hover:bg-gray-700"
+                                    : "text-gray-400 hover:text-gray-600 hover:bg-gray-50"
                                 }`}
                               >
                                 <X className="w-4 h-4" />
-                                <span>Cancel</span>
                               </button>
                             </div>
-                          )}
-                          <button
-                            onClick={closePreview}
-                            className={`p-1 rounded transition-colors duration-300 ${
-                              isDarkMode
-                                ? "text-gray-500 hover:text-gray-300 hover:bg-gray-700"
-                                : "text-gray-400 hover:text-gray-600 hover:bg-gray-50"
-                            }`}
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="p-4">
-                      {/* Video Preview Player */}
-                      {showVideoPreview && videoUrl && (
-                        <VideoPreviewPlayer
-                          videoUrl={videoUrl}
-                          videoRef={videoRef}
-                          parsedSubtitles={parsedSubtitles}
-                          convertedVttContent={convertedVttContent}
-                          previewContent={previewContent}
-                          selectedLocale={selectedLocale}
-                          isDarkMode={isDarkMode}
-                          currentSubtitleIndex={currentSubtitleIndex}
-                          setCurrentSubtitleIndex={setCurrentSubtitleIndex}
-                          accentColors={accentColors}
-                          file={file}
-                          showVideoPreview={showVideoPreview}
-                          setVideoUrl={setVideoUrl}
-                          setShowVideoPreview={setShowVideoPreview}
-                          setError={setError}
-                        />
-                      )}
-
-                      {/* Content Display */}
-                      {isEditing ? (
-                        <div className="space-y-3">
-                          {/* Undo/Redo buttons */}
-                          <div
-                            className={`flex items-center space-x-2 pb-2 border-b transition-colors duration-300 ${
-                              isDarkMode ? "border-gray-600" : "border-gray-200"
-                            }`}
-                          >
-                            <button
-                              onClick={handleUndo}
-                              disabled={historyIndex <= 0}
-                              className={`flex items-center space-x-1 px-3 py-1 rounded text-sm transition-colors duration-300 ${
-                                historyIndex <= 0
-                                  ? isDarkMode
-                                    ? "bg-gray-700 text-gray-600 cursor-not-allowed"
-                                    : "bg-gray-100 text-gray-400 cursor-not-allowed"
-                                  : isDarkMode
-                                    ? "bg-orange-800/40 text-orange-200 hover:bg-orange-700/40"
-                                    : "bg-orange-100 text-orange-700 hover:bg-orange-200"
-                              }`}
-                              title="Undo (Ctrl+Z)"
-                            >
-                              <Undo className="w-4 h-4" />
-                              <span>Undo</span>
-                            </button>
-                            <button
-                              onClick={handleRedo}
-                              disabled={historyIndex >= editHistory.length - 1}
-                              className={`flex items-center space-x-1 px-3 py-1 rounded text-sm transition-colors duration-300 ${
-                                historyIndex >= editHistory.length - 1
-                                  ? isDarkMode
-                                    ? "bg-gray-700 text-gray-600 cursor-not-allowed"
-                                    : "bg-gray-100 text-gray-400 cursor-not-allowed"
-                                  : isDarkMode
-                                    ? "bg-orange-800/40 text-orange-200 hover:bg-orange-700/40"
-                                    : "bg-orange-100 text-orange-700 hover:bg-orange-200"
-                              }`}
-                              title="Redo (Ctrl+Shift+Z or Ctrl+Y)"
-                            >
-                              <Redo className="w-4 h-4" />
-                              <span>Redo</span>
-                            </button>
-                            <div
-                              className={`text-xs ml-auto transition-colors duration-300 ${
-                                isDarkMode ? "text-gray-400" : "text-gray-500"
-                              }`}
-                            >
-                              History: {historyIndex + 1}/{editHistory.length}
-                            </div>
-                          </div>
-
-                          <textarea
-                            ref={editTextareaRef}
-                            value={editedContent}
-                            onChange={(e) => handleTextChange(e.target.value)}
-                            onKeyDown={handleKeyDown}
-                            className={`w-full h-96 p-3 border rounded font-mono text-sm resize-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-colors duration-300 ${
-                              isDarkMode
-                                ? "border-gray-600 bg-gray-800 text-gray-200"
-                                : "border-gray-300 bg-white text-gray-900"
-                            }`}
-                            placeholder="Edit your subtitle content here..."
-                          />
-                          <div
-                            className={`flex justify-between text-xs transition-colors duration-300 ${
-                              isDarkMode ? "text-gray-500" : "text-gray-400"
-                            }`}
-                          >
-                            <span>
-                              Lines: {editedContent.split("\n").length}
-                            </span>
-                            <span>Characters: {editedContent.length}</span>
                           </div>
                         </div>
-                      ) : (
-                        <div className="max-h-96 overflow-auto">
-                          <pre
-                            className={`text-sm whitespace-pre-wrap font-mono leading-relaxed transition-colors duration-300 ${
-                              isDarkMode ? "text-gray-300" : "text-gray-700"
-                            }`}
-                          >
-                            {previewContent}
-                          </pre>
-                        </div>
-                      )}
-                    </div>
 
-                    {/* Preview Action Buttons */}
-                    <div
-                      className={`px-4 py-3 border-t rounded-b-lg transition-colors duration-300 ${
-                        isDarkMode
-                          ? "bg-gray-700 border-gray-600"
-                          : "bg-gray-50 border-gray-200"
-                      }`}
-                    >
-                      <div className="flex justify-between items-center">
-                        <div className="flex items-center space-x-2">
-                          {isEditing && (
-                            <div
-                              className={`text-sm px-3 py-1 rounded-full transition-colors duration-300 ${
-                                isDarkMode
-                                  ? "text-orange-300 bg-orange-900/30"
-                                  : "text-orange-600 bg-orange-100"
+                        <div className="p-4">
+                          {/* Video Preview Player */}
+                          {showVideoPreview && videoUrl && (
+                            <VideoPreviewPlayer
+                              videoUrl={videoUrl}
+                              videoRef={videoRef}
+                              parsedSubtitles={parsedSubtitles}
+                              convertedVttContent={convertedVttContent}
+                              previewContent={previewContent}
+                              selectedLocale={selectedLocale}
+                              isDarkMode={isDarkMode}
+                              currentSubtitleIndex={currentSubtitleIndex}
+                              setCurrentSubtitleIndex={setCurrentSubtitleIndex}
+                              accentColors={accentColors}
+                              file={file}
+                              showVideoPreview={showVideoPreview}
+                              setVideoUrl={setVideoUrl}
+                              setShowVideoPreview={setShowVideoPreview}
+                              setError={setError}
+                            />
+                          )}
+
+                          {/* Content Display */}
+                          <div className="max-h-96 overflow-auto">
+                            <pre
+                              className={`text-sm whitespace-pre-wrap font-mono leading-relaxed transition-colors duration-300 ${
+                                isDarkMode ? "text-gray-300" : "text-gray-700"
                               }`}
                             >
-                              Editing Mode
-                            </div>
-                          )}
+                              {previewContent}
+                            </pre>
+                          </div>
                         </div>
-                        <div className="flex space-x-2">
-                          <button
-                            onClick={() => {
-                              if (editedContent || isEditing) {
-                                downloadEditedFile();
-                              } else {
-                                handleDownload();
-                              }
-                            }}
-                            disabled={isEditing}
-                            className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors duration-300 ${
-                              isEditing
-                                ? isDarkMode
-                                  ? "bg-gray-600 text-gray-400 cursor-not-allowed"
-                                  : "bg-gray-300 text-gray-500 cursor-not-allowed"
-                                : "bg-green-500 text-white hover:bg-green-600"
-                            }`}
-                          >
-                            <Download className="w-4 h-4" />
-                            <span>
-                              {isEditing
-                                ? "Finish Editing First"
-                                : editedContent
-                                  ? "Download Edited"
-                                  : "Download Original"}
-                            </span>
-                          </button>
+
+                        {/* Preview Action Buttons */}
+                        <div
+                          className={`px-4 py-3 border-t rounded-b-lg transition-colors duration-300 ${
+                            isDarkMode
+                              ? "bg-gray-700 border-gray-600"
+                              : "bg-gray-50 border-gray-200"
+                          }`}
+                        >
+                          <div className="flex justify-end">
+                            <button
+                              onClick={handleDownload}
+                              className="flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors duration-300 bg-green-500 text-white hover:bg-green-600"
+                            >
+                              <Download className="w-4 h-4" />
+                              <span>Download Original</span>
+                            </button>
+                          </div>
                         </div>
                       </div>
+                    )}
+
+                    {/* New Transcription Button */}
+                    <div className="pt-4 border-t border-gray-200 dark:border-gray-600">
+                      <button
+                        onClick={resetForm}
+                        className={`w-full py-2 px-4 rounded-lg font-medium transition-colors duration-300 ${
+                          isDarkMode
+                            ? "bg-gray-700 text-gray-200 hover:bg-gray-600 border border-gray-600"
+                            : "bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300"
+                        }`}
+                      >
+                        <div className="flex items-center justify-center space-x-2">
+                          <Upload className="w-4 h-4" />
+                          <span>New Transcription</span>
+                        </div>
+                      </button>
                     </div>
-                  </div>
+                  </>
                 )}
-                {/* New Transcription Button */}
-                <div className="pt-4 border-t border-gray-200 dark:border-gray-600">
-                  <button
-                    onClick={resetForm}
-                    className={`w-full py-2 px-4 rounded-lg font-medium transition-colors duration-300 ${
-                      isDarkMode
-                        ? "bg-gray-700 text-gray-200 hover:bg-gray-600 border border-gray-600"
-                        : "bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300"
-                    }`}
-                  >
-                    <div className="flex items-center justify-center space-x-2">
-                      <Upload className="w-4 h-4" />
-                      <span>New Transcription</span>
-                    </div>
-                  </button>
-                </div>
               </div>
             ) : (
               // No transcription result state

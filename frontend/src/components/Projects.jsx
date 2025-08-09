@@ -903,16 +903,42 @@ const Projects = ({
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center space-x-8">
               {displayProject && (
-                <div className="flex items-center space-x-2">
-                  <Calendar className="w-4 h-4 text-gray-500" />
-                  <span
-                    className={`text-sm transition-colors duration-300 ${
-                      isDarkMode ? "text-gray-300" : "text-gray-600"
+                <>
+                  <div className="flex items-center space-x-2">
+                    <Calendar className="w-4 h-4 text-gray-500" />
+                    <span
+                      className={`text-sm transition-colors duration-300 ${
+                        isDarkMode ? "text-gray-300" : "text-gray-600"
+                      }`}
+                    >
+                      Created: {formatDate(displayProject.created_at)}
+                    </span>
+                  </div>
+
+                  {/* Download Original File Button */}
+                  <button
+                    onClick={() => {
+                      // Find the original file from projectFiles
+                      const originalFile = projectFiles.find(
+                        (file) => file.is_original === true,
+                      );
+                      if (originalFile) {
+                        handleDownload(originalFile.filename);
+                      } else {
+                        setError("Original file not found for download");
+                      }
+                    }}
+                    className={`flex items-center space-x-2 text-sm transition-colors duration-300 ${
+                      isDarkMode
+                        ? "text-blue-400 hover:text-blue-300"
+                        : "text-blue-600 hover:text-blue-800"
                     }`}
+                    title="Download Original File"
                   >
-                    Created: {formatDate(displayProject.created_at)}
-                  </span>
-                </div>
+                    <span>Download Original</span>
+                    <Download className="w-4 h-4" />
+                  </button>
+                </>
               )}
             </div>
 

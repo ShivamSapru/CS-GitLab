@@ -852,6 +852,18 @@ const Library = ({ isDarkMode, user, onShowLogin }) => {
                                         : "bg-purple-50 text-purple-700 border border-purple-200"
                                     }`}
                                   >
+                                    {/* Display source language with arrow */}
+                                    {project.source_language && (
+                                      <>
+                                        <span className="font-medium">
+                                          {project.source_language}
+                                        </span>
+                                        <span className="mx-1 opacity-70">
+                                          →
+                                        </span>
+                                      </>
+                                    )}
+                                    {/* Display target languages */}
                                     {project.languages.length > 2
                                       ? `${project.languages.slice(0, 2).join(", ")}...`
                                       : project.languages.join(", ")}

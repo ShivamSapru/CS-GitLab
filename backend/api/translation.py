@@ -820,3 +820,184 @@ async def get_project_file(
             status_code=500,
             content={"error": f"Failed to retrieve file: {str(e)}"}
         )
+
+# Add these endpoints to your backend router
+
+@router.get("/public-projects")
+async def get_public_projects(db: Session = Depends(get_db)):
+    """
+    Get all public projects with language information
+    """
+    try:
+        # Get all public projects
+        projects = db.query(TranslationProject).filter(
+            TranslationProject.is_public == True
+        ).order_by(TranslationProject.created_at.desc()).all()
+
+        projects_data = []
+        for project in projects:
+            # Get the source language from the original file (if it exists)
+            original_file = db.query(SubtitleFile).filter(
+                and_(
+                    SubtitleFile.project_id == project.project_id,
+                    SubtitleFile.is_original == True
+                )
+            ).first()
+
+            # If no original file, get source language from any translated file
+            if not original_file:
+                original_file = db.query(SubtitleFile).filter(
+                    SubtitleFile.project_id == project.project_id
+                ).first()
+
+            source_language = original_file.source_language if original_file else "Unknown"
+
+            # Get all target languages for this project
+            translations = db.query(Translation).filter(
+                Translation.project_id == project.project_id
+            ).all()
+
+            target_languages = []
+            for translation in translations:
+                if translation.target_language and translation.target_language not in target_languages:
+                    # Convert language code to language name
+                    lang_name = LANGUAGE_CODES.get(translation.target_language, translation.target_language)
+                    target_languages.append(lang_name)
+
+            # Get file count
+            file_count = db.query(SubtitleFile).filter(
+                and_(
+                    SubtitleFile.project_id == project.project_id,
+                    SubtitleFile.is_original == False  # Only count translated files
+                )
+            ).count()
+
+            # Get owner info
+            owner = db.query(User).filter(User.user_id == project.user_id).first()
+            owner_name = owner.display_name if owner and owner.display_name else "Unknown"
+
+            projects_data.append({
+                "project_id": str(project.project_id),
+                "project_name": project.project_name,
+                "description": project.description,
+                "is_public": project.is_public,
+                "created_at": project.created_at.isoformat(),
+                "updated_at": project.updated_at.isoformat(),
+                "source_language": LANGUAGE_CODES.get(source_language, source_language),  # Convert to language name
+                "languages": target_languages,  # Target languages as names
+                "files_count": file_count,
+                "translations_count": len(target_languages),
+                "is_own_project": False,  # For public view, these are not user's projects
+                "owner_name": owner_name
+            })
+
+        return {"projects": projects_data}
+
+    except Exception as e:
+        print(f"Error in get_public_projects: {e}")
+        return JSONResponse(
+            status_code=500,
+            content={"error": f"Failed to retrieve public projects: {str(e)}"}
+        )
+
+
+@router.get("/all-projects")
+async def get_all_projects(
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """
+    Get all projects accessible to the authenticated user (public + their own)
+    """
+    try:
+        # Check authentication
+        session_user = request.session.get("user")
+        if not session_user or not session_user.get("email"):
+            return JSONResponse(status_code=401, content={"error": "User not authenticated"})
+
+        user = db.query(User).filter(User.email == session_user["email"]).first()
+        if not user:
+            return JSONResponse(status_code=404, content={"error": "User not found"})
+
+        # Get all public projects AND user's own projects
+        projects = db.query(TranslationProject).filter(
+            or_(
+                TranslationProject.is_public == True,
+                TranslationProject.user_id == user.user_id
+            )
+        ).order_by(TranslationProject.created_at.desc()).all()
+
+        projects_data = []
+        for project in projects:
+            # Get the source language from the original file (if it exists)
+            original_file = db.query(SubtitleFile).filter(
+                and_(
+                    SubtitleFile.project_id == project.project_id,
+                    SubtitleFile.is_original == True
+                )
+            ).first()
+
+            # If no original file, get source language from any translated file
+            if not original_file:
+                original_file = db.query(SubtitleFile).filter(
+                    SubtitleFile.project_id == project.project_id
+                ).first()
+
+            source_language = original_file.source_language if original_file else "Unknown"
+
+            # Get all target languages for this project
+            translations = db.query(Translation).filter(
+                Translation.project_id == project.project_id
+            ).all()
+
+            target_languages = []
+            for translation in translations:
+                if translation.target_language and translation.target_language not in target_languages:
+                    # Convert language code to language name
+                    lang_name = LANGUAGE_CODES.get(translation.target_language, translation.target_language)
+                    target_languages.append(lang_name)
+
+            # Get file count
+            file_count = db.query(SubtitleFile).filter(
+                and_(
+                    SubtitleFile.project_id == project.project_id,
+                    SubtitleFile.is_original == False  # Only count translated files
+                )
+            ).count()
+
+            # Determine if this is user's own project
+            is_own_project = project.user_id == user.user_id
+
+            # Get owner info (only if not user's own project)
+            owner_name = None
+            if not is_own_project:
+                owner = db.query(User).filter(User.user_id == project.user_id).first()
+                owner_name = owner.display_name if owner and owner.display_name else "Unknown"
+
+            projects_data.append({
+                "project_id": str(project.project_id),
+                "project_name": project.project_name,
+                "description": project.description,
+                "is_public": project.is_public,
+                "created_at": project.created_at.isoformat(),
+                "updated_at": project.updated_at.isoformat(),
+                "source_language": LANGUAGE_CODES.get(source_language, source_language),  # Convert to language name
+                "languages": target_languages,  # Target languages as names
+                "files_count": file_count,
+                "translations_count": len(target_languages),
+                "is_own_project": is_own_project,
+                "owner_name": owner_name
+            })
+
+        return {"projects": projects_data}
+
+    except Exception as e:
+        print(f"Error in get_all_projects: {e}")
+        return JSONResponse(
+            status_code=500,
+            content={"error": f"Failed to retrieve projects: {str(e)}"}
+        )
+
+
+# Don't forget to add the missing import at the top of your file:
+from sqlalchemy import or_

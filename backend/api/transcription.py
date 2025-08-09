@@ -115,7 +115,11 @@ def convert_to_wav(input_path, output_path):
 
 # Format output to SRT/VTT
 def convert_to_srt(segments, output_format):
-    srt_output = "WEBVTT\n\n" if output_format == "vtt" else ""
+    """Convert Azure transcription segments to SRT/VTT format - FIXED"""
+    if output_format == "vtt":
+        srt_output = "WEBVTT\n\n"
+    else:
+        srt_output = ""
 
     for i, seg in enumerate(segments, 1):
         start_sec = seg.get('offsetInTicks', 0) / 1e7
@@ -125,11 +129,15 @@ def convert_to_srt(segments, output_format):
         end = str(timedelta(seconds=end_sec))[:11]
 
         if output_format == "srt":
+            # SRT format with sequence numbers
             start = start.replace('.', ',')
             end = end.replace('.', ',')
-
-        text = seg.get("nBest", [{}])[0].get("display", "")
-        srt_output += f"{i}\n{start} --> {end}\n{text}\n\n"
+            text = seg.get("nBest", [{}])[0].get("display", "")
+            srt_output += f"{i}\n{start} --> {end}\n{text}\n\n"
+        else:
+            # VTT format - NO sequence numbers in the output
+            text = seg.get("nBest", [{}])[0].get("display", "")
+            srt_output += f"{start} --> {end}\n{text}\n\n"
 
     return srt_output
 

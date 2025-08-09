@@ -570,9 +570,18 @@ const StaticSubtitleUpload = ({
             }
 
             console.log("📝 Using transcription content for translation");
+            console.log("🔍 Original filename:", transcriptionFile.filename);
+            console.log("🔍 Original format:", transcriptionFile.format);
+
+            // FIXED: Use the actual filename and format from transcription
+            const actualFilename =
+              transcriptionFile.filename ||
+              `transcription.${transcriptionFile.format || "srt"}`;
+
+            console.log("✅ Using actual filename:", actualFilename);
+
             const blob = new Blob([fileContent], { type: "text/plain" });
-            const file = new File([blob], "transcription.srt", {
-              // Simple fixed filename
+            const file = new File([blob], actualFilename, {
               type: "text/plain",
             });
             formData.append("file", file);
@@ -727,22 +736,35 @@ const StaticSubtitleUpload = ({
   const handleAutoSaveQuick = async () => {
     setShowAutoSaveModal(false);
 
-    const autoProjectName =
-      uploadedFile?.name.replace(/\.[^/.]+$/, "") || "Untitled Project";
-    const timestamp = new Date()
-      .toISOString()
-      .slice(0, 19)
-      .replace(/[:-]/g, "");
-    const uniqueProjectName = `${autoProjectName}_${timestamp}`;
+    // Get the original source name
+    let baseProjectName;
+
+    if (fromTranscription && transcriptionFile?.originalFilename) {
+      // For transcriptions: use original media file name
+      baseProjectName = transcriptionFile.originalFilename.replace(
+        /\.[^/.]+$/,
+        "",
+      );
+    } else if (uploadedFile?.name) {
+      // For direct uploads: use subtitle file name
+      baseProjectName = uploadedFile.name.replace(/\.[^/.]+$/, "");
+    } else {
+      baseProjectName = "Subtitle Translation";
+    }
+
+    // Simple format: "originalname_en_es_fr"
+    const languageCodes = targetLanguages.join("_");
+    const uniqueProjectName = `${baseProjectName}_${languageCodes}`;
 
     const projectData = {
       project_name: uniqueProjectName,
-      description: `Auto-saved project from translation of ${uploadedFile?.name} at ${new Date().toLocaleString()}`,
+      description: `Translated to ${targetLanguages.length} language${targetLanguages.length > 1 ? "s" : ""}: ${targetLanguages.join(", ")}.`,
       filenames: translatedFiles.map((file) => file.filename),
-      original_filename: uploadedFile?.name || "",
+      original_filename: fromTranscription
+        ? transcriptionFile?.originalFilename
+        : uploadedFile?.name || "",
       target_languages: targetLanguages,
       is_public: false,
-      // Use translationData state instead of mapping from translatedFiles
       original_file_path: translationData.originalFilePath,
       translated_file_path: translationData.translatedFilePaths,
       source_language: translationData.sourceLanguage,
