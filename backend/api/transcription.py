@@ -252,8 +252,8 @@ def get_or_create_user(db: Session, request: Request = None):
 
     return user, user_id
 
-def monitor_transcription_job(job_id, project_id, user_id, file_name, output_format):
-    """Background task to monitor transcription - simplified approach"""
+def monitor_transcription_job(job_id, project_id, user_id, file_name, output_format, locale="en-US"):
+    """Background task to monitor transcription with custom filename format"""
     try:
         print(f"🚀 Starting monitoring for project {project_id}")
 
@@ -266,35 +266,47 @@ def monitor_transcription_job(job_id, project_id, user_id, file_name, output_for
         # Generate subtitle file content
         subtitle_content = convert_to_srt(phrases, output_format)
 
-        # Save to local file
+        # UPDATED: Create filename in new format: filename_transcribed_.locale.extension
+        import uuid
+        unique_suffix = uuid.uuid4().hex[:8]
+
+        # Clean the original filename and remove any extensions
         safe_name = re.sub(r'[^\w\-_.]', '_', file_name)
-        out_name = f"{safe_name}.{output_format}"
+        # Remove common video/audio extensions to get base name
+        base_name = re.sub(r'\.(mp4|mov|avi|mkv|webm|mp3|wav|m4a|flac)$', '', safe_name, flags=re.IGNORECASE)
+
+        # Create the new filename format: basename_transcribed_.locale.extension
+        out_name = f"{base_name}_transcribed_.{locale}.{output_format}"
         out_path = os.path.join(temp_dir, out_name)
+
+        print(f"💾 Saving subtitle file: {out_name}")
 
         with open(out_path, "w", encoding="utf-8") as f:
             f.write(subtitle_content)
 
-        # Save to Azure for backup
+        # Save to Azure for backup with organized structure
         try:
             blob_service = BlobServiceClient.from_connection_string(AZURE_STORAGE_CONNECTION_STRING)
-            blob_name = os.path.basename(out_name)
+            # UPDATED: Use organized blob name
+            blob_name = f"subtitles/{project_id}_{out_name}"
             blob_client = blob_service.get_blob_client(container=AZURE_BLOB_CONTAINER, blob=blob_name)
             with open(out_path, "rb") as data:
                 blob_client.upload_blob(data, overwrite=True)
 
+            # UPDATED: Longer expiry for production use
             sas_token = generate_blob_sas(
                 account_name=blob_service.account_name,
                 container_name=AZURE_BLOB_CONTAINER,
                 blob_name=blob_name,
                 account_key=blob_service.credential.account_key,
                 permission=BlobSasPermissions(read=True),
-                expiry=datetime.now(timezone.utc) + timedelta(hours=48)
+                expiry=datetime.now(timezone.utc) + timedelta(days=7)  # 7 days instead of 48 hours
             )
             subtitle_file_url = f"https://{blob_service.account_name}.blob.core.windows.net/{AZURE_BLOB_CONTAINER}/{blob_name}?{sas_token}"
-
+            print(f"✅ Azure backup saved: {blob_name}")
 
         except Exception as azure_error:
-            print(f"Azure upload failed: {azure_error}")
+            print(f"⚠️ Azure upload failed (continuing anyway): {azure_error}")
             subtitle_file_url = None
 
         # Update database
@@ -302,30 +314,34 @@ def monitor_transcription_job(job_id, project_id, user_id, file_name, output_for
         if project:
             project.status = "Completed"
             project.subtitle_file_url = subtitle_file_url
-            project.filename = out_name
+            project.filename = out_name  # UPDATED: Store the new filename format
+            project.updated_at = datetime.now(timezone.utc)  # Add timestamp
             db.commit()
+            print(f"✅ Database updated with filename: {out_name}")
 
-        # Create notification
+        # UPDATED: Better notification message
         notif = Notification(
             creation_time=datetime.now(timezone.utc),
             user_id=user_id,
             project_id=project_id,
             project_status="Completed",
-            message="Your transcription is ready.",
+            message=f"Transcription completed: {base_name} ({locale})",
             is_read=False
         )
         db.add(notif)
         db.commit()
 
-        # Store completion status for polling
+        # UPDATED: Store completion status with all necessary info
         completed_transcriptions[project_id] = {
             "status": "Completed",
             "message": "Transcription completed successfully!",
             "filename": out_name,
+            "media_url": f"http://localhost:8000/api/proxy-media/{project_id}",  # Include proxy URL
+            "subtitle_file_url": subtitle_file_url,
             "timestamp": datetime.now(timezone.utc)
         }
 
-        print(f"✅ Transcription completed successfully: {out_path}")
+        print(f"🎉 Transcription completed successfully: {out_name}")
         db.close()
 
     except Exception as e:
@@ -340,23 +356,30 @@ def monitor_transcription_job(job_id, project_id, user_id, file_name, output_for
             "timestamp": datetime.now(timezone.utc)
         }
 
+        # Update database with error
         db = SessionLocal()
-        project = db.query(TranscriptionProject).filter_by(project_id=project_id).first()
-        if project:
-            project.status = "Failed"
-            db.commit()
+        try:
+            project = db.query(TranscriptionProject).filter_by(project_id=project_id).first()
+            if project:
+                project.status = "Failed"
+                project.updated_at = datetime.now(timezone.utc)
+                db.commit()
 
-        notif = Notification(
-            creation_time=datetime.now(timezone.utc),
-            user_id=user_id,
-            project_id=project_id,
-            project_status="Failed",
-            message=f"Transcription failed: {str(e)}",
-            is_read=False
-        )
-        db.add(notif)
-        db.commit()
-        db.close()
+            # Create failure notification
+            notif = Notification(
+                creation_time=datetime.now(timezone.utc),
+                user_id=user_id,
+                project_id=project_id,
+                project_status="Failed",
+                message=f"Transcription failed: {str(e)}",
+                is_read=False
+            )
+            db.add(notif)
+            db.commit()
+        except Exception as db_error:
+            print(f"❌ Failed to update database with error: {db_error}")
+        finally:
+            db.close()
 
 # MAIN TRANSCRIPTION ENDPOINT - Simplified hybrid approach
 # Fixed version of your transcription endpoint with proper error handling
@@ -628,8 +651,9 @@ async def transcribe_audio_video(
                 job_id,
                 project.project_id,
                 user_id,
-                file_name,
-                output_format
+                file.filename,
+                output_format,
+                locale
             )
             print(f"✅ Background task scheduled")
 
@@ -753,17 +777,15 @@ async def health_check():
 
 # Download endpoint - handles both local and Azure files
 @router.get("/download-transcription/{project_id}")
-async def download_transcription_with_proper_filename(
+async def download_transcription_custom_filename(
     project_id: str,
     request: Request,
     db: Session = Depends(get_db)
 ):
-    """Download transcription with proper filename"""
+    """Download transcription with custom filename format"""
     try:
-        user, user_id = get_or_create_user(db, request)
         print(f"🔍 Download request for project: {project_id}")
 
-        # Get project (without user filter for now since we removed it)
         project = db.query(TranscriptionProject).filter_by(project_id=project_id).first()
 
         if not project:
@@ -772,28 +794,34 @@ async def download_transcription_with_proper_filename(
                 content={"error": "Project not found"}
             )
 
-        print(f"✅ Found project: {project.status}")
-
-        # Try Azure URL first if available
+        # Try Azure URL first
         if hasattr(project, 'subtitle_file_url') and project.subtitle_file_url:
             try:
-                print(f"⬇️ Downloading from Azure")
                 import httpx
                 async with httpx.AsyncClient(timeout=30.0) as client:
                     response = await client.get(project.subtitle_file_url)
                     if response.status_code == 200:
                         print("✅ Azure download successful")
 
-                        # Generate proper filename
-                        filename = "transcription.srt"  # default
+                        # Generate custom filename format: filename_transcribed_.locale.extension
+                        filename = "transcription_transcribed_.en-US.srt"  # default
 
                         if hasattr(project, 'filename') and project.filename:
-                            # Use stored filename if it's not a URL
-                            if not project.filename.startswith('http'):
-                                filename = project.filename
+                            stored_filename = project.filename
+
+                            # If it's not a URL, try to extract components
+                            if not stored_filename.startswith('http'):
+                                # Try to parse existing filename pattern
+                                # Example: "video_transcribed_.en-US.srt" or "video__Transcribed_.en-US.srt"
+                                if '_transcribed_' in stored_filename or '__Transcribed_' in stored_filename:
+                                    filename = stored_filename
+                                else:
+                                    # Create new format from stored filename
+                                    base_name = stored_filename.replace('.srt', '').replace('.vtt', '')
+                                    filename = f"{base_name}_transcribed_.en-US.srt"
                             else:
-                                # Extract meaningful name from URL or use project ID
-                                filename = f"transcription_{project_id[:8]}.srt"
+                                # Fallback for URL-based filenames
+                                filename = f"transcription_{project_id[:8]}_transcribed_.en-US.srt"
 
                         # Clean filename
                         import re
@@ -819,13 +847,15 @@ async def download_transcription_with_proper_filename(
             actual_file = project_files[0]
             original_filename = os.path.basename(actual_file)
 
-            # Generate better filename
-            if original_filename.endswith('.srt') or original_filename.endswith('.vtt'):
+            # Generate custom filename format
+            if '_transcribed_' in original_filename or '__Transcribed_' in original_filename:
                 filename = original_filename
             else:
-                filename = f"transcription_{project_id[:8]}.srt"
+                # Create new format
+                base_name = original_filename.replace('.srt', '').replace('.vtt', '')
+                filename = f"{base_name}_transcribed_.en-US.srt"
 
-            print(f"✅ Using local file: {actual_file}")
+            print(f"✅ Using local file with custom filename: {filename}")
             return FileResponse(
                 path=actual_file,
                 media_type="text/plain",
@@ -840,12 +870,11 @@ async def download_transcription_with_proper_filename(
 
     except Exception as e:
         print(f"❌ Download error: {str(e)}")
-        import traceback
-        traceback.print_exc()
         return JSONResponse(
             status_code=500,
             content={"error": f"Download failed: {str(e)}"}
         )
+
 
 
 

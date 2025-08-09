@@ -17,6 +17,7 @@ import {
   Eye,
   Filter,
   Palette,
+  AlertCircle,
 } from "lucide-react";
 
 const ChromeExtensionPage = ({ isDarkMode = false }) => {
@@ -295,7 +296,7 @@ const ChromeExtensionPage = ({ isDarkMode = false }) => {
     },
     support: {
       title: "Help & Info",
-      icon: Settings,
+      icon: AlertCircle,
       content: (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>

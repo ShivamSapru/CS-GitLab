@@ -1868,7 +1868,6 @@ const TranscriptionApp = ({
     try {
       console.log("⬇️ Starting download for project:", projectId);
 
-      // Use the transcription download endpoint
       const response = await fetch(
         `${BACKEND_URL}/api/download-transcription/${projectId}`,
         {
@@ -1885,28 +1884,30 @@ const TranscriptionApp = ({
         const a = document.createElement("a");
         a.href = url;
 
-        // Generate proper filename from original file name
-        let filename = "transcription.srt"; // default fallback
+        // Generate filename in format: filename_transcribed_.en-US.srt
+        let filename = "transcription_transcribed_.en-US.srt"; // default fallback
 
-        // Try to get original filename and create a proper download name
         if (file?.name) {
-          // Remove extension from original file and add transcript suffix
-          const originalName = file.name.replace(/\.[^/.]+$/, ""); // Remove extension
+          // Remove extension from original file
+          const originalName = file.name.replace(/\.[^/.]+$/, "");
+          const locale = selectedLocale || "en-US";
           const extension = outputFormat || "srt";
-          filename = `${originalName}_transcript.${extension}`;
+
+          // Create the custom format: filename_transcribed_.locale.extension
+          filename = `${originalName}_transcribed_.${locale}.${extension}`;
         } else if (
           transcriptionResult?.filename &&
           !transcriptionResult.filename.includes("http")
         ) {
-          // Use the filename from transcription result if it's not a URL
           filename = transcriptionResult.filename;
         } else {
-          // Fallback: create filename from project ID
+          // Fallback with locale
+          const locale = selectedLocale || "en-US";
           const extension = outputFormat || "srt";
-          filename = `transcription_${projectId.slice(0, 8)}.${extension}`;
+          filename = `transcription_${projectId.slice(0, 8)}_transcribed_.${locale}.${extension}`;
         }
 
-        // Clean filename to remove any invalid characters
+        // Clean filename to remove any invalid characters but keep dots and hyphens
         filename = filename.replace(/[^a-zA-Z0-9._-]/g, "_");
 
         a.download = filename;
@@ -1924,6 +1925,42 @@ const TranscriptionApp = ({
     } catch (err) {
       console.error("❌ Download error:", err);
       setError(`Download error occurred: ${err.message}`);
+    }
+  };
+
+  // Also update the downloadEditedFile function:
+  const downloadEditedFile = async () => {
+    try {
+      const content = isEditing
+        ? editedContent
+        : editedContent || previewContent;
+      const blob = new Blob([content], { type: "text/plain" });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+
+      // Generate filename for edited version
+      let filename = "transcription_transcribed_edited_.en-US.srt"; // default
+
+      if (file?.name) {
+        const originalName = file.name.replace(/\.[^/.]+$/, "");
+        const locale = selectedLocale || "en-US";
+        const extension = outputFormat || "srt";
+        filename = `${originalName}_transcribed_edited_.${locale}.${extension}`;
+      }
+
+      // Clean filename
+      filename = filename.replace(/[^a-zA-Z0-9._-]/g, "_");
+
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+
+      console.log("✅ Edited file downloaded:", filename);
+    } catch (err) {
+      setError(`Download failed: ${err.message}`);
     }
   };
 
@@ -2220,40 +2257,6 @@ const TranscriptionApp = ({
       setError(`Save failed: ${err.message}`);
     } finally {
       setIsSaving(false);
-    }
-  };
-
-  const downloadEditedFile = async () => {
-    try {
-      const content = isEditing
-        ? editedContent
-        : editedContent || previewContent;
-      const blob = new Blob([content], { type: "text/plain" });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-
-      // Generate proper filename for edited version
-      let filename = "transcription_edited.srt"; // default fallback
-
-      if (file?.name) {
-        const originalName = file.name.replace(/\.[^/.]+$/, "");
-        const extension = outputFormat || "srt";
-        filename = `${originalName}_transcript_edited.${extension}`;
-      }
-
-      // Clean filename
-      filename = filename.replace(/[^a-zA-Z0-9._-]/g, "_");
-
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
-
-      console.log("✅ Edited file downloaded:", filename);
-    } catch (err) {
-      setError(`Download failed: ${err.message}`);
     }
   };
 
