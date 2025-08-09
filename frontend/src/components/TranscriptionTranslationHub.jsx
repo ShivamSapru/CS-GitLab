@@ -1,5 +1,5 @@
 // TranscriptionTranslationHub.jsx - With orange/red accent colors
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import TranslationReview from "./TranslationReview";
 import StaticSubtitleUpload from "./StaticSubtitleUpload";
 import { ArrowLeft, FileText, Languages } from "lucide-react";
@@ -12,9 +12,119 @@ const TranscriptionTranslationHub = ({
   const [activeMode, setActiveMode] = useState("transcription");
   const [transcriptionData, setTranscriptionData] = useState(null);
 
-  const handleTranslateTranscription = (data) => {
-    setTranscriptionData(data);
-    setActiveMode("translation");
+  const handleTranslateTranscription = async (data) => {
+    console.log("🔄 Processing transcription for translation:", data);
+
+    try {
+      let fileContent = data.content;
+
+      // If content is empty or not provided, try to fetch from backend
+      if (!fileContent) {
+        console.log("📥 Fetching transcription content...");
+        const BACKEND_URL =
+          import.meta.env.VITE_BACKEND_URL || "http://localhost:8000";
+
+        try {
+          // First try direct Azure URL if available
+          if (data.subtitle_file_url) {
+            console.log("📥 Trying direct Azure URL");
+            const azureResponse = await fetch(data.subtitle_file_url);
+            if (azureResponse.ok) {
+              fileContent = await azureResponse.text();
+              console.log("✅ Successfully fetched content from Azure");
+            }
+          }
+
+          // Fallback to backend endpoint (it will find the user's file automatically)
+          if (!fileContent) {
+            console.log("📥 Trying backend endpoint");
+            const response = await fetch(
+              `${BACKEND_URL}/api/download-transcription?filename=any`,
+              { credentials: "include" },
+            );
+
+            if (response.ok) {
+              fileContent = await response.text();
+              console.log("✅ Successfully fetched content from backend");
+            } else {
+              throw new Error(`Failed to fetch file: ${response.status}`);
+            }
+          }
+        } catch (fetchError) {
+          console.error("❌ Failed to fetch content:", fetchError);
+          throw new Error(
+            `Could not load transcription content: ${fetchError.message}`,
+          );
+        }
+      }
+
+      // Ensure we have content
+      if (!fileContent) {
+        throw new Error("No transcription content available");
+      }
+
+      // Clean the filename - extract just the filename part from any URL
+      let cleanFilename = data.filename;
+      if (cleanFilename && cleanFilename.includes("http")) {
+        // Extract filename from URL - everything after the last slash, before any query params
+        const urlParts = cleanFilename.split("/");
+        const lastPart = urlParts[urlParts.length - 1];
+        cleanFilename = lastPart.split("?")[0]; // Remove query parameters
+      }
+
+      // Fallback to a reasonable filename
+      if (
+        !cleanFilename ||
+        cleanFilename.includes("http") ||
+        cleanFilename.length > 100
+      ) {
+        const now = new Date().toISOString().slice(0, 19).replace(/[:-]/g, "");
+        cleanFilename = `transcription_${now}.${data.format || "srt"}`;
+      }
+
+      // Clean the original filename too
+      let cleanOriginalFilename = data.originalFilename;
+      if (cleanOriginalFilename && cleanOriginalFilename.length > 100) {
+        // Truncate long filenames
+        const ext = cleanOriginalFilename.split(".").pop();
+        cleanOriginalFilename =
+          cleanOriginalFilename.substring(0, 90) + "..." + ext;
+      }
+
+      console.log("🧹 Cleaned filenames:", {
+        original: data.filename,
+        cleaned: cleanFilename,
+        originalFile: cleanOriginalFilename,
+      });
+
+      // Create proper transcription data with actual content and clean filenames
+      const processedData = {
+        ...data,
+        content: fileContent,
+        filename: cleanFilename,
+        originalFilename: cleanOriginalFilename || "original_file",
+        format: (data.format || "srt").toLowerCase().replace(/[^a-z]/g, ""), // Clean format
+        // Remove any blob URLs to prevent confusion
+        subtitle_file_url: undefined,
+      };
+
+      console.log("✅ Transcription data processed for translation:", {
+        filename: processedData.filename,
+        originalFilename: processedData.originalFilename,
+        format: processedData.format,
+        hasContent: !!processedData.content,
+        contentLength: processedData.content?.length,
+      });
+
+      setTranscriptionData(processedData);
+      setActiveMode("translation");
+    } catch (error) {
+      console.error(
+        "❌ Error processing transcription for translation:",
+        error,
+      );
+      alert(`Failed to load transcription for translation: ${error.message}`);
+    }
   };
 
   const handleBackToTranscription = () => {
@@ -28,6 +138,36 @@ const TranscriptionTranslationHub = ({
     }
     setActiveMode(mode);
   };
+  useEffect(() => {
+    // Clear transcription data when switching modes or navigating away
+    const handleNavigation = () => {
+      setTranscriptionData(null);
+    };
+
+    // Listen for page visibility changes (tab switches, etc.)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        // Page became visible again, clear any stale data
+        console.log(
+          "🔄 Page became visible, clearing stale transcription data",
+        );
+        setTranscriptionData(null);
+      }
+    };
+
+    // Listen for browser navigation events
+    const handleBeforeUnload = () => {
+      setTranscriptionData(null);
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, []);
 
   return (
     <div

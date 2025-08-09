@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, Optional
 from fastapi import APIRouter, UploadFile, File, Form, Query, Request, Depends, BackgroundTasks, Header, HTTPException
-from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse, Response
 from azure.storage.blob import BlobServiceClient, generate_blob_sas, BlobSasPermissions
 from dotenv import load_dotenv
 from asyncio import Queue
@@ -70,34 +70,41 @@ CANDIDATE_LOCALES = list(candidate_locales.keys())
 def get_locales() -> Dict[str, str]:
     return LOCALE_LANGUAGES
 
-# @router.get("/transcription-status-check/{project_id}")
-# async def check_transcription_status(project_id: str, request: Request, db: Session = Depends(get_db)):
-#     """Check if transcription is completed"""
+@router.get("/transcription-status-check/{project_id}")
+async def check_status_with_fallback(project_id: str, request: Request, db: Session = Depends(get_db)):
+    """Status check with media_url fallback logic"""
+    try:
+        print(f"🔍 Status check for: {project_id}")
 
-#     # Check if we have a completion status in memory first
-#     if project_id in completed_transcriptions:
-#         result = completed_transcriptions[project_id]
-#         # Clean up old entries (optional)
-#         if (datetime.now(timezone.utc) - result["timestamp"]).total_seconds() > 3600:  # 1 hour
-#             del completed_transcriptions[project_id]
-#         return result
+        project = db.query(TranscriptionProject).filter_by(project_id=project_id).first()
 
-#     # Check database status
-#     user, user_id = get_or_create_user(db, request)
-#     project = db.query(TranscriptionProject).filter_by(
-#         project_id=project_id,
-#         user_id=user_id
-#     ).first()
+        if not project:
+            return {"status": "Not Found", "message": "Project not found"}
 
-#     if not project:
-#         return {"status": "Not Found", "message": "Project not found"}
+        response = {
+            "status": project.status,
+            "message": f"Transcription is {project.status.lower()}",
+        }
 
-#     # Return the actual filename from database
-#     return {
-#         "status": project.status,
-#         "message": f"Transcription is {project.status.lower()}",
-#         "filename": getattr(project, 'local_filename', None) or getattr(project, 'subtitle_file_url', None)
-#     }
+        # Add media_url - use proxy URL regardless of database state
+        if project.status == "Completed":
+            # Always provide proxy URL for completed projects
+            proxy_url = f"http://localhost:8000/api/proxy-media/{project_id}"
+            response["media_url"] = proxy_url
+            print(f"✅ Added proxy media_url: {proxy_url}")
+
+        # Add other fields
+        if hasattr(project, 'filename') and project.filename:
+            response["filename"] = project.filename
+
+        if hasattr(project, 'subtitle_file_url') and project.subtitle_file_url:
+            response["subtitle_file_url"] = project.subtitle_file_url
+
+        return response
+
+    except Exception as e:
+        print(f"❌ Status check error: {str(e)}")
+        return {"status": "Error", "message": str(e)}
 
 # Convert mono audio, 16kHz WAV
 def convert_to_wav(input_path, output_path):
@@ -207,7 +214,7 @@ async def send_sse_update(project_id: str, data: dict):
 
 # Simple user helper
 def get_or_create_user(db: Session, request: Request = None):
-    """Get user from session or create a default user"""
+    """Get user from session or create a default user - FIXED"""
     user = None
     user_id = None
 
@@ -229,10 +236,13 @@ def get_or_create_user(db: Session, request: Request = None):
         user = db.query(User).filter(User.email == default_email).first()
 
         if not user:
+            # FIX: Use the correct field names from your User model
             user = User(
                 user_id=str(uuid.uuid4()),
                 email=default_email,
-                name="Guest User"
+                display_name="Guest User",  # ← CHANGED: name -> display_name
+                password_hash="guest_user_no_password",  # ← ADDED: required field
+                role="guest"  # ← ADDED: optional but good to have
             )
             db.add(user)
             db.commit()
@@ -281,7 +291,8 @@ def monitor_transcription_job(job_id, project_id, user_id, file_name, output_for
                 expiry=datetime.now(timezone.utc) + timedelta(hours=48)
             )
             subtitle_file_url = f"https://{blob_service.account_name}.blob.core.windows.net/{AZURE_BLOB_CONTAINER}/{blob_name}?{sas_token}"
-        
+
+
         except Exception as azure_error:
             print(f"Azure upload failed: {azure_error}")
             subtitle_file_url = None
@@ -348,6 +359,8 @@ def monitor_transcription_job(job_id, project_id, user_id, file_name, output_for
         db.close()
 
 # MAIN TRANSCRIPTION ENDPOINT - Simplified hybrid approach
+# Fixed version of your transcription endpoint with proper error handling
+
 @router.post("/transcribe")
 async def transcribe_audio_video(
     request: Request,
@@ -361,212 +374,468 @@ async def transcribe_audio_video(
 ):
     try:
         print(f"🎯 Starting transcription for: {file.filename}")
+        print(f"📊 File info: size={file.size}, type={file.content_type}")
+
+        # Validate environment variables first
+        required_env_vars = [
+            "AZURE_SPEECH_KEY",
+            "AZURE_SPEECH_REGION",
+            "AZURE_STORAGE_CONNECTION_STRING",
+            "AZURE_STORAGE_CONTAINER_NAME"
+        ]
+
+        missing_vars = []
+        for var in required_env_vars:
+            if not os.getenv(var):
+                missing_vars.append(var)
+
+        if missing_vars:
+            error_msg = f"Missing environment variables: {', '.join(missing_vars)}"
+            print(f"❌ {error_msg}")
+            return JSONResponse(
+                status_code=500,
+                content={"error": f"Server configuration error: {error_msg}"}
+            )
 
         # Get or create user
-        user, user_id = get_or_create_user(db, request)
+        try:
+            user, user_id = get_or_create_user(db, request)
+            print(f"✅ User: {user.email}")
+        except Exception as user_error:
+            print(f"❌ User creation error: {user_error}")
+            return JSONResponse(
+                status_code=500,
+                content={"error": f"User authentication error: {str(user_error)}"}
+            )
 
+        # Validate output format
         if output_format not in ["srt", "vtt"]:
-            return JSONResponse(status_code=400, content={"error": "Invalid output format."})
+            return JSONResponse(
+                status_code=400,
+                content={"error": "Invalid output format. Must be 'srt' or 'vtt'"}
+            )
 
-        # Process file
-        base_name, _ = os.path.splitext(file.filename)
+        # Validate file
+        if not file.filename:
+            return JSONResponse(
+                status_code=400,
+                content={"error": "No filename provided"}
+            )
+
+        # Check file size (limit to 500MB)
+        if file.size and file.size > 500 * 1024 * 1024:
+            return JSONResponse(
+                status_code=400,
+                content={"error": "File too large. Maximum size is 500MB"}
+            )
+
+        # Process file names
+        base_name, file_ext = os.path.splitext(file.filename)
         safe_name = re.sub(r'[^\w\-_.]', '_', base_name)
-        input_path = os.path.join(temp_dir, f"{safe_name}_input_{uuid.uuid4().hex[:8]}.{file.filename.split('.')[-1]}")
+        unique_id = uuid.uuid4().hex[:8]
 
-        with open(input_path, "wb") as f:
-            f.write(await file.read())
-        
-        # Upload to Original file Azure for preview
-        blob_service = BlobServiceClient.from_connection_string(AZURE_STORAGE_CONNECTION_STRING)
-        blob_name = f"input_{uuid.uuid4().hex}_{os.path.basename(input_path)}"
-        blob_client = blob_service.get_blob_client(container=AZURE_BLOB_CONTAINER, blob=blob_name)
+        # Create input file path
+        input_filename = f"{safe_name}_input_{unique_id}{file_ext}"
+        input_path = os.path.join(temp_dir, input_filename)
 
-        with open(input_path, "rb") as data:
-            blob_client.upload_blob(data, overwrite=True)
-        
-        # Generate SAS token
-        sas_token = generate_blob_sas(
-            account_name=blob_service.account_name,
-            container_name=AZURE_BLOB_CONTAINER,
-            blob_name=blob_name,
-            account_key=blob_service.credential.account_key,
-            permission=BlobSasPermissions(read=True),
-            expiry=datetime.now(timezone.utc) + timedelta(hours=48)
-        )
-        media_url = f"https://{blob_service.account_name}.blob.core.windows.net/{AZURE_BLOB_CONTAINER}/{blob_name}?{sas_token}"
+        print(f"📁 Saving file to: {input_path}")
 
-        # Convert to WAV
-        wav_path = os.path.join(temp_dir, f"{safe_name}_converted_{uuid.uuid4().hex[:8]}.wav")
-        convert_to_wav(input_path, wav_path)
+        # Save uploaded file
+        try:
+            file_content = await file.read()
+            print(f"📊 Read {len(file_content)} bytes from upload")
 
-        # Upload to WAV file Azure for transcription
-        blob_name = f"input_{uuid.uuid4().hex}_{os.path.basename(wav_path)}"
-        blob_client = blob_service.get_blob_client(container=AZURE_BLOB_CONTAINER, blob=blob_name)
+            with open(input_path, "wb") as f:
+                f.write(file_content)
 
-        with open(wav_path, "rb") as data:
-            blob_client.upload_blob(data, overwrite=True)
+            print(f"✅ File saved successfully")
 
-        # Generate SAS token
-        sas_token = generate_blob_sas(
-            account_name=blob_service.account_name,
-            container_name=AZURE_BLOB_CONTAINER,
-            blob_name=blob_name,
-            account_key=blob_service.credential.account_key,
-            permission=BlobSasPermissions(read=True),
-            expiry=datetime.now(timezone.utc) + timedelta(hours=6)
-        )
-        audio_url = f"https://{blob_service.account_name}.blob.core.windows.net/{AZURE_BLOB_CONTAINER}/{blob_name}?{sas_token}"
+            # Verify file was written
+            if not os.path.exists(input_path):
+                raise Exception("File was not saved properly")
 
-        # Start Azure transcription
-        job_id = create_transcription_job(audio_url, censor_profanity, max_speakers, locale)
+            file_size = os.path.getsize(input_path)
+            print(f"📊 Saved file size: {file_size} bytes")
+
+        except Exception as file_error:
+            print(f"❌ File save error: {file_error}")
+            return JSONResponse(
+                status_code=500,
+                content={"error": f"Failed to save uploaded file: {str(file_error)}"}
+            )
+
+        # Initialize Azure Blob Service
+        try:
+            blob_service = BlobServiceClient.from_connection_string(AZURE_STORAGE_CONNECTION_STRING)
+            print("✅ Azure Blob Service initialized")
+        except Exception as azure_error:
+            print(f"❌ Azure initialization error: {azure_error}")
+            return JSONResponse(
+                status_code=500,
+                content={"error": f"Azure storage initialization failed: {str(azure_error)}"}
+            )
+
+        # Upload original file to Azure for media preview
+        try:
+            blob_name_original = f"input_{unique_id}_{os.path.basename(input_path)}"
+            blob_client_original = blob_service.get_blob_client(
+                container=AZURE_BLOB_CONTAINER,
+                blob=blob_name_original
+            )
+
+            with open(input_path, "rb") as data:
+                blob_client_original.upload_blob(data, overwrite=True)
+
+            # Generate SAS token for media preview
+            sas_token_original = generate_blob_sas(
+                account_name=blob_service.account_name,
+                container_name=AZURE_BLOB_CONTAINER,
+                blob_name=blob_name_original,
+                account_key=blob_service.credential.account_key,
+                permission=BlobSasPermissions(read=True),
+                expiry=datetime.now(timezone.utc) + timedelta(hours=48)
+            )
+
+            media_url = f"https://{blob_service.account_name}.blob.core.windows.net/{AZURE_BLOB_CONTAINER}/{blob_name_original}?{sas_token_original}"
+            print(f"✅ Original file uploaded for preview: {blob_name_original}")
+
+        except Exception as upload_error:
+            print(f"❌ Azure upload error: {upload_error}")
+            return JSONResponse(
+                status_code=500,
+                content={"error": f"Failed to upload file to Azure: {str(upload_error)}"}
+            )
+
+        # Convert to WAV for transcription
+        try:
+            wav_filename = f"{safe_name}_converted_{unique_id}.wav"
+            wav_path = os.path.join(temp_dir, wav_filename)
+
+            print(f"🔄 Converting to WAV: {wav_path}")
+            convert_to_wav(input_path, wav_path)
+
+            if not os.path.exists(wav_path):
+                raise Exception("WAV conversion failed - output file not created")
+
+            wav_size = os.path.getsize(wav_path)
+            print(f"✅ WAV conversion complete: {wav_size} bytes")
+
+        except Exception as conv_error:
+            print(f"❌ WAV conversion error: {conv_error}")
+            # Clean up input file
+            try:
+                os.remove(input_path)
+            except:
+                pass
+            return JSONResponse(
+                status_code=500,
+                content={"error": f"Audio conversion failed: {str(conv_error)}"}
+            )
+
+        # Upload WAV file to Azure for transcription
+        try:
+            blob_name_wav = f"wav_{unique_id}_{os.path.basename(wav_path)}"
+            blob_client_wav = blob_service.get_blob_client(
+                container=AZURE_BLOB_CONTAINER,
+                blob=blob_name_wav
+            )
+
+            with open(wav_path, "rb") as data:
+                blob_client_wav.upload_blob(data, overwrite=True)
+
+            # Generate SAS token for transcription
+            sas_token_wav = generate_blob_sas(
+                account_name=blob_service.account_name,
+                container_name=AZURE_BLOB_CONTAINER,
+                blob_name=blob_name_wav,
+                account_key=blob_service.credential.account_key,
+                permission=BlobSasPermissions(read=True),
+                expiry=datetime.now(timezone.utc) + timedelta(hours=6)
+            )
+
+            audio_url = f"https://{blob_service.account_name}.blob.core.windows.net/{AZURE_BLOB_CONTAINER}/{blob_name_wav}?{sas_token_wav}"
+            print(f"✅ WAV file uploaded for transcription: {blob_name_wav}")
+
+        except Exception as wav_upload_error:
+            print(f"❌ WAV upload error: {wav_upload_error}")
+            # Clean up files
+            try:
+                os.remove(input_path)
+                os.remove(wav_path)
+            except:
+                pass
+            return JSONResponse(
+                status_code=500,
+                content={"error": f"Failed to upload audio for transcription: {str(wav_upload_error)}"}
+            )
+
+        # Start Azure transcription job
+        try:
+            print(f"🚀 Starting Azure transcription job")
+            job_id = create_transcription_job(audio_url, censor_profanity, max_speakers, locale)
+            print(f"✅ Transcription job started: {job_id}")
+
+        except Exception as job_error:
+            print(f"❌ Transcription job error: {job_error}")
+            # Clean up files
+            try:
+                os.remove(input_path)
+                os.remove(wav_path)
+            except:
+                pass
+            return JSONResponse(
+                status_code=500,
+                content={"error": f"Failed to start transcription job: {str(job_error)}"}
+            )
 
         # Create database record
-        project = TranscriptionProject(
-            user_id=user_id,
-            status="In Progress",
-            created_at=datetime.now(timezone.utc),
-            subtitle_file_url=None,
-            media_url=media_url
-        )
-        db.add(project)
-        db.commit()
-        db.refresh(project)
+        try:
+            project = TranscriptionProject(
+                user_id=user_id,
+                status="In Progress",
+                created_at=datetime.now(timezone.utc),
+                subtitle_file_url=None,
+                media_url=media_url
+            )
+            db.add(project)
+            db.commit()
+            db.refresh(project)
+            print(f"✅ Database record created: {project.project_id}")
+            print(f"   Project ID: {project.project_id}")
+            print(f"   Media URL in object: {media_url}")
+            print(f"   Media URL stored: {getattr(project, 'media_url', 'ATTRIBUTE_MISSING')}")
 
-        # Initiate background task
-        tag = " and Censored" if censor_profanity else ""
-        file_name = f"{base_name} (Transcribed{tag}).{locale}"
+        except Exception as db_error:
+            print(f"❌ Database error: {db_error}")
+            # Clean up files
+            try:
+                os.remove(input_path)
+                os.remove(wav_path)
+            except:
+                pass
+            return JSONResponse(
+                status_code=500,
+                content={"error": f"Database error: {str(db_error)}"}
+            )
 
-        background_tasks.add_task(
-            monitor_transcription_job,
-            job_id,
-            project.project_id,
-            user_id,
-            file_name,
-            output_format
-        )
+        # Setup background monitoring
+        try:
+            tag = " and Censored" if censor_profanity else ""
+            file_name = f"{base_name} (Transcribed{tag}).{locale}"
 
-        # Clean up input files
+            background_tasks.add_task(
+                monitor_transcription_job,
+                job_id,
+                project.project_id,
+                user_id,
+                file_name,
+                output_format
+            )
+            print(f"✅ Background task scheduled")
+
+        except Exception as bg_error:
+            print(f"❌ Background task error: {bg_error}")
+            # Update project status to failed
+            try:
+                project.status = "Failed"
+                db.commit()
+            except:
+                pass
+            return JSONResponse(
+                status_code=500,
+                content={"error": f"Failed to schedule background task: {str(bg_error)}"}
+            )
+
+        # Clean up local files
         try:
             os.remove(input_path)
             os.remove(wav_path)
-        except:
-            pass
+            print("✅ Local files cleaned up")
+        except Exception as cleanup_error:
+            print(f"⚠️ Cleanup warning: {cleanup_error}")
+            # Don't fail the request for cleanup issues
+
+        print(f"🎉 Transcription request completed successfully")
 
         return {
-            "message": "Transcription job started.",
+            "message": "Transcription job started successfully.",
             "project_id": project.project_id,
             "transcribed_filename": f"{file_name}.{output_format}",
-            "user_id": user_id
+            "user_id": user_id,
+            "media_url": media_url,
+            "status": "In Progress"
+        }
+
+
+    except Exception as e:
+        print(f"❌ Unexpected transcription error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+
+        return JSONResponse(
+            status_code=500,
+            content={
+                "error": f"Transcription failed: {str(e)}",
+                "details": "Check server logs for more information"
+            }
+        )
+
+
+# Also add this helper function to check environment setup
+@router.get("/health-check")
+async def health_check():
+    """Check if all required services are properly configured"""
+    try:
+        issues = []
+
+        # Check environment variables
+        required_vars = [
+            "AZURE_SPEECH_KEY",
+            "AZURE_SPEECH_REGION",
+            "AZURE_STORAGE_CONNECTION_STRING",
+            "AZURE_STORAGE_CONTAINER_NAME",
+            "BATCH_ENDPOINT",
+            "GET_ENDPOINT_TEMPLATE"
+        ]
+
+        for var in required_vars:
+            if not os.getenv(var):
+                issues.append(f"Missing environment variable: {var}")
+
+        # Check Azure Blob Storage
+        try:
+            blob_service = BlobServiceClient.from_connection_string(AZURE_STORAGE_CONNECTION_STRING)
+            container_client = blob_service.get_container_client(AZURE_BLOB_CONTAINER)
+            container_client.get_container_properties()
+        except Exception as azure_error:
+            issues.append(f"Azure Blob Storage issue: {str(azure_error)}")
+
+        # Check temp directory
+        if not os.path.exists(temp_dir):
+            try:
+                os.makedirs(temp_dir, exist_ok=True)
+            except Exception as temp_error:
+                issues.append(f"Temp directory issue: {str(temp_error)}")
+
+        # Check ffmpeg
+        try:
+            import subprocess
+            result = subprocess.run(['ffmpeg', '-version'], capture_output=True, text=True, timeout=5)
+            if result.returncode != 0:
+                issues.append("FFmpeg not available or not working")
+        except Exception as ffmpeg_error:
+            issues.append(f"FFmpeg check failed: {str(ffmpeg_error)}")
+
+        if issues:
+            return JSONResponse(
+                status_code=500,
+                content={
+                    "status": "unhealthy",
+                    "issues": issues
+                }
+            )
+
+        return {
+            "status": "healthy",
+            "message": "All services are properly configured",
+            "temp_dir": temp_dir,
+            "azure_container": AZURE_BLOB_CONTAINER
         }
 
     except Exception as e:
-        print(f"❌ Transcription error: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        return JSONResponse(status_code=500, content={"error": f"Transcription failed: {str(e)}"})
+        return JSONResponse(
+            status_code=500,
+            content={
+                "status": "error",
+                "error": str(e)
+            }
+        )
 
 # Download endpoint - handles both local and Azure files
-@router.get("/download-transcription")
-async def download_transcribed_file(
+@router.get("/download-transcription/{project_id}")
+async def download_transcription_with_proper_filename(
+    project_id: str,
     request: Request,
-    filename: str = Query(..., description="Name of the transcribed subtitle file to download"),
     db: Session = Depends(get_db)
 ):
+    """Download transcription with proper filename"""
     try:
         user, user_id = get_or_create_user(db, request)
+        print(f"🔍 Download request for project: {project_id}")
 
-        print(f"🔍 Download request for: {filename} by user: {user.email}")
+        # Get project (without user filter for now since we removed it)
+        project = db.query(TranscriptionProject).filter_by(project_id=project_id).first()
 
-        # # Method 1: Try to find exact local file
-        # file_path = os.path.join(temp_dir, filename)
-        # if os.path.exists(file_path):
-        #     print(f"✅ Found exact local file: {file_path}")
-        #     return FileResponse(
-        #         path=file_path,
-        #         media_type="application/octet-stream",
-        #         filename=filename,
-        #         headers={"Content-Disposition": f"attachment; filename={filename}"}
-        #     )
+        if not project:
+            return JSONResponse(
+                status_code=404,
+                content={"error": "Project not found"}
+            )
 
-        # Method 2: Find in database by user and match filename pattern
-        projects = db.query(TranscriptionProject).filter(
-            TranscriptionProject.user_id == user_id,
-            TranscriptionProject.status == "Completed"
-        ).all()
+        print(f"✅ Found project: {project.status}")
 
-        print(f"🔍 Found {len(projects)} completed projects for user")
+        # Try Azure URL first if available
+        if hasattr(project, 'subtitle_file_url') and project.subtitle_file_url:
+            try:
+                print(f"⬇️ Downloading from Azure")
+                import httpx
+                async with httpx.AsyncClient(timeout=30.0) as client:
+                    response = await client.get(project.subtitle_file_url)
+                    if response.status_code == 200:
+                        print("✅ Azure download successful")
 
-        # # Try to match by partial filename
-        # for project in projects:
-        #     if hasattr(project, 'local_filename') and project.local_filename:
-        #         local_path = os.path.join(temp_dir, project.local_filename)
-        #         if os.path.exists(local_path):
-        #             # Check if the requested filename matches the project's file
-        #             if (filename in project.local_filename or
-        #                 project.local_filename in filename or
-        #                 filename.replace('.srt', '').replace('.vtt', '') in project.local_filename):
-        #                 print(f"✅ Found matching project file: {local_path}")
-        #                 return FileResponse(
-        #                     path=local_path,
-        #                     media_type="application/octet-stream",
-        #                     filename=filename,
-        #                     headers={"Content-Disposition": f"attachment; filename={filename}"}
-        #                 )
+                        # Generate proper filename
+                        filename = "transcription.srt"  # default
 
-        # Method 3: Try Azure URL if available
-        for project in projects:
-            if project.subtitle_file_url:
-                try:
-                    print(f"⬇️ Trying Azure download for project {project.project_id}")
-                    import httpx
-                    async with httpx.AsyncClient() as client:
-                        response = await client.get(project.subtitle_file_url)
-                        if response.status_code == 200:
-                            print("✅ Azure download successful")
-                            from fastapi.responses import Response
-                            return Response(
-                                content=response.content,
-                                media_type="application/octet-stream",
-                                headers={"Content-Disposition": f"attachment; filename={project.filename}"}
-                            )
-                except Exception as e:
-                    print(f"⚠️ Azure download failed: {e}")
-                    continue
+                        if hasattr(project, 'filename') and project.filename:
+                            # Use stored filename if it's not a URL
+                            if not project.filename.startswith('http'):
+                                filename = project.filename
+                            else:
+                                # Extract meaningful name from URL or use project ID
+                                filename = f"transcription_{project_id[:8]}.srt"
 
-        # # Method 4: Fuzzy search in temp directory
-        # import glob
-        # pattern_searches = [
-        #     os.path.join(temp_dir, f"*{filename}*"),
-        #     os.path.join(temp_dir, f"*{filename.split('.')[0]}*"),
-        # ]
+                        # Clean filename
+                        import re
+                        filename = re.sub(r'[^\w\-_.]', '_', filename)
 
-        # for pattern in pattern_searches:
-        #     matching_files = glob.glob(pattern)
-        #     if matching_files:
-        #         actual_file = matching_files[0]
-        #         print(f"✅ Found fuzzy match: {actual_file}")
-        #         return FileResponse(
-        #             path=actual_file,
-        #             media_type="application/octet-stream",
-        #             filename=filename,
-        #             headers={"Content-Disposition": f"attachment; filename={filename}"}
-        #         )
+                        from fastapi.responses import Response
+                        return Response(
+                            content=response.content,
+                            media_type="text/plain; charset=utf-8",
+                            headers={
+                                "Content-Disposition": f"attachment; filename={filename}",
+                                "Content-Type": "text/plain; charset=utf-8"
+                            }
+                        )
+            except Exception as azure_error:
+                print(f"❌ Azure download failed: {azure_error}")
 
-        # Debug: List all files in temp directory
-        temp_files = os.listdir(temp_dir) if os.path.exists(temp_dir) else []
-        print(f"📁 Available temp files: {temp_files[:10]}")  # Show first 10
+        # Fallback to local files
+        import glob
+        project_files = glob.glob(os.path.join(temp_dir, f"*{project_id[:8]}*"))
+
+        if project_files:
+            actual_file = project_files[0]
+            original_filename = os.path.basename(actual_file)
+
+            # Generate better filename
+            if original_filename.endswith('.srt') or original_filename.endswith('.vtt'):
+                filename = original_filename
+            else:
+                filename = f"transcription_{project_id[:8]}.srt"
+
+            print(f"✅ Using local file: {actual_file}")
+            return FileResponse(
+                path=actual_file,
+                media_type="text/plain",
+                filename=filename,
+                headers={"Content-Disposition": f"attachment; filename={filename}"}
+            )
 
         return JSONResponse(
             status_code=404,
-            content={
-                "error": "File not found",
-                "debug": {
-                    "requested_filename": filename,
-                    "user_id": user_id,
-                    "projects_found": len(projects),
-                    "temp_files_count": len(temp_files)
-                }
-            }
+            content={"error": "Transcription file not found"}
         )
 
     except Exception as e:
@@ -577,6 +846,99 @@ async def download_transcribed_file(
             status_code=500,
             content={"error": f"Download failed: {str(e)}"}
         )
+
+
+
+
+#  fix the status check endpoint to return media_url properly
+@router.get("/transcription-status-check/{project_id}")
+async def check_transcription_status_fixed_user(
+    project_id: str,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """Status check with better user handling"""
+    try:
+        print(f"🔍 Status check for: {project_id}")
+
+        # Check completed transcriptions cache first (no user filtering)
+        if project_id in completed_transcriptions:
+            cached_result = completed_transcriptions[project_id]
+            print(f"📊 Found in cache: {list(cached_result.keys())}")
+
+            # Always get fresh data from database for media_url
+            try:
+                project = db.query(TranscriptionProject).filter_by(project_id=project_id).first()
+                if project and project.media_url:
+                    cached_result["media_url"] = project.media_url
+                    print(f"✅ Added media_url from DB to cache")
+            except Exception as db_error:
+                print(f"⚠️ DB lookup failed: {db_error}")
+
+            return cached_result
+
+        # Try to get user, but don't fail if user creation fails
+        try:
+            user, user_id = get_or_create_user(db, request)
+            print(f"✅ User: {user_id}")
+        except Exception as user_error:
+            print(f"⚠️ User creation failed: {user_error}")
+            user_id = None
+
+        # First try with user filtering
+        project = None
+        if user_id:
+            project = db.query(TranscriptionProject).filter_by(
+                project_id=project_id,
+                user_id=user_id
+            ).first()
+            print(f"📊 Project found with user filter: {project is not None}")
+
+        # If not found with user filter, try without user filter (for guest scenarios)
+        if not project:
+            print("🔄 Trying without user filter...")
+            project = db.query(TranscriptionProject).filter_by(project_id=project_id).first()
+            print(f"📊 Project found without user filter: {project is not None}")
+
+        if not project:
+            print(f"❌ Project not found: {project_id}")
+            return {"status": "Not Found", "message": "Project not found"}
+
+        print(f"✅ Found project: {project.status}")
+        print(f"   Project user: {project.user_id}")
+        print(f"   Request user: {user_id}")
+
+        # Build response with all available data
+        response = {
+            "status": project.status,
+            "message": f"Transcription is {project.status.lower()}",
+        }
+
+        # Add media_url if it exists
+        if hasattr(project, 'media_url') and project.media_url:
+            response["media_url"] = project.media_url
+            print(f"✅ Added media_url to response: {project.media_url[:50]}...")
+        else:
+            print(f"❌ No media_url in project")
+
+        # Add filename if it exists
+        if hasattr(project, 'filename') and project.filename:
+            response["filename"] = project.filename
+            print(f"✅ Added filename to response")
+
+        # Add subtitle_file_url if it exists
+        if hasattr(project, 'subtitle_file_url') and project.subtitle_file_url:
+            response["subtitle_file_url"] = project.subtitle_file_url
+            print(f"✅ Added subtitle_file_url to response")
+
+        print(f"📊 Final response contains: {list(response.keys())}")
+        return response
+
+    except Exception as e:
+        print(f"❌ Status check error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return {"status": "Error", "message": str(e)}
 
 # Status endpoint
 @router.get("/transcription-status/{project_id}")
@@ -648,3 +1010,211 @@ async def test_auth(request: Request, db: Session = Depends(get_db)):
         "user_email": user.email,
         "authenticated": True
     }
+
+
+@router.get("/check-media-urls")
+async def check_all_media_urls(db: Session = Depends(get_db)):
+    """Check what media URLs are stored in database"""
+    try:
+        projects = db.query(TranscriptionProject).filter(
+            TranscriptionProject.status == "Completed"
+        ).order_by(TranscriptionProject.created_at.desc()).limit(10).all()
+
+        results = []
+        for project in projects:
+            project_info = {
+                "project_id": str(project.project_id),
+                "status": project.status,
+                "created_at": project.created_at.isoformat() if project.created_at else None,
+            }
+
+            # Check all possible attributes
+            for attr in ['media_url', 'subtitle_file_url', 'filename']:
+                if hasattr(project, attr):
+                    value = getattr(project, attr)
+                    if value and len(str(value)) > 100:
+                        project_info[attr] = str(value)[:100] + "... (truncated)"
+                    else:
+                        project_info[attr] = value
+                else:
+                    project_info[attr] = f"MISSING_COLUMN_{attr}"
+
+            results.append(project_info)
+
+        return {
+            "total_completed_projects": len(results),
+            "projects": results,
+            "cache_keys": list(completed_transcriptions.keys())
+        }
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return {"error": str(e)}
+
+
+@router.get("/check-database-schema")
+async def check_database_schema(db: Session = Depends(get_db)):
+    """Check what columns exist in transcription_projects table"""
+    try:
+        from sqlalchemy import text
+
+        # Get table schema
+        result = db.execute(text("""
+            SELECT column_name, data_type, is_nullable
+            FROM information_schema.columns
+            WHERE table_name = 'transcription_projects'
+            ORDER BY ordinal_position
+        """)).fetchall()
+
+        columns = []
+        for row in result:
+            columns.append({
+                "name": row[0],
+                "type": row[1],
+                "nullable": row[2]
+            })
+
+        # Also check if we have any sample data
+        sample_project = db.query(TranscriptionProject).first()
+        sample_data = {}
+
+        if sample_project:
+            for column in columns:
+                try:
+                    value = getattr(sample_project, column["name"])
+                    sample_data[column["name"]] = str(value)[:100] if value else None
+                except AttributeError:
+                    sample_data[column["name"]] = "ATTRIBUTE_ERROR"
+
+        return {
+            "table_exists": len(columns) > 0,
+            "columns": columns,
+            "sample_data": sample_data,
+            "has_media_url_column": any(col["name"] == "media_url" for col in columns)
+        }
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return {"error": str(e)}
+
+@router.get("/proxy-media/{project_id}")
+async def proxy_media_file(project_id: str, request: Request, db: Session = Depends(get_db)):
+    """Proxy media file through backend to avoid CORS issues"""
+    try:
+        # Get project
+        project = db.query(TranscriptionProject).filter_by(project_id=project_id).first()
+
+        if not project or not project.media_url:
+            return JSONResponse(status_code=404, content={"error": "Media file not found"})
+
+        # Stream the media file from Azure
+        import httpx
+        async with httpx.AsyncClient() as client:
+            response = await client.get(project.media_url)
+
+            if response.status_code == 200:
+                return StreamingResponse(
+                    iter([response.content]),
+                    media_type="video/mp4",
+                    headers={
+                        "Accept-Ranges": "bytes",
+                        "Content-Length": str(len(response.content)),
+                        "Access-Control-Allow-Origin": "*",
+                        "Access-Control-Allow-Methods": "GET, HEAD",
+                        "Access-Control-Allow-Headers": "*"
+                    }
+                )
+            else:
+                return JSONResponse(status_code=404, content={"error": "Media file not accessible"})
+
+    except Exception as e:
+        print(f"❌ Media proxy error: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+@router.get("/proxy-media/{project_id}")
+@router.head("/proxy-media/{project_id}")
+async def proxy_media_fixed(project_id: str, request: Request, db: Session = Depends(get_db)):
+    """Fixed proxy with proper imports"""
+    try:
+        print(f"🎬 Media proxy: {request.method} for {project_id}")
+
+        # Get project
+        project = db.query(TranscriptionProject).filter_by(project_id=project_id).first()
+
+        if not project:
+            print(f"❌ Project not found: {project_id}")
+            return JSONResponse(status_code=404, content={"error": "Project not found"})
+
+        # Get media URL
+        media_url = getattr(project, 'media_url', None)
+        print(f"📊 Media URL: {media_url[:50] if media_url else 'NULL'}...")
+
+        if not media_url:
+            print(f"❌ No media_url for project {project_id}")
+            return JSONResponse(status_code=404, content={"error": "No media file available"})
+
+        # For HEAD requests
+        if request.method == "HEAD":
+            print("📊 HEAD request - returning headers")
+            return Response(
+                status_code=200,
+                headers={
+                    "Content-Type": "video/mp4",
+                    "Accept-Ranges": "bytes",
+                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+                    "Access-Control-Allow-Headers": "*"
+                }
+            )
+
+        # For GET requests
+        if request.method == "GET":
+            print("📊 GET request - proxying content")
+
+            import httpx
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                azure_response = await client.get(media_url)
+
+                if azure_response.status_code == 200:
+                    print(f"✅ Azure success: {len(azure_response.content)} bytes")
+
+                    return StreamingResponse(
+                        iter([azure_response.content]),
+                        media_type="video/mp4",
+                        headers={
+                            "Content-Length": str(len(azure_response.content)),
+                            "Accept-Ranges": "bytes",
+                            "Access-Control-Allow-Origin": "*",
+                            "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+                            "Cache-Control": "public, max-age=3600"
+                        }
+                    )
+                else:
+                    print(f"❌ Azure error: {azure_response.status_code}")
+                    return JSONResponse(
+                        status_code=azure_response.status_code,
+                        content={"error": f"Azure returned {azure_response.status_code}"}
+                    )
+
+        return JSONResponse(status_code=405, content={"error": "Method not allowed"})
+
+    except Exception as e:
+        print(f"❌ Proxy error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@router.options("/proxy-media/{project_id}")
+async def proxy_media_options(project_id: str):
+    """CORS preflight"""
+    return Response(
+        status_code=200,
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+            "Access-Control-Allow-Headers": "*"
+        }
+    )

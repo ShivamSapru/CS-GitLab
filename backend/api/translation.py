@@ -502,7 +502,6 @@ async def save_project(
         db.rollback()
         return JSONResponse(status_code=500, content={"error": f"Failed to save project: {str(e)}"})
 
-# Add this endpoint to your router.py file
 
 @router.get("/project/{project_id}/original")
 async def get_original_file_content(
@@ -646,4 +645,178 @@ async def get_original_file_content(
         return JSONResponse(
             status_code=500,
             content={"error": f"Failed to retrieve original file: {str(e)}"}
+        )
+
+@router.get("/project/{project_id}/files")
+async def get_project_files(
+    project_id: str,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """
+    Get all files for a project - supports both authenticated and public access
+    """
+    try:
+        # Get the project
+        project = db.query(TranslationProject).filter(
+            TranslationProject.project_id == project_id
+        ).first()
+
+        if not project:
+            return JSONResponse(status_code=404, content={"error": "Project not found"})
+
+        # Check access permissions
+        session_user = request.session.get("user")
+        user = None
+        if session_user and session_user.get("email"):
+            user = db.query(User).filter(User.email == session_user["email"]).first()
+
+        # If project is not public, require authentication and ownership
+        if not project.is_public:
+            if not user or project.user_id != user.user_id:
+                return JSONResponse(status_code=401, content={"error": "Authentication required or access denied"})
+
+        # Get all subtitle files for this project
+        subtitle_files = db.query(SubtitleFile).filter(
+            SubtitleFile.project_id == project_id
+        ).all()
+
+        # Get all translations for this project to get target languages
+        translations = db.query(Translation).filter(
+            Translation.project_id == project_id
+        ).all()
+
+        # Create a mapping of file_id to target_language
+        file_to_language = {}
+        for translation in translations:
+            if translation.translated_file_id:
+                file_to_language[translation.translated_file_id] = translation.target_language
+
+        files_data = []
+        for file in subtitle_files:
+            target_language = file_to_language.get(file.file_id)
+
+            files_data.append({
+                "file_id": str(file.file_id),
+                "filename": file.original_file_name,
+                "file_format": file.file_format,
+                "file_size_bytes": file.file_size_bytes,
+                "is_original": file.is_original,
+                "source_language": file.source_language,
+                "target_language": target_language,
+                "blob_url": file.blob_url
+            })
+
+        # Add project ownership info
+        is_own_project = user and project.user_id == user.user_id
+
+        # Get owner name for display
+        owner = db.query(User).filter(User.user_id == project.user_id).first()
+        owner_name = owner.display_name if owner and owner.display_name else "Unknown"
+
+        return {
+            "project": {
+                "project_id": str(project.project_id),
+                "project_name": project.project_name,
+                "description": project.description,
+                "is_public": project.is_public,
+                "created_at": project.created_at.isoformat(),
+                "updated_at": project.updated_at.isoformat(),
+                "is_own_project": is_own_project,
+                "owner_name": owner_name if not is_own_project else None
+            },
+            "files": files_data
+        }
+
+    except Exception as e:
+        print(f"Error in get_project_files: {e}")
+        return JSONResponse(
+            status_code=500,
+            content={"error": f"Failed to retrieve project files: {str(e)}"}
+        )
+
+@router.get("/project/{project_id}/file/{filename}")
+async def get_project_file(
+    project_id: str,
+    filename: str,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """
+    Get a file from a project - supports both authenticated and public access
+    """
+    try:
+        # Get the project first
+        project = db.query(TranslationProject).filter(
+            TranslationProject.project_id == project_id
+        ).first()
+
+        if not project:
+            return JSONResponse(status_code=404, content={"error": "Project not found"})
+
+        # Check if project is public or user has access
+        session_user = request.session.get("user")
+        user = None
+        if session_user and session_user.get("email"):
+            user = db.query(User).filter(User.email == session_user["email"]).first()
+
+        # If project is not public, require authentication and ownership
+        if not project.is_public:
+            if not user or project.user_id != user.user_id:
+                return JSONResponse(status_code=401, content={"error": "Authentication required or access denied"})
+
+        # Find the subtitle file
+        subtitle_file = db.query(SubtitleFile).filter(
+            and_(
+                SubtitleFile.project_id == project_id,
+                SubtitleFile.original_file_name == filename
+            )
+        ).first()
+
+        if not subtitle_file:
+            return JSONResponse(status_code=404, content={"error": "File not found"})
+
+        # Get file content from blob storage
+        try:
+            blob_client = get_blob_client()
+
+            # Try to construct blob path
+            blob_name = f"projects/{project_id}/{filename}"
+
+            blob_client_instance = blob_client.get_blob_client(
+                container=AZURE_STORAGE_CONTAINER_NAME,
+                blob=blob_name
+            )
+
+            blob_data = blob_client_instance.download_blob()
+            content = blob_data.readall()
+
+            # Determine content type based on file extension
+            content_type = "text/plain"
+            if filename.endswith('.srt'):
+                content_type = "text/srt"
+            elif filename.endswith('.vtt'):
+                content_type = "text/vtt"
+
+            return Response(
+                content=content,
+                media_type=content_type,
+                headers={
+                    "Content-Disposition": f"attachment; filename={filename}",
+                    "Access-Control-Allow-Origin": "*"
+                }
+            )
+
+        except Exception as blob_error:
+            print(f"Error retrieving blob content: {blob_error}")
+            return JSONResponse(
+                status_code=404,
+                content={"error": "File content not accessible"}
+            )
+
+    except Exception as e:
+        print(f"Error in get_project_file: {e}")
+        return JSONResponse(
+            status_code=500,
+            content={"error": f"Failed to retrieve file: {str(e)}"}
         )

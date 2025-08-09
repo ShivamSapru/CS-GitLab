@@ -17,6 +17,7 @@ import Verify2FAModal from "./components/Verify2FAModal";
 import TranscriptionTranslationHub from "./components/TranscriptionTranslationHub";
 import NotificationDisplay from "./components/NotificationDisplay";
 import notificationService from "./services/notificationService";
+import NotificationCenter from "./components/NotificationCenter";
 import TranscriptionDebugger from "./components/TranscriptionDebugger";
 
 const SubtitleTranslatorApp = () => {
@@ -35,6 +36,16 @@ const SubtitleTranslatorApp = () => {
 
   const location = useLocation();
   const navigate = useNavigate();
+
+  // Make notification service globally available
+  useEffect(() => {
+    window.notificationService = notificationService;
+
+    return () => {
+      // Clean up on unmount
+      delete window.notificationService;
+    };
+  }, []);
 
   const toggleDarkMode = () => setIsDarkMode(!isDarkMode);
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
@@ -182,6 +193,7 @@ const SubtitleTranslatorApp = () => {
       setShowSetup2FAModal(false);
     }
   };
+
   const debugUserState = () => {
     console.log("=== USER STATE DEBUG ===");
     console.log("user:", user);
@@ -271,24 +283,19 @@ const SubtitleTranslatorApp = () => {
     fetchUser();
   }, [location]);
 
-  {
-    process.env.NODE_ENV === "development" && (
-      <TranscriptionDebugger isDarkMode={isDarkMode} />
-    );
-  }
-
   useEffect(() => {
     const handleTranscriptionNavigation = (event) => {
       const { projectId } = event.detail;
-      console.log("Navigate to transcription results:", projectId);
+      console.log("🚀 Navigate to transcription results:", projectId);
 
-      // Store the project ID for the transcription page
-      setTranscriptionResults(
-        (prev) => new Map(prev.set("currentProject", projectId)),
-      );
+      // Store the project ID for the transcription page to pick up
+      sessionStorage.setItem("openTranscriptionProject", projectId);
 
       // Navigate to transcribe page
       navigate("/transcribe");
+
+      // Close any open menu
+      setIsMenuOpen(false);
     };
 
     window.addEventListener(
@@ -385,7 +392,8 @@ const SubtitleTranslatorApp = () => {
               </button>
             </div>
 
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-2">
+              <NotificationCenter isDarkMode={isDarkMode} />
               <button
                 onClick={toggleDarkMode}
                 className={`p-2 rounded-lg ${isDarkMode ? "bg-gray-700 text-yellow-400 hover:bg-gray-600" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}

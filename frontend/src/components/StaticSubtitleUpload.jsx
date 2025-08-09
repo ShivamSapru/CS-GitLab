@@ -426,6 +426,36 @@ const StaticSubtitleUpload = ({
   // Handle initial transcription data
   useEffect(() => {
     if (initialTranscriptionData) {
+      console.log("📥 Received transcription data:", initialTranscriptionData);
+      console.log(
+        "📄 Content preview:",
+        initialTranscriptionData.content?.substring(0, 200),
+      );
+      console.log(
+        "📏 Content length:",
+        initialTranscriptionData.content?.length,
+      );
+      console.log("🔗 Content type:", typeof initialTranscriptionData.content);
+
+      // Validate that we have content
+      if (!initialTranscriptionData.content) {
+        setError("No transcription content available for translation");
+        return;
+      }
+
+      // Check if content is a blob URL (this might be the issue!)
+      if (
+        typeof initialTranscriptionData.content === "string" &&
+        initialTranscriptionData.content.startsWith("blob:")
+      ) {
+        console.log("❌ ERROR: Content is a blob URL, not actual text!");
+        setError(
+          "Invalid transcription content: received blob URL instead of text",
+        );
+        return;
+      }
+
+      // Create virtual file for UI display only
       const virtualFile = new File(
         [initialTranscriptionData.content],
         initialTranscriptionData.filename,
@@ -437,6 +467,8 @@ const StaticSubtitleUpload = ({
       setFromTranscription(true);
       setError(null);
       setBackendConnected(true);
+
+      console.log("✅ Transcription data processed for translation");
     }
   }, [initialTranscriptionData]);
 
@@ -485,12 +517,25 @@ const StaticSubtitleUpload = ({
   };
 
   const startTranslation = async () => {
+    console.log("🎬 startTranslation called");
+    console.log("fromTranscription:", fromTranscription);
+    console.log("transcriptionFile:", transcriptionFile);
+    console.log("uploadedFile:", uploadedFile);
     if (!backendConnected) {
       setError("Backend not connected. Please start your FastAPI server.");
       return;
     }
 
     if (!uploadedFile || targetLanguages.length === 0) return;
+
+    // Additional validation for transcription data
+    if (
+      fromTranscription &&
+      (!transcriptionFile || !transcriptionFile.content)
+    ) {
+      setError("No transcription content available for translation");
+      return;
+    }
 
     setIsTranslating(true);
     setTranslationProgress(0);
@@ -511,13 +556,98 @@ const StaticSubtitleUpload = ({
 
         setCurrentTranslatingLanguage(`Translating to ${targetLangName}...`);
 
-        const formData = new FormData();
-        formData.append("file", uploadedFile);
-        // formData.append("source_language", "auto");
-        formData.append("censor_profanity", censorProfanity);
-        formData.append("target_language", targetLang);
-
         try {
+          const formData = new FormData();
+
+          // Handle transcription data vs regular file upload differently
+          if (fromTranscription && transcriptionFile) {
+            // For transcription data, create a proper file from content
+            const fileContent = transcriptionFile.content;
+            if (!fileContent) {
+              throw new Error(
+                "No transcription content available for translation",
+              );
+            }
+
+            console.log("📝 Using transcription content for translation");
+            const blob = new Blob([fileContent], { type: "text/plain" });
+            const file = new File([blob], "transcription.srt", {
+              // Simple fixed filename
+              type: "text/plain",
+            });
+            formData.append("file", file);
+          } else {
+            // For regular file uploads
+            console.log("📁 Using uploaded file for translation");
+            formData.append("file", uploadedFile);
+          }
+
+          formData.append("censor_profanity", censorProfanity);
+          formData.append("target_language", targetLang);
+          console.log("🔍 DEBUG - FormData contents:");
+          console.log("fromTranscription:", fromTranscription);
+          console.log("transcriptionFile:", transcriptionFile);
+          console.log("uploadedFile:", uploadedFile);
+
+          // Check what's actually in the FormData
+          for (let [key, value] of formData.entries()) {
+            console.log(`FormData ${key}:`, value);
+            if (value instanceof File) {
+              console.log(`  File name: ${value.name}`);
+              console.log(`  File size: ${value.size}`);
+              console.log(`  File type: ${value.type}`);
+
+              // Read the file content to verify it's not a blob URL
+              const reader = new FileReader();
+              reader.onload = (e) => {
+                const content = e.target.result;
+                console.log(
+                  `  File content preview: ${content.substring(0, 100)}...`,
+                );
+                console.log(`  Content length: ${content.length}`);
+              };
+              reader.readAsText(value);
+            }
+          }
+
+          // Debug the transcription content specifically
+          if (fromTranscription && transcriptionFile) {
+            console.log("🔍 Transcription file debug:");
+            console.log(
+              "  Content preview:",
+              transcriptionFile.content?.substring(0, 100),
+            );
+            console.log("  Content type:", typeof transcriptionFile.content);
+            console.log("  Content length:", transcriptionFile.content?.length);
+          }
+
+          console.log("🔍 DEBUG - FormData contents:");
+          console.log("fromTranscription:", fromTranscription);
+          console.log("transcriptionFile:", transcriptionFile);
+          console.log("uploadedFile:", uploadedFile);
+
+          // Check what's actually in the FormData
+          for (let [key, value] of formData.entries()) {
+            console.log(`FormData ${key}:`, value);
+            if (value instanceof File) {
+              console.log(`  File name: ${value.name}`);
+              console.log(`  File size: ${value.size}`);
+              console.log(`  File type: ${value.type}`);
+            }
+          }
+
+          // Debug logging
+          console.log("🔍 About to make API call");
+          console.log("FormData entries:");
+          for (let [key, value] of formData.entries()) {
+            console.log(`  ${key}:`, value);
+            if (value instanceof File) {
+              console.log(
+                `    File details - name: ${value.name}, size: ${value.size}, type: ${value.type}`,
+              );
+            }
+          }
+
           const result = await apiCall("/translate", {
             method: "POST",
             body: formData,
@@ -584,6 +714,14 @@ const StaticSubtitleUpload = ({
       setIsTranslating(false);
     }
   };
+  // Move these OUTSIDE of startTranslation function, make them standalone functions:
+
+  // Add these three handler functions
+
+  const handleDontSave = () => {
+    setShowAutoSaveModal(false);
+    setProjectSaveAttempted(true);
+  };
 
   // Add these three handler functions
   const handleAutoSaveQuick = async () => {
@@ -620,142 +758,6 @@ const StaticSubtitleUpload = ({
     setTimeout(() => {
       setShowSaveProjectModal(true);
     }, 100);
-  };
-
-  // Update the saveAsProject function to properly handle the flow
-  const saveAsProject = async (projectData) => {
-    if (!backendConnected) {
-      setError("Backend not connected. Cannot save project.");
-      return;
-    }
-
-    // Validate required data before sending
-    console.log("🔍 Validating project data:", projectData);
-
-    if (
-      !projectData.project_name ||
-      projectData.project_name.trim().length === 0
-    ) {
-      setError("Project name is required");
-      return;
-    }
-
-    if (
-      !projectData.filenames ||
-      !Array.isArray(projectData.filenames) ||
-      projectData.filenames.length === 0
-    ) {
-      setError("No files to save");
-      return;
-    }
-
-    if (
-      !projectData.target_languages ||
-      !Array.isArray(projectData.target_languages)
-    ) {
-      setError("Target languages are required");
-      return;
-    }
-
-    const requestKey = `save_${projectData.project_name}_${JSON.stringify(projectData.filenames)}`;
-
-    if (pendingRequests.has(requestKey)) {
-      console.log("🔄 Duplicate save request detected, ignoring...");
-      return;
-    }
-
-    if (isSavingProject) {
-      console.log("⏳ Save already in progress, skipping duplicate request");
-      return;
-    }
-
-    setPendingRequests((prev) => new Set([...prev, requestKey]));
-    setIsSavingProject(true);
-    setError(null);
-
-    try {
-      // NO NEED TO UPLOAD - Files are already on server from translation
-      console.log("📦 Using existing files from translation process");
-
-      // Clean and validate the project data
-      const cleanProjectData = {
-        project_name: projectData.project_name.trim(),
-        description: projectData.description?.trim() || "",
-        filenames: projectData.filenames.filter(
-          (filename) => filename && filename.trim().length > 0,
-        ),
-        original_filename: projectData.original_filename || "",
-        target_languages: projectData.target_languages.filter(
-          (lang) => lang && lang.trim().length > 0,
-        ),
-        is_public: Boolean(projectData.is_public),
-        edited_files: projectData.edited_files || {},
-        // Use the actual translation data from the state
-        source_language:
-          projectData.source_language ||
-          translationData.sourceLanguage ||
-          "auto",
-        original_file_path:
-          projectData.original_file_path ||
-          translationData.originalFilePath ||
-          "",
-        translated_file_path:
-          projectData.translated_file_path ||
-          translationData.translatedFilePaths ||
-          [],
-      };
-
-      console.log("✨ Cleaned project data:", cleanProjectData);
-      console.log("🚀 Sending save request...");
-
-      const response = await apiCall("/save-project", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(cleanProjectData),
-      });
-
-      console.log("🎉 Project saved successfully:", response);
-
-      setProjectSaveSuccess({
-        projectName: cleanProjectData.project_name,
-        projectId: response.project_id,
-        fileCount: response.files_saved,
-      });
-
-      // Close the save modal and mark as saved
-      setShowSaveProjectModal(false);
-      setProjectSaved(true);
-      setProjectSaveAttempted(true);
-      setHasAutoSaved(true);
-
-      setTimeout(() => {
-        setProjectSaveSuccess(null);
-      }, 5000);
-    } catch (err) {
-      console.error("💥 Project save error:", err);
-
-      let errorMessage = err.message;
-      if (err.message.includes("422")) {
-        errorMessage = `Validation error: ${err.message}. Please check that all required fields are properly filled and files exist.`;
-      }
-
-      setError(`Save failed: ${errorMessage}`);
-    } finally {
-      setIsSavingProject(false);
-      setError(null);
-      setPendingRequests((prev) => {
-        const newSet = new Set(prev);
-        newSet.delete(requestKey);
-        return newSet;
-      });
-    }
-  };
-
-  const handleDontSave = () => {
-    setShowAutoSaveModal(false);
-    setProjectSaveAttempted(true);
   };
 
   const downloadFile = async (filename) => {
@@ -1098,6 +1100,150 @@ const StaticSubtitleUpload = ({
       );
     } finally {
       setLoadingLanguages(false);
+    }
+  };
+
+  const saveAsProject = async (projectData) => {
+    if (!backendConnected) {
+      setError("Backend not connected. Cannot save project.");
+      return;
+    }
+
+    // Validate required data before sending
+    console.log("🔍 Validating project data:", projectData);
+
+    if (
+      !projectData.project_name ||
+      projectData.project_name.trim().length === 0
+    ) {
+      setError("Project name is required");
+      return;
+    }
+
+    if (
+      !projectData.filenames ||
+      !Array.isArray(projectData.filenames) ||
+      projectData.filenames.length === 0
+    ) {
+      setError("No files to save");
+      return;
+    }
+
+    if (
+      !projectData.target_languages ||
+      !Array.isArray(projectData.target_languages)
+    ) {
+      setError("Target languages are required");
+      return;
+    }
+
+    const requestKey = `save_${projectData.project_name}_${JSON.stringify(projectData.filenames)}`;
+
+    if (pendingRequests.has(requestKey)) {
+      console.log("🔄 Duplicate save request detected, ignoring...");
+      return;
+    }
+
+    if (isSavingProject) {
+      console.log("⏳ Save already in progress, skipping duplicate request");
+      return;
+    }
+
+    setPendingRequests((prev) => new Set([...prev, requestKey]));
+    setIsSavingProject(true);
+    setError(null);
+
+    try {
+      // Clean filenames to avoid database constraint errors
+      const cleanFilenames = projectData.filenames
+        .filter((filename) => filename && filename.trim().length > 0)
+        .map((filename) => {
+          // If filename is a URL, extract just the filename part
+          if (filename.includes("http")) {
+            const urlParts = filename.split("/");
+            const lastPart = urlParts[urlParts.length - 1];
+            return lastPart.split("?")[0]; // Remove query parameters
+          }
+          return filename;
+        })
+        .filter((filename) => filename && filename.length <= 255); // Ensure within DB limits
+
+      // Clean original filename
+      let cleanOriginalFilename = projectData.original_filename || "";
+      if (cleanOriginalFilename.includes("http")) {
+        const urlParts = cleanOriginalFilename.split("/");
+        const lastPart = urlParts[urlParts.length - 1];
+        cleanOriginalFilename = lastPart.split("?")[0];
+      }
+      if (cleanOriginalFilename.length > 255) {
+        cleanOriginalFilename = cleanOriginalFilename.substring(0, 250) + "...";
+      }
+
+      const cleanProjectData = {
+        project_name: projectData.project_name.trim(),
+        description: projectData.description?.trim() || "",
+        filenames: cleanFilenames,
+        original_filename: cleanOriginalFilename,
+        target_languages: projectData.target_languages.filter(
+          (lang) => lang && lang.trim().length > 0,
+        ),
+        is_public: Boolean(projectData.is_public),
+        edited_files: projectData.edited_files || {},
+        source_language:
+          projectData.source_language ||
+          translationData.sourceLanguage ||
+          "auto",
+        original_file_path:
+          projectData.original_file_path ||
+          translationData.originalFilePath ||
+          "",
+        translated_file_path:
+          projectData.translated_file_path ||
+          translationData.translatedFilePaths ||
+          [],
+      };
+
+      console.log("✨ Cleaned project data:", cleanProjectData);
+      console.log("🚀 Sending save request...");
+
+      const response = await apiCall("/save-project", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(cleanProjectData),
+      });
+
+      console.log("🎉 Project saved successfully:", response);
+
+      setProjectSaveSuccess({
+        projectName: cleanProjectData.project_name,
+        projectId: response.project_id,
+        fileCount: response.files_saved,
+      });
+
+      setShowSaveProjectModal(false);
+      setProjectSaved(true);
+      setProjectSaveAttempted(true);
+      setHasAutoSaved(true);
+
+      setTimeout(() => {
+        setProjectSaveSuccess(null);
+      }, 5000);
+    } catch (err) {
+      console.error("💥 Project save error:", err);
+      let errorMessage = err.message;
+      if (err.message.includes("422")) {
+        errorMessage = `Validation error: ${err.message}. Please check that all required fields are properly filled and files exist.`;
+      }
+      setError(`Save failed: ${errorMessage}`);
+    } finally {
+      setIsSavingProject(false);
+      setPendingRequests((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(requestKey);
+        return newSet;
+      });
     }
   };
 
@@ -2005,7 +2151,7 @@ const StaticSubtitleUpload = ({
           // Reset any errors when closing
           setError(null);
         }}
-        onSave={(projectData) => {
+        onSave={async (projectData) => {
           // Merge modal data with translation data
           const completeProjectData = {
             ...projectData,
@@ -2017,7 +2163,7 @@ const StaticSubtitleUpload = ({
             "Saving project with complete data:",
             completeProjectData,
           );
-          saveAsProject(completeProjectData);
+          await saveAsProject(completeProjectData);
         }}
         translatedFiles={translatedFiles}
         originalFilename={uploadedFile?.name || ""}

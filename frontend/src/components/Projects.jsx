@@ -141,25 +141,22 @@ const Projects = ({
   };
   const handleDownload = async (filename) => {
     try {
-      // Try to get from project blob storage first (which contains edited content if any)
-      const projectResponse = await fetch(
+      // Use the new public-access endpoint
+      const response = await fetch(
         `${API_BASE_URL}/project/${projectId}/file/${encodeURIComponent(filename)}`,
         { credentials: "include" },
       );
 
-      let response;
-      if (projectResponse.ok) {
-        response = projectResponse;
-      } else {
-        // Fallback to temp storage
-        response = await fetch(
-          `${API_BASE_URL}/download-subtitle?filename=${encodeURIComponent(filename)}`,
-          { credentials: "include" },
-        );
-      }
-
       if (!response.ok) {
-        throw new Error("Download failed");
+        if (response.status === 401) {
+          throw new Error(
+            "This is a private project. Please sign in or contact the owner for access.",
+          );
+        } else {
+          throw new Error(
+            `Download failed: ${response.status} ${response.statusText}`,
+          );
+        }
       }
 
       const blob = await response.blob();
@@ -198,8 +195,8 @@ const Projects = ({
       // Fetch the translated file content
       console.log(`🔍 Attempting to fetch translated file: ${filename}`);
 
-      // First try: Get from project blob storage
-      let translatedResponse = await fetch(
+      // Use the new public-access endpoint
+      const translatedResponse = await fetch(
         `${API_BASE_URL}/project/${projectId}/file/${encodeURIComponent(filename)}`,
         { credentials: "include" },
       );
@@ -211,31 +208,30 @@ const Projects = ({
         translatedContent = await translatedResponse.text();
       } else {
         console.log(
-          "❌ Translated file not found in project storage, trying temp storage...",
+          "❌ Error fetching translated file:",
+          translatedResponse.status,
+          translatedResponse.statusText,
         );
 
-        // Second try: Get from temp storage
-        translatedResponse = await fetch(
-          `${API_BASE_URL}/download-subtitle?filename=${encodeURIComponent(filename)}`,
-          { credentials: "include" },
-        );
-
-        if (translatedResponse.ok) {
-          console.log("✅ Found translated file in temp storage");
-          translatedContent = await translatedResponse.text();
+        // If it's a 401, show a more user-friendly message
+        if (translatedResponse.status === 401) {
+          throw new Error(
+            "This is a private project. Please sign in or contact the owner for access.",
+          );
         } else {
-          throw new Error("Translated file not found in any storage location");
+          throw new Error(
+            `File not available: ${translatedResponse.status} ${translatedResponse.statusText}`,
+          );
         }
       }
 
       setPreviewContent(translatedContent);
       setLoadingPreview(false);
 
-      // NOW FETCH THE ORIGINAL FILE - This is what was missing!
+      // NOW FETCH THE ORIGINAL FILE
       try {
         console.log("🔍 Attempting to fetch original file...");
 
-        // Try to get the original file from the project
         // First, find the original filename from the project files
         const originalFile = projectFiles.find(
           (file) =>
@@ -252,7 +248,7 @@ const Projects = ({
             originalFile.filename,
           );
 
-          // Try to fetch the original file
+          // Try to fetch the original file using the same endpoint
           const originalResponse = await fetch(
             `${API_BASE_URL}/project/${projectId}/file/${encodeURIComponent(originalFile.filename)}`,
             { credentials: "include" },
@@ -265,11 +261,10 @@ const Projects = ({
             console.log(
               "❌ Could not fetch original file from project storage",
             );
-            // You could also try temp storage here if needed
+            originalContent = "Original file not available for comparison";
           }
         } else {
           console.log("❌ No original file reference found in project files");
-          // Fallback: Use a placeholder or try to derive original filename
           originalContent = "Original file not available for comparison";
         }
 
@@ -354,6 +349,15 @@ const Projects = ({
   };
 
   const closePreview = () => {
+    // Save any current edits before closing
+    if (isEditing && editedContent.trim() && previewingFile) {
+      setPreviewContent(editedContent);
+      setEditedFiles((prev) => ({
+        ...prev,
+        [previewingFile.filename]: editedContent,
+      }));
+    }
+
     setShowPreview(false);
     setPreviewingFile(null);
     setPreviewContent("");
@@ -362,6 +366,7 @@ const Projects = ({
     setIsEditing(false);
     setEditedContent("");
     setIsSaving(false);
+    // Keep editHistory and historyIndex for potential re-opening
   };
 
   const startEditing = () => {
@@ -378,16 +383,30 @@ const Projects = ({
       return;
     }
 
-    setEditedContent(previewContent);
+    // Use existing edited content if available, otherwise use preview content
+    const contentToEdit =
+      editedFiles[previewingFile.filename] || previewContent;
+    setEditedContent(contentToEdit);
     setIsEditing(true);
-    initializeEditHistory(previewContent);
+
+    // Only initialize history if it's empty (first time editing)
+    if (editHistory.length === 0) {
+      initializeEditHistory(contentToEdit);
+    }
   };
 
   const cancelEditing = () => {
+    // Update preview content with the latest edited content
+    if (editedContent.trim()) {
+      setPreviewContent(editedContent);
+      setEditedFiles((prev) => ({
+        ...prev,
+        [previewingFile.filename]: editedContent,
+      }));
+    }
+
     setIsEditing(false);
-    setEditedContent("");
-    setEditHistory([]);
-    setHistoryIndex(-1);
+    // Don't clear editedContent and history - keep them for potential re-editing
     if (translatedPreviewRef.current) {
       translatedPreviewRef.current.scrollTop = 0;
     }
@@ -452,11 +471,15 @@ const Projects = ({
       newHistory.push(content);
       if (newHistory.length > 50) {
         newHistory.shift();
-        setHistoryIndex(Math.min(historyIndex, newHistory.length - 1));
         return newHistory;
       }
-      setHistoryIndex(newHistory.length - 1);
       return newHistory;
+    });
+
+    // Update historyIndex after state update
+    setHistoryIndex((prev) => {
+      const newIndex = Math.min(historyIndex + 1, 49); // Max 50 items
+      return newIndex;
     });
   };
 
@@ -1177,7 +1200,7 @@ const Projects = ({
                           onClick={handleUndo}
                           disabled={historyIndex <= 0}
                           className={`flex items-center space-x-1 px-2 py-1 rounded text-xs transition-colors duration-300 ${
-                            historyIndex >= editHistory.length - 1
+                            historyIndex <= 0
                               ? isDarkMode
                                 ? "bg-gray-700 text-gray-600 cursor-not-allowed"
                                 : "bg-gray-100 text-gray-400 cursor-not-allowed"
@@ -1192,10 +1215,14 @@ const Projects = ({
                         <button
                           onClick={handleRedo}
                           disabled={historyIndex >= editHistory.length - 1}
-                          className={`flex items-center space-x-1 px-2 py-1 rounded text-xs ${
+                          className={`flex items-center space-x-1 px-2 py-1 rounded text-xs transition-colors duration-300 ${
                             historyIndex >= editHistory.length - 1
-                              ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                              : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                              ? isDarkMode
+                                ? "bg-gray-700 text-gray-600 cursor-not-allowed"
+                                : "bg-gray-100 text-gray-400 cursor-not-allowed"
+                              : isDarkMode
+                                ? "bg-gray-600 text-gray-200 hover:bg-gray-500"
+                                : "bg-gray-200 text-gray-700 hover:bg-gray-300"
                           }`}
                           title="Redo (Ctrl+Shift+Z or Ctrl+Y)"
                         >
@@ -1207,9 +1234,7 @@ const Projects = ({
                     {/* Edit/View button - Only show for project owners */}
                     {canEdit && (
                       <button
-                        onClick={
-                          isEditing ? () => setIsEditing(false) : startEditing
-                        }
+                        onClick={isEditing ? cancelEditing : startEditing}
                         disabled={loadingPreview}
                         className={`text-sm flex items-center space-x-1 transition-colors duration-300 ${
                           isDarkMode
@@ -1288,51 +1313,56 @@ const Projects = ({
           </div>
 
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-2">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-2">
-              {/* Left side - Edit status */}
-              <div className="flex items-center space-x-2">
-                {isEditing && (
-                  <div
-                    className={`text-sm px-3 py-1 rounded-full transition-colors duration-300 ${
-                      isDarkMode
-                        ? "text-orange-300 bg-orange-900/30"
-                        : "text-orange-600 bg-orange-50"
-                    }`}
-                  >
-                    Editing Mode
-                  </div>
-                )}
-              </div>
-
-              {/* Right side - Action buttons */}
-              <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
-                <button
-                  onClick={() => {
-                    if (editedFiles[previewingFile.filename]) {
-                      downloadEditedFile(previewingFile.filename);
-                    } else {
-                      handleDownload(previewingFile.filename);
-                    }
-                  }}
-                  disabled={isEditing}
-                  className={`flex items-center justify-center space-x-2 px-4 py-2 rounded-lg transition-colors duration-300 ${
-                    isEditing
-                      ? isDarkMode
-                        ? "bg-gray-600 text-gray-400 cursor-not-allowed"
-                        : "bg-gray-300 text-gray-500 cursor-not-allowed"
-                      : "bg-blue-500 text-white hover:bg-blue-600"
+            {/* Left side - Edit status */}
+            <div className="flex items-center space-x-2">
+              {isEditing && (
+                <div
+                  className={`text-sm px-3 py-1 rounded-full transition-colors duration-300 ${
+                    isDarkMode
+                      ? "text-orange-300 bg-orange-900/30"
+                      : "text-orange-600 bg-orange-50"
                   }`}
                 >
-                  <Download className="w-4 h-4" />
-                  <span>
-                    {isEditing
-                      ? "Switch to View First"
-                      : editedFiles[previewingFile.filename]
-                        ? "Download Edited"
-                        : "Download File"}
-                  </span>
-                </button>
-              </div>
+                  Editing Mode
+                </div>
+              )}
+            </div>
+
+            {/* Right side - Action buttons */}
+            <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
+              <button
+                onClick={() => {
+                  // Always check for edited content first, then edited files, then original
+                  const contentToDownload =
+                    editedContent || editedFiles[previewingFile.filename];
+                  if (contentToDownload) {
+                    // Create and download the edited content
+                    const blob = new Blob([contentToDownload], {
+                      type: "text/plain",
+                    });
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = previewingFile.filename
+                      .replace(".srt", "_edited.srt")
+                      .replace(".vtt", "_edited.vtt");
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    window.URL.revokeObjectURL(url);
+                  } else {
+                    handleDownload(previewingFile.filename);
+                  }
+                }}
+                className={`flex items-center justify-center space-x-2 px-4 py-2 rounded-lg transition-colors duration-300 ${"bg-blue-500 text-white hover:bg-blue-600"}`}
+              >
+                <Download className="w-4 h-4" />
+                <span>
+                  {editedContent || editedFiles[previewingFile.filename]
+                    ? "Download Edited"
+                    : "Download File"}
+                </span>
+              </button>
             </div>
           </div>
         </div>

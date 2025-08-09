@@ -1,18 +1,131 @@
-// Create this as a new file: src/services/notificationService.js
 class NotificationService {
   constructor() {
     this.callbacks = new Set();
-    this.activeTranscriptions = new Map(); // projectId -> transcription data
-    this.pollingIntervals = new Map(); // projectId -> interval ID
+    this.activeTranscriptions = new Map();
+    this.pollingIntervals = new Map();
+    this.databaseNotifications = []; // Add this line
   }
 
-  // Subscribe to notifications
+  // Add this new method to fetch notifications from database
+  async fetchDatabaseNotifications() {
+    try {
+      const BACKEND_URL =
+        import.meta.env.VITE_BACKEND_URL || "http://localhost:8000";
+
+      const response = await fetch(`${BACKEND_URL}/api/notifications`, {
+        credentials: "include",
+      });
+
+      if (response.ok) {
+        const notifications = await response.json();
+        console.log("📊 Fetched database notifications:", notifications);
+
+        // Convert database notifications to frontend format
+        this.databaseNotifications = notifications.map((notif) => ({
+          id: `db-${notif.notification_id}`,
+          type: this.getNotificationTypeFromStatus(notif.project_status),
+          title: this.getNotificationTitle(notif.project_status),
+          message: notif.message,
+          duration: 0, // Persistent
+          timestamp: new Date(notif.creation_time),
+          projectId: notif.project_id,
+          isRead: notif.is_read,
+          clickable: notif.project_status === "Completed",
+          action:
+            notif.project_status === "Completed"
+              ? {
+                  label: "View Results",
+                  onClick: () => this.navigateToResults(notif.project_id),
+                }
+              : null,
+        }));
+
+        return this.databaseNotifications;
+      }
+    } catch (error) {
+      console.error("Failed to fetch database notifications:", error);
+      return [];
+    }
+  }
+
+  // Add helper methods
+  getNotificationTypeFromStatus(status) {
+    switch (status) {
+      case "Completed":
+        return "success";
+      case "Failed":
+        return "error";
+      case "In Progress":
+        return "info";
+      default:
+        return "info";
+    }
+  }
+
+  getNotificationTitle(status) {
+    switch (status) {
+      case "Completed":
+        return "Transcription Complete!";
+      case "Failed":
+        return "Transcription Failed";
+      case "In Progress":
+        return "Transcription Running";
+      default:
+        return "Notification";
+    }
+  }
+
+  // Add method to mark notifications as read
+  async markNotificationsAsRead() {
+    try {
+      const BACKEND_URL =
+        import.meta.env.VITE_BACKEND_URL || "http://localhost:8000";
+
+      const response = await fetch(
+        `${BACKEND_URL}/api/notifications/mark-read`,
+        {
+          method: "POST",
+          credentials: "include",
+        },
+      );
+
+      if (response.ok) {
+        // Update local state
+        this.databaseNotifications = this.databaseNotifications.map(
+          (notif) => ({
+            ...notif,
+            isRead: true,
+          }),
+        );
+        console.log("✅ Marked notifications as read");
+        return true;
+      }
+    } catch (error) {
+      console.error("Failed to mark notifications as read:", error);
+      return false;
+    }
+  }
+
+  // Add method to get all notifications (real-time + database)
+  async getAllNotifications() {
+    const dbNotifications = await this.fetchDatabaseNotifications();
+
+    // You can combine with real-time notifications if needed
+    // For now, just return database notifications
+    return dbNotifications;
+  }
+
+  // Add method to get unread count
+  getUnreadCount() {
+    return this.databaseNotifications.filter((notif) => !notif.isRead).length;
+  }
+
+  // Rest of your existing methods remain the same...
   subscribe(callback) {
     this.callbacks.add(callback);
     return () => this.callbacks.delete(callback);
   }
 
-  // Emit notification to all subscribers
   emit(notification) {
     console.log("🔔 Emitting notification:", notification);
     this.callbacks.forEach((callback) => {
@@ -62,10 +175,20 @@ class NotificationService {
       try {
         const BACKEND_URL =
           import.meta.env.VITE_BACKEND_URL || "http://localhost:8000";
+
+        // Add better error handling for network issues
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
         const response = await fetch(
           `${BACKEND_URL}/api/transcription-status-check/${projectId}`,
-          { credentials: "include" },
+          {
+            credentials: "include",
+            signal: controller.signal,
+          },
         );
+
+        clearTimeout(timeoutId);
 
         if (response.ok) {
           const data = await response.json();
@@ -85,18 +208,29 @@ class NotificationService {
           pollCount++;
           if (pollCount < maxPolls) {
             const delay = Math.min(3000 + pollCount * 200, 10000);
-            setTimeout(poll, delay);
+            const nextPollId = setTimeout(poll, delay);
+            this.pollingIntervals.set(projectId, nextPollId);
           } else {
             this.handleTranscriptionTimeout(projectId);
           }
         } else {
-          throw new Error("Polling request failed");
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
       } catch (error) {
-        console.error(`Polling error for ${projectId}:`, error);
+        if (error.name === "AbortError") {
+          console.log(`⏱️ Polling timeout for ${projectId}`);
+        } else {
+          console.error(`Polling error for ${projectId}:`, error);
+        }
+
         pollCount++;
         if (pollCount < maxPolls) {
-          setTimeout(poll, 5000); // Retry after 5 seconds
+          const retryDelay = Math.min(
+            5000 * Math.pow(2, Math.min(pollCount - 1, 3)),
+            30000,
+          ); // Exponential backoff
+          const retryId = setTimeout(poll, retryDelay);
+          this.pollingIntervals.set(projectId, retryId);
         } else {
           this.handleTranscriptionTimeout(projectId);
         }
@@ -218,7 +352,12 @@ class NotificationService {
 
   // Navigate to results page
   navigateToResults(projectId) {
-    // This will be called from the main app context
+    console.log("📱 Navigating to results for project:", projectId);
+
+    // Store the project ID for the transcription page to pick up
+    sessionStorage.setItem("openTranscriptionProject", projectId);
+
+    // Dispatch navigation event
     window.dispatchEvent(
       new CustomEvent("navigateToTranscriptionResults", {
         detail: { projectId },

@@ -25,25 +25,6 @@ const Verify2FAModal = ({ onClose, onVerifyComplete, isDarkMode }) => {
     }
   };
 
-  // Handle background click to close modal
-  const handleBackgroundClick = (e) => {
-    if (e.target === e.currentTarget) {
-      onClose();
-    }
-  };
-
-  // Handle escape key to close modal
-  useEffect(() => {
-    const handleEscape = (e) => {
-      if (e.key === "Escape") {
-        onClose();
-      }
-    };
-
-    document.addEventListener("keydown", handleEscape);
-    return () => document.removeEventListener("keydown", handleEscape);
-  }, [onClose]);
-
   // Auto-focus the input when modal opens
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -54,10 +35,7 @@ const Verify2FAModal = ({ onClose, onVerifyComplete, isDarkMode }) => {
   }, []);
 
   return (
-    <div
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
-      onClick={handleBackgroundClick}
-    >
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div
         className={`relative w-full max-w-md rounded-lg shadow-lg ${
           isDarkMode ? "bg-gray-800 text-white" : "bg-white text-gray-900"
