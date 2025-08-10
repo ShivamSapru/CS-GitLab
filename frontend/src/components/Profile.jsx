@@ -49,7 +49,7 @@ const apiCall = async (endpoint, options = {}) => {
   }
 };
 
-const Profile = ({ isDarkMode, onLogout }) => {
+const Profile = ({ isDarkMode, onLogout, onShowLogin }) => {
   const [activeTab, setActiveTab] = useState("profile");
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -94,7 +94,7 @@ const Profile = ({ isDarkMode, onLogout }) => {
       const userData = await response.json();
       setUser(userData);
       setEditForm({
-        name: userData.name || "",
+        display_name: userData.display_name || "", // Make sure this matches your user object structure
         email: userData.email || "",
       });
     } catch (err) {
@@ -228,6 +228,8 @@ const Profile = ({ isDarkMode, onLogout }) => {
         onBack={handleBackToProfile}
         origin="profile"
         isDarkMode={isDarkMode}
+        user={user}
+        onShowLogin={onShowLogin}
       />
     );
   }

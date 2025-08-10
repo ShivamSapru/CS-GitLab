@@ -311,6 +311,10 @@ const SubtitleTranslatorApp = () => {
     };
   }, [navigate]);
 
+  const handleShowLogin = () => {
+    setShowLoginModal(true);
+  };
+
   // SIMPLIFIED ProtectedRoute - only used for actual protected routes
   const ProtectedRoute = ({ children }) => {
     if (loadingUser) {
@@ -575,7 +579,11 @@ const SubtitleTranslatorApp = () => {
           path="/profile"
           element={
             <ProtectedRoute>
-              <Profile isDarkMode={isDarkMode} onLogout={handleLogout} />
+              <Profile
+                isDarkMode={isDarkMode}
+                onLogout={handleLogout}
+                onShowLogin={handleShowLogin}
+              />
             </ProtectedRoute>
           }
         />
