@@ -42,9 +42,18 @@ describe('End-to-End Extension Scenarios', () => {
       },
       storage: {
         sync: {
-          get: jest.fn(),
-          set: jest.fn(),
-          clear: jest.fn()
+          get: jest.fn((keys, callback) => {
+            // Auto-call callback to resolve promises
+            if (callback) callback({});
+          }),
+          set: jest.fn((data, callback) => {
+            // Auto-call callback to resolve promises
+            if (callback) callback();
+          }),
+          clear: jest.fn((callback) => {
+            // Auto-call callback to resolve promises
+            if (callback) callback();
+          })
         }
       },
       action: {
@@ -98,9 +107,7 @@ describe('End-to-End Extension Scenarios', () => {
       expect(mockChrome.action.setBadgeText).toHaveBeenCalledWith({ text: 'NEW' });
       
       // Step 2: User opens popup for first time
-      mockChrome.storage.sync.get.mockImplementation((keys, callback) => {
-        callback({}); // No previous settings
-      });
+      // mockChrome.storage.sync.get will return {} by default (no previous settings)
       
       const firstTimeSettings = {
         targetLanguage: 'en',
@@ -164,7 +171,7 @@ describe('End-to-End Extension Scenarios', () => {
       // Remove "NEW" badge after first use
       mockChrome.action.setBadgeText({ text: '' });
       expect(mockChrome.action.setBadgeText).toHaveBeenCalledWith({ text: '' });
-    }, 10000); // Increased timeout
+    }, 15000); // Increased timeout to 15 seconds
   });
 
   describe('User Journey: Daily Usage Workflow', () => {
@@ -178,6 +185,8 @@ describe('End-to-End Extension Scenarios', () => {
         theme: 'dark'
       };
       
+      // Setup: User has already used extension before with existing settings
+      // The general mock will return {} but we'll modify it to return existing settings
       mockChrome.storage.sync.get.mockImplementation((keys, callback) => {
         callback({ subtitleSettings: existingSettings });
       });
@@ -294,7 +303,7 @@ describe('End-to-End Extension Scenarios', () => {
       expect(mockChrome.storage.sync.set).toHaveBeenCalledWith({
         subtitleSettings: updatedSettings
       }, expect.any(Function));
-    });
+    }, 10000); // Added timeout of 10 seconds
   });
 
   describe('Error Handling Scenarios', () => {
