@@ -53,6 +53,7 @@ AZURE_STORAGE_CONNECTION_STRING = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
 AZURE_BLOB_CONTAINER = os.getenv("AZURE_STORAGE_CONTAINER_NAME")
 BATCH_ENDPOINT = os.getenv("BATCH_ENDPOINT").replace("AZURE_SPEECH_REGION", AZURE_SPEECH_REGION)
 GET_ENDPOINT_TEMPLATE = os.getenv("GET_ENDPOINT_TEMPLATE").replace("AZURE_SPEECH_REGION", AZURE_SPEECH_REGION)
+TRANSCRIPTION_PROJECTS_FOLDER = os.getenv("TRANSCRIPTION_PROJECTS_FOLDER")
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 
@@ -296,7 +297,7 @@ def monitor_transcription_job(job_id, project_id, user_id, file_name, output_for
         try:
             blob_service = BlobServiceClient.from_connection_string(AZURE_STORAGE_CONNECTION_STRING)
             # UPDATED: Use organized blob name
-            blob_name = f"subtitles/{project_id}_{out_name}"
+            blob_name = f"{TRANSCRIPTION_PROJECTS_FOLDER}/{project_id}/{out_name}"
             blob_client = blob_service.get_blob_client(container=AZURE_BLOB_CONTAINER, blob=blob_name)
             with open(out_path, "rb") as data:
                 blob_client.upload_blob(data, overwrite=True)
@@ -505,10 +506,40 @@ async def transcribe_audio_video(
                 status_code=500,
                 content={"error": f"Azure storage initialization failed: {str(azure_error)}"}
             )
+        
+         # Create database record
+        try:
+            project = TranscriptionProject(
+                user_id=user_id,
+                status="In Progress",
+                created_at=datetime.now(timezone.utc),
+                subtitle_file_url=None,
+                media_url=None
+            )
+            db.add(project)
+            db.commit()
+            db.refresh(project)
+            print(f"✅ Database record created: {project.project_id}")
+            print(f"   Project ID: {project.project_id}")
+            # print(f"   Media URL in object: {media_url}")
+            # print(f"   Media URL stored: {getattr(project, 'media_url', 'ATTRIBUTE_MISSING')}")
+
+        except Exception as db_error:
+            print(f"❌ Database error: {db_error}")
+            # Clean up files
+            try:
+                os.remove(input_path)
+                os.remove(wav_path)
+            except:
+                pass
+            return JSONResponse(
+                status_code=500,
+                content={"error": f"Database error: {str(db_error)}"}
+            )
 
         # Upload original file to Azure for media preview
         try:
-            blob_name_original = f"input_{unique_id}_{os.path.basename(input_path)}"
+            blob_name_original = f"{TRANSCRIPTION_PROJECTS_FOLDER}/{project.project_id}/input_{unique_id}_{os.path.basename(input_path)}"
             blob_client_original = blob_service.get_blob_client(
                 container=AZURE_BLOB_CONTAINER,
                 blob=blob_name_original
@@ -529,6 +560,13 @@ async def transcribe_audio_video(
 
             media_url = f"https://{blob_service.account_name}.blob.core.windows.net/{AZURE_BLOB_CONTAINER}/{blob_name_original}?{sas_token_original}"
             print(f"✅ Original file uploaded for preview: {blob_name_original}")
+
+             # Update database
+            project = db.query(TranscriptionProject).filter_by(project_id=project.project_id).first()
+            if project:
+                project.media_url = media_url
+                db.commit()
+                print(f"✅ Database updated with media_url: {media_url}")
 
         except Exception as upload_error:
             print(f"❌ Azure upload error: {upload_error}")
@@ -565,7 +603,7 @@ async def transcribe_audio_video(
 
         # Upload WAV file to Azure for transcription
         try:
-            blob_name_wav = f"wav_{unique_id}_{os.path.basename(wav_path)}"
+            blob_name_wav = f"{TRANSCRIPTION_PROJECTS_FOLDER}/{project.project_id}/wav_{unique_id}_{os.path.basename(wav_path)}"
             blob_client_wav = blob_service.get_blob_client(
                 container=AZURE_BLOB_CONTAINER,
                 blob=blob_name_wav
@@ -617,36 +655,6 @@ async def transcribe_audio_video(
             return JSONResponse(
                 status_code=500,
                 content={"error": f"Failed to start transcription job: {str(job_error)}"}
-            )
-
-        # Create database record
-        try:
-            project = TranscriptionProject(
-                user_id=user_id,
-                status="In Progress",
-                created_at=datetime.now(timezone.utc),
-                subtitle_file_url=None,
-                media_url=media_url
-            )
-            db.add(project)
-            db.commit()
-            db.refresh(project)
-            print(f"✅ Database record created: {project.project_id}")
-            print(f"   Project ID: {project.project_id}")
-            print(f"   Media URL in object: {media_url}")
-            print(f"   Media URL stored: {getattr(project, 'media_url', 'ATTRIBUTE_MISSING')}")
-
-        except Exception as db_error:
-            print(f"❌ Database error: {db_error}")
-            # Clean up files
-            try:
-                os.remove(input_path)
-                os.remove(wav_path)
-            except:
-                pass
-            return JSONResponse(
-                status_code=500,
-                content={"error": f"Database error: {str(db_error)}"}
             )
 
         # Setup background monitoring

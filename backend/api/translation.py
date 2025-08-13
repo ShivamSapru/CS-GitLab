@@ -18,7 +18,7 @@ from azure.storage.blob import BlobServiceClient
 from backend.database.models import SubtitleFile, User
 from backend.database.models import Translation
 from backend.database.models import TranslationProject
-from backend.database.models import TranscriptionProject, Notification
+# from backend.database.models import TranscriptionProject, Notification
 from backend.database.db import SessionLocal
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_
@@ -63,6 +63,7 @@ AZURE_TRANSLATOR_REGION = os.getenv("AZURE_TRANSLATOR_REGION")
 
 AZURE_STORAGE_CONNECTION_STRING = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
 AZURE_STORAGE_CONTAINER_NAME = os.getenv("AZURE_STORAGE_CONTAINER_NAME", "subtitle-projects")
+TRANSLATION_PROJECTS_FOLDER = os.getenv("TRANSLATION_PROJECTS_FOLDER")
 
 MAX_CHAR_LIMIT = 20000
 
@@ -361,7 +362,7 @@ async def save_project(
         if os.path.exists(local_path):
             # Original file exists, store it
             file_size = 0
-            blob_name = f"projects/{project_id}/{original_filename}"
+            blob_name = f"{TRANSLATION_PROJECTS_FOLDER}/{project_id}/{original_filename}"
             blob_url = f"https://{os.getenv('AZURE_STORAGE_ACCOUNT_NAME')}.blob.core.windows.net/{AZURE_STORAGE_CONTAINER_NAME}/{blob_name}"
 
             with open(local_path, "rb") as f:
@@ -403,7 +404,7 @@ async def save_project(
                 content = project_data.edited_files[filename]
                 if not content.strip():
                     continue
-                blob_name = f"projects/{project_id}/{filename}"
+                blob_name = f"{TRANSLATION_PROJECTS_FOLDER}/{project_id}/{filename}"
                 file_bytes = content.encode("utf-8")
                 file_size = len(file_bytes)
                 blob_client.get_blob_client(container=AZURE_STORAGE_CONTAINER_NAME, blob=blob_name).upload_blob(file_bytes, overwrite=True)
@@ -423,7 +424,7 @@ async def save_project(
                 with open(local_path, "rb") as f:
                     file_bytes = f.read()
                 file_size = len(file_bytes)
-                blob_name = f"projects/{project_id}/{filename}"
+                blob_name = f"{TRANSLATION_PROJECTS_FOLDER}/{project_id}/{filename}"
                 blob_client.get_blob_client(container=AZURE_STORAGE_CONTAINER_NAME, blob=blob_name).upload_blob(file_bytes, overwrite=True)
 
             # Create a SEPARATE SubtitleFile record for each translated file
@@ -470,27 +471,27 @@ async def save_project(
             return JSONResponse(status_code=400, content={"error": "No valid files uploaded"})
 
 
-        transcription_project = TranscriptionProject(
-            project_id=project_id,
-            user_id=user.user_id,
-            status="Pending",
-            created_at=current_time,
-            subtitle_file_url=uploaded_files[0]["blob_path"],
-            media_url=None
-        )
-        db.add(transcription_project)
-        db.flush()
+        # transcription_project = TranscriptionProject(
+        #     project_id=project_id,
+        #     user_id=user.user_id,
+        #     status="Pending",
+        #     created_at=current_time,
+        #     subtitle_file_url=uploaded_files[0]["blob_path"],
+        #     media_url=None
+        # )
+        # db.add(transcription_project)
+        # db.flush()
 
-        notification = Notification(
-            user_id=user.user_id,
-            project_id=project_id,
-            project_status="Pending",
-            creation_time=current_time,
-            message=f"Your project '{project_data.project_name}' has been created and is pending transcription.",
-            is_read=False
-        )
-        db.add(notification)
-        db.commit()
+        # notification = Notification(
+        #     user_id=user.user_id,
+        #     project_id=project_id,
+        #     project_status="Pending",
+        #     creation_time=current_time,
+        #     message=f"Your project '{project_data.project_name}' has been created and is pending transcription.",
+        #     is_read=False
+        # )
+        # db.add(notification)
+        # db.commit()
 
         return {
             "success": True,
@@ -573,14 +574,14 @@ async def get_original_file_content(
                     pass
 
             # Second try: standard project structure
-            possible_blob_names.append(f"projects/{project_id}/{original_file.original_file_name}")
+            possible_blob_names.append(f"{TRANSLATION_PROJECTS_FOLDER}/{project_id}/{original_file.original_file_name}")
 
             # Third try: the "original_" prefixed version (your backend creates this too)
-            possible_blob_names.append(f"projects/{project_id}/original_{original_file.original_file_name}")
+            possible_blob_names.append(f"{TRANSLATION_PROJECTS_FOLDER}/{project_id}/original_{original_file.original_file_name}")
 
             # Fourth try: just the filename in the project folder
             if original_file.original_file_name:
-                possible_blob_names.append(f"projects/{project_id}/{original_file.original_file_name}")
+                possible_blob_names.append(f"{TRANSLATION_PROJECTS_FOLDER}/{project_id}/{original_file.original_file_name}")
 
             content = None
             successful_blob_name = None
@@ -781,7 +782,7 @@ async def get_project_file(
             blob_client = get_blob_client()
 
             # Try to construct blob path
-            blob_name = f"projects/{project_id}/{filename}"
+            blob_name = f"{TRANSLATION_PROJECTS_FOLDER}/{project_id}/{filename}"
 
             blob_client_instance = blob_client.get_blob_client(
                 container=AZURE_STORAGE_CONTAINER_NAME,
