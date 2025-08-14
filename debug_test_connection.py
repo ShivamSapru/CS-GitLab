@@ -12,8 +12,18 @@ def test_connection(base_url="http://localhost:8000", max_attempts=10):
     
     print(f"Testing connection to {base_url}")
     print(f"Environment variables:")
-    for key in ["POSTGRES_DB", "POSTGRES_USER", "POSTGRES_HOSTNAME", "TEST_BASE_URL"]:
-        print(f"  {key}: {os.getenv(key, 'Not set')}")
+    env_vars_to_check = [
+        "POSTGRES_DB", "POSTGRES_USER", "POSTGRES_HOSTNAME", "TEST_BASE_URL",
+        "AZURE_TRANSLATOR_KEY", "AZURE_TRANSLATOR_ENDPOINT", "AZURE_TRANSLATOR_REGION"
+    ]
+    for key in env_vars_to_check:
+        value = os.getenv(key, 'Not set')
+        # Don't show full value for keys, just indicate if set
+        if 'KEY' in key:
+            display_value = "***SET***" if value != 'Not set' else 'Not set'
+        else:
+            display_value = value
+        print(f"  {key}: {display_value}")
     
     print(f"\nAttempting to connect (max {max_attempts} attempts)...")
     
@@ -22,7 +32,9 @@ def test_connection(base_url="http://localhost:8000", max_attempts=10):
             response = httpx.get(f"{base_url}/api/health", timeout=5.0)
             print(f"✅ Attempt {attempt}: Success! Status: {response.status_code}")
             if response.status_code == 200:
-                print(f"Response: {response.json()}")
+                json_response = response.json()
+                print(f"Response: {json_response}")
+                print(f"Azure Translator configured: {json_response.get('azure_translator_key_configured', 'unknown')}")
                 return True
             else:
                 print(f"Unexpected status code: {response.status_code}")
@@ -58,10 +70,15 @@ def test_postgres_connection():
         print(f"User: {conn_params['user']}")
         print(f"Database: {conn_params['database']}")
         
-        conn = psycopg2.connect(**conn_params)
-        conn.close()
-        print("✅ PostgreSQL connection successful")
-        return True
+        # Only test if all required params are set
+        if all(conn_params.values()):
+            conn = psycopg2.connect(**conn_params)
+            conn.close()
+            print("✅ PostgreSQL connection successful")
+            return True
+        else:
+            print("⚠️ PostgreSQL parameters not fully configured, skipping connection test")
+            return None
     except ImportError:
         print("⚠️ psycopg2 not available, skipping PostgreSQL test")
         return None

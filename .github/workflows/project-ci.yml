@@ -130,6 +130,15 @@ jobs:
         echo "POSTGRES_PORT=5432" >> $GITHUB_ENV
         echo "SESSION_SECRET_KEY=test-secret-key-for-testing-only" >> $GITHUB_ENV
         echo "FRONTEND_URL=http://localhost:3000" >> $GITHUB_ENV
+        # Mock Azure services for testing
+        echo "AZURE_TRANSLATOR_KEY=mock-translator-key-for-testing" >> $GITHUB_ENV
+        echo "AZURE_TRANSLATOR_ENDPOINT=https://api.cognitive.microsofttranslator.com" >> $GITHUB_ENV
+        echo "AZURE_TRANSLATOR_REGION=mock-region" >> $GITHUB_ENV
+        echo "AZURE_TRANSLATOR_LANGUAGES=https://api.cognitive.microsofttranslator.com/languages?api-version=3.0" >> $GITHUB_ENV
+        echo "AZURE_SPEECH_KEY=mock-speech-key-for-testing" >> $GITHUB_ENV
+        echo "AZURE_SPEECH_REGION=mock-region" >> $GITHUB_ENV
+        echo "AZURE_STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=https;AccountName=mockaccount;AccountKey=bW9ja2tleWZvcnRlc3RpbmcxMjM0NTY3ODkwYWJjZGVmZ2hpams=;EndpointSuffix=core.windows.net" >> $GITHUB_ENV
+        echo "AZURE_STORAGE_CONTAINER_NAME=test-container" >> $GITHUB_ENV
         
     - name: Wait for PostgreSQL
       run: |
@@ -141,9 +150,88 @@ jobs:
           sleep 2
         done
         
+    - name: Initialize Database Tables
+      run: |
+        cd backend
+        python init_db.py
+      env:
+        POSTGRES_DB: testdb
+        POSTGRES_USER: testuser
+        POSTGRES_PASSWORD: testpass
+        POSTGRES_HOSTNAME: localhost
+        POSTGRES_PORT: 5432
+        SESSION_SECRET_KEY: test-secret-key-for-testing-only
+        FRONTEND_URL: http://localhost:3000
+        AZURE_TRANSLATOR_KEY: mock-translator-key-for-testing
+        AZURE_TRANSLATOR_ENDPOINT: https://api.cognitive.microsofttranslator.com
+        AZURE_TRANSLATOR_REGION: mock-region
+        
+    - name: Start FastAPI Server
+      run: |
+        cd backend
+        python -m uvicorn main:app --host 0.0.0.0 --port 8000 &
+        SERVER_PID=$!
+        echo $SERVER_PID > /tmp/fastapi.pid
+        echo "FastAPI server started with PID: $SERVER_PID"
+      env:
+        POSTGRES_DB: testdb
+        POSTGRES_USER: testuser
+        POSTGRES_PASSWORD: testpass
+        POSTGRES_HOSTNAME: localhost
+        POSTGRES_PORT: 5432
+        SESSION_SECRET_KEY: test-secret-key-for-testing-only
+        FRONTEND_URL: http://localhost:3000
+        AZURE_TRANSLATOR_KEY: mock-translator-key-for-testing
+        AZURE_TRANSLATOR_ENDPOINT: https://api.cognitive.microsofttranslator.com
+        AZURE_TRANSLATOR_REGION: mock-region
+        AZURE_TRANSLATOR_LANGUAGES: https://api.cognitive.microsofttranslator.com/languages?api-version=3.0
+        AZURE_SPEECH_KEY: mock-speech-key-for-testing
+        AZURE_SPEECH_REGION: mock-region
+        AZURE_STORAGE_CONNECTION_STRING: DefaultEndpointsProtocol=https;AccountName=mockaccount;AccountKey=bW9ja2tleWZvcnRlc3RpbmcxMjM0NTY3ODkwYWJjZGVmZ2hpams=;EndpointSuffix=core.windows.net
+        AZURE_STORAGE_CONTAINER_NAME: test-container
+        
+    - name: Wait for FastAPI Server
+      run: |
+        echo "Waiting for FastAPI server to be ready..."
+        for i in {1..30}; do
+          if curl -s http://localhost:8000/api/health > /dev/null; then
+            echo "FastAPI server is ready!"
+            break
+          fi
+          echo "Waiting for FastAPI server... ($i/30)"
+          sleep 2
+        done
+        curl -s http://localhost:8000/api/health || (echo "FastAPI server failed to start" && exit 1)
+        
     - name: Run Web App API Tests
       run: |
         cd tests/web-app/unit-tests
         python -m pytest test_api_routes.py -v --tb=short
       env:
         PYTHONPATH: ${{ github.workspace }}
+        TEST_BASE_URL: http://localhost:8000
+        # Database connection
+        POSTGRES_DB: testdb
+        POSTGRES_USER: testuser
+        POSTGRES_PASSWORD: testpass
+        POSTGRES_HOSTNAME: localhost
+        POSTGRES_PORT: 5432
+        SESSION_SECRET_KEY: test-secret-key-for-testing-only
+        FRONTEND_URL: http://localhost:3000
+        # Mock Azure services for testing
+        AZURE_TRANSLATOR_KEY: mock-translator-key-for-testing
+        AZURE_TRANSLATOR_ENDPOINT: https://api.cognitive.microsofttranslator.com
+        AZURE_TRANSLATOR_REGION: mock-region
+        AZURE_TRANSLATOR_LANGUAGES: https://api.cognitive.microsofttranslator.com/languages?api-version=3.0
+        AZURE_SPEECH_KEY: mock-speech-key-for-testing
+        AZURE_SPEECH_REGION: mock-region
+        AZURE_STORAGE_CONNECTION_STRING: DefaultEndpointsProtocol=https;AccountName=mockaccount;AccountKey=bW9ja2tleWZvcnRlc3RpbmcxMjM0NTY3ODkwYWJjZGVmZ2hpams=;EndpointSuffix=core.windows.net
+        AZURE_STORAGE_CONTAINER_NAME: test-container
+        
+    - name: Stop FastAPI Server
+      if: always()
+      run: |
+        if [ -f /tmp/fastapi.pid ]; then
+          kill $(cat /tmp/fastapi.pid) || true
+          echo "FastAPI server stopped"
+        fi
