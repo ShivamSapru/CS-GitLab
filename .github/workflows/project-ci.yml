@@ -140,6 +140,11 @@ jobs:
         echo "AZURE_SPEECH_REGION=mock-region" >> $GITHUB_ENV
         echo "AZURE_STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=https;AccountName=mockaccount;AccountKey=bW9ja2tleWZvcnRlc3RpbmcxMjM0NTY3ODkwYWJjZGVmZ2hpams=;EndpointSuffix=core.windows.net" >> $GITHUB_ENV
         echo "AZURE_STORAGE_CONTAINER_NAME=test-container" >> $GITHUB_ENV
+        echo "AZURE_STORAGE_ACCOUNT_NAME=mockaccount" >> $GITHUB_ENV
+        echo "TRANSLATION_PROJECTS_FOLDER=translation-projects" >> $GITHUB_ENV
+        echo "TRANSCRIPTION_PROJECTS_FOLDER=transcription-projects" >> $GITHUB_ENV
+        echo "BATCH_ENDPOINT=https://mock-region.api.cognitive.microsoft.com/speechtotext/v3.0/transcriptions" >> $GITHUB_ENV
+        echo "GET_ENDPOINT_TEMPLATE=https://mock-region.api.cognitive.microsoft.com/speechtotext/v3.0/transcriptions/" >> $GITHUB_ENV
         
     - name: Wait for PostgreSQL
       run: |
@@ -166,6 +171,16 @@ jobs:
         AZURE_TRANSLATOR_KEY: mock-translator-key-for-testing
         AZURE_TRANSLATOR_ENDPOINT: https://api.cognitive.microsofttranslator.com
         AZURE_TRANSLATOR_REGION: mock-region
+        AZURE_TRANSLATOR_LANGUAGES: https://api.cognitive.microsofttranslator.com/languages?api-version=3.0
+        AZURE_SPEECH_KEY: mock-speech-key-for-testing
+        AZURE_SPEECH_REGION: mock-region
+        AZURE_STORAGE_CONNECTION_STRING: DefaultEndpointsProtocol=https;AccountName=mockaccount;AccountKey=bW9ja2tleWZvcnRlc3RpbmcxMjM0NTY3ODkwYWJjZGVmZ2hpams=;EndpointSuffix=core.windows.net
+        AZURE_STORAGE_CONTAINER_NAME: test-container
+        AZURE_STORAGE_ACCOUNT_NAME: mockaccount
+        TRANSLATION_PROJECTS_FOLDER: translation-projects
+        TRANSCRIPTION_PROJECTS_FOLDER: transcription-projects
+        BATCH_ENDPOINT: https://mock-region.api.cognitive.microsoft.com/speechtotext/v3.0/transcriptions
+        GET_ENDPOINT_TEMPLATE: https://mock-region.api.cognitive.microsoft.com/speechtotext/v3.0/transcriptions/
         
     - name: Start FastAPI Server
       run: |
@@ -191,6 +206,11 @@ jobs:
         AZURE_SPEECH_REGION: mock-region
         AZURE_STORAGE_CONNECTION_STRING: DefaultEndpointsProtocol=https;AccountName=mockaccount;AccountKey=bW9ja2tleWZvcnRlc3RpbmcxMjM0NTY3ODkwYWJjZGVmZ2hpams=;EndpointSuffix=core.windows.net
         AZURE_STORAGE_CONTAINER_NAME: test-container
+        AZURE_STORAGE_ACCOUNT_NAME: mockaccount
+        TRANSLATION_PROJECTS_FOLDER: translation-projects
+        TRANSCRIPTION_PROJECTS_FOLDER: transcription-projects
+        BATCH_ENDPOINT: https://mock-region.api.cognitive.microsoft.com/speechtotext/v3.0/transcriptions
+        GET_ENDPOINT_TEMPLATE: https://mock-region.api.cognitive.microsoft.com/speechtotext/v3.0/transcriptions/
         
     - name: Wait for FastAPI Server
       run: |
@@ -230,6 +250,11 @@ jobs:
         AZURE_SPEECH_REGION: mock-region
         AZURE_STORAGE_CONNECTION_STRING: DefaultEndpointsProtocol=https;AccountName=mockaccount;AccountKey=bW9ja2tleWZvcnRlc3RpbmcxMjM0NTY3ODkwYWJjZGVmZ2hpams=;EndpointSuffix=core.windows.net
         AZURE_STORAGE_CONTAINER_NAME: test-container
+        AZURE_STORAGE_ACCOUNT_NAME: mockaccount
+        TRANSLATION_PROJECTS_FOLDER: translation-projects
+        TRANSCRIPTION_PROJECTS_FOLDER: transcription-projects
+        BATCH_ENDPOINT: https://mock-region.api.cognitive.microsoft.com/speechtotext/v3.0/transcriptions
+        GET_ENDPOINT_TEMPLATE: https://mock-region.api.cognitive.microsoft.com/speechtotext/v3.0/transcriptions/
         
     - name: Stop FastAPI Server
       if: always()

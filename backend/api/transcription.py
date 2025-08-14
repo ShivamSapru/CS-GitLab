@@ -51,8 +51,21 @@ AZURE_SPEECH_KEY = os.getenv("AZURE_SPEECH_KEY")
 AZURE_SPEECH_REGION = os.getenv("AZURE_SPEECH_REGION")
 AZURE_STORAGE_CONNECTION_STRING = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
 AZURE_BLOB_CONTAINER = os.getenv("AZURE_STORAGE_CONTAINER_NAME")
-BATCH_ENDPOINT = os.getenv("BATCH_ENDPOINT").replace("AZURE_SPEECH_REGION", AZURE_SPEECH_REGION)
-GET_ENDPOINT_TEMPLATE = os.getenv("GET_ENDPOINT_TEMPLATE").replace("AZURE_SPEECH_REGION", AZURE_SPEECH_REGION)
+
+# Safely handle BATCH_ENDPOINT and GET_ENDPOINT_TEMPLATE with null checking
+batch_endpoint_template = os.getenv("BATCH_ENDPOINT")
+get_endpoint_template = os.getenv("GET_ENDPOINT_TEMPLATE")
+
+if batch_endpoint_template and AZURE_SPEECH_REGION:
+    BATCH_ENDPOINT = batch_endpoint_template.replace("AZURE_SPEECH_REGION", AZURE_SPEECH_REGION)
+else:
+    BATCH_ENDPOINT = batch_endpoint_template  # Use as-is if no replacement needed
+
+if get_endpoint_template and AZURE_SPEECH_REGION:
+    GET_ENDPOINT_TEMPLATE = get_endpoint_template.replace("AZURE_SPEECH_REGION", AZURE_SPEECH_REGION)
+else:
+    GET_ENDPOINT_TEMPLATE = get_endpoint_template  # Use as-is if no replacement needed
+
 TRANSCRIPTION_PROJECTS_FOLDER = os.getenv("TRANSCRIPTION_PROJECTS_FOLDER")
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
@@ -529,7 +542,6 @@ async def transcribe_audio_video(
             # Clean up files
             try:
                 os.remove(input_path)
-                os.remove(wav_path)
             except:
                 pass
             return JSONResponse(
