@@ -24,8 +24,6 @@ import {
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:8000";
 
 const convertSrtToVttManual = (srtContent) => {
-  console.log("Starting manual SRT to VTT conversion...");
-
   let vttContent = "WEBVTT\n\n";
 
   // Split SRT into blocks
@@ -51,16 +49,12 @@ const convertSrtToVttManual = (srtContent) => {
     }
   });
 
-  console.log(
-    "Manual conversion result (first 300 chars):",
-    vttContent.substring(0, 300),
-  );
   return vttContent;
 };
 
 // Also fix the parseVttSubtitles function to handle this properly:
 const parseVttSubtitles = (content) => {
-  console.log("🎯 Parsing VTT content, length:", content.length);
+  console.log(" Parsing VTT content, length:", content.length);
   const lines = content.split("\n");
   const subtitles = [];
   let currentSubtitle = null;
@@ -114,7 +108,6 @@ const parseVttSubtitles = (content) => {
     subtitles.push(currentSubtitle);
   }
 
-  console.log("✅ Total parsed VTT subtitles:", subtitles.length);
   return subtitles;
 };
 
@@ -137,7 +130,7 @@ const VideoPreviewPlayer = ({
 }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
-  const [maxPlayTime, setMaxPlayTime] = useState(10);
+  const [maxPlayTime, setMaxPlayTime] = useState(30);
   const [isInitialized, setIsInitialized] = useState(false);
 
   // 1. Initialize video to first subtitle - ONLY when parsedSubtitles change
@@ -155,18 +148,15 @@ const VideoPreviewPlayer = ({
       const firstSubtitle = parsedSubtitles[0];
       if (firstSubtitle && firstSubtitle.startTime >= 0) {
         const startTime = Math.max(0, firstSubtitle.startTime - 1);
-        console.log(
-          `🎬 Initializing video to first subtitle at: ${startTime}s`,
-        );
 
         video.currentTime = startTime;
         setCurrentTime(startTime);
-        setMaxPlayTime(Math.min(firstSubtitle.endTime + 3, startTime + 15));
+        setMaxPlayTime(startTime + 30);
         setIsInitialized(true);
       } else {
         video.currentTime = 0;
         setCurrentTime(0);
-        setMaxPlayTime(10);
+        setMaxPlayTime(30);
         setIsInitialized(true);
       }
     };
@@ -234,7 +224,7 @@ const VideoPreviewPlayer = ({
     const enableSubtitles = () => {
       if (video.textTracks && video.textTracks.length > 0) {
         video.textTracks[0].mode = "showing";
-        console.log("✅ Subtitles enabled");
+        console.log(" Subtitles enabled");
       }
     };
 
@@ -246,18 +236,13 @@ const VideoPreviewPlayer = ({
 
   // 4. Clean up subtitle tracks when content changes
   useEffect(() => {
-    console.log("🧹 Safe cleanup triggered", {
-      convertedVttLength: convertedVttContent?.length,
-      previewContentLength: previewContent?.length,
-    });
-
     // Only clean up subtitle URLs, NOT video URLs
     if (window.previousSubtitleUrl) {
       try {
         URL.revokeObjectURL(window.previousSubtitleUrl);
-        console.log("✅ Revoked previous subtitle URL");
+        console.log(" Revoked previous subtitle URL");
       } catch (error) {
-        console.log("⚠️ Error revoking subtitle URL:", error);
+        console.log(" Error revoking subtitle URL:", error);
       }
       window.previousSubtitleUrl = null;
       window.currentSubtitleContent = null;
@@ -277,9 +262,8 @@ const VideoPreviewPlayer = ({
             video.textTracks[i].mode = "disabled";
           }
         }
-        console.log("✅ Disabled all text tracks via API");
       } catch (error) {
-        console.log("⚠️ Error disabling tracks:", error);
+        console.log(" Error disabling tracks:", error);
       }
     }
   }, [convertedVttContent, previewContent, setCurrentSubtitleIndex]);
@@ -292,9 +276,9 @@ const VideoPreviewPlayer = ({
         return null;
       }
 
-      // CRITICAL: Check if this is old content
+      //  Check if this is old content
       if (subtitleContent.includes("So here like I'v")) {
-        console.error("🚨 ALERT: Old content detected in createSubtitleTrack!");
+        console.error(" Old content detected in createSubtitleTrack!");
         return null;
       }
 
@@ -304,14 +288,14 @@ const VideoPreviewPlayer = ({
         8,
       );
 
-      // IMPORTANT: Check if we already have this exact content
+      // Check if we already have this exact content
       if (window.currentSubtitleHash === contentHash) {
-        console.log("✅ Using existing subtitle track for same content");
+        console.log(" Using existing subtitle track for same content");
         return window.previousSubtitleUrl;
       }
 
       console.log(
-        "🎯 Creating NEW subtitle track for different content:",
+        " Creating NEW subtitle track for different content:",
         contentHash,
       );
 
@@ -319,7 +303,7 @@ const VideoPreviewPlayer = ({
 
       // Check if content is SRT format and convert it manually
       if (!vttContent.startsWith("WEBVTT") && vttContent.match(/^\d+\s*$/m)) {
-        console.log("🔄 Converting SRT to VTT");
+        console.log(" Converting SRT to VTT");
         vttContent = convertSrtToVttManual(vttContent);
       }
 
@@ -342,9 +326,9 @@ const VideoPreviewPlayer = ({
       ) {
         try {
           URL.revokeObjectURL(window.previousSubtitleUrl);
-          console.log("✅ Revoked old subtitle URL");
+          console.log(" Revoked old subtitle URL");
         } catch (error) {
-          console.log("⚠️ Error revoking old URL:", error);
+          console.log(" Error revoking old URL:", error);
         }
       }
 
@@ -358,10 +342,6 @@ const VideoPreviewPlayer = ({
       window.previousSubtitleUrl = url;
       window.currentSubtitleHash = contentHash;
 
-      console.log(
-        "✅ NEW subtitle track URL created:",
-        url.substring(0, 50) + "...",
-      );
       return url;
     } catch (error) {
       console.error("❌ Error creating subtitle track:", error);
@@ -372,12 +352,6 @@ const VideoPreviewPlayer = ({
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !videoUrl) return;
-
-    console.log("🎬 Enhanced video setup:", {
-      videoUrl: videoUrl.substring(0, 100) + "...",
-      videoExists: !!video,
-      readyState: video.readyState,
-    });
 
     const setupVideo = async () => {
       try {
@@ -392,7 +366,6 @@ const VideoPreviewPlayer = ({
           }
         }
 
-        console.log("🔄 Setting video source:", videoUrl);
         video.src = videoUrl;
 
         // Set video properties
@@ -410,7 +383,7 @@ const VideoPreviewPlayer = ({
             clearTimeout(timeout);
             video.removeEventListener("canplay", handleCanPlay);
             video.removeEventListener("error", handleError);
-            console.log("✅ Video can play");
+
             resolve();
           };
 
@@ -427,8 +400,6 @@ const VideoPreviewPlayer = ({
 
           video.load();
         });
-
-        console.log("✅ Video setup completed successfully");
       } catch (error) {
         console.error("❌ Video setup failed:", error);
         setError(`Video setup failed: ${error.message}`);
@@ -446,40 +417,10 @@ const VideoPreviewPlayer = ({
     };
   }, [videoUrl, videoRef, setError]);
 
-  // Also add this enhanced video error handler
-  const handleVideoError = (e) => {
-    const video = videoRef.current;
-    console.error("🎬 Video error event:", e);
-
-    if (video?.error) {
-      const errorMessages = {
-        1: "Video loading was aborted",
-        2: "Network error while loading video",
-        3: "Video decoding failed - format may not be supported",
-        4: "Video format not supported by browser",
-      };
-
-      const errorCode = video.error.code;
-      const errorMessage =
-        errorMessages[errorCode] || `Unknown video error (code: ${errorCode})`;
-
-      console.error("🎬 Video error details:", {
-        code: errorCode,
-        message: errorMessage,
-        videoSrc: video.src?.substring(0, 100) + "...",
-        readyState: video.readyState,
-        networkState: video.networkState,
-      });
-
-      setError(`Video preview error: ${errorMessage}`);
-    }
-  };
-
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !videoUrl) return;
 
-    console.log("🎬 Setting video source from backend URL:", videoUrl);
     video.src = videoUrl;
     video.load();
   }, [videoUrl, videoRef]);
@@ -491,7 +432,6 @@ const VideoPreviewPlayer = ({
     try {
       if (isPlaying) {
         video.pause();
-        console.log("🔄 Video paused");
       } else {
         if (video.currentTime >= maxPlayTime) {
           const firstSubtitle = parsedSubtitles[0];
@@ -503,26 +443,19 @@ const VideoPreviewPlayer = ({
           setCurrentTime(resetTime);
 
           if (firstSubtitle) {
-            const newMaxTime = Math.min(
-              firstSubtitle.endTime + 3,
-              resetTime + 15,
-            );
+            const newMaxTime = resetTime + 30;
             setMaxPlayTime(newMaxTime);
           } else {
-            setMaxPlayTime(10);
+            setMaxPlayTime(30);
           }
         }
-
-        // Add promise handling for play()
-        console.log("▶️ Attempting to play video");
         await video.play();
-        console.log("✅ Video playing successfully");
       }
     } catch (error) {
       if (error.name === "AbortError") {
-        console.log("⚠️ Play request was interrupted (expected behavior)");
+        console.log(" Play request was interrupted (expected behavior)");
       } else if (error.name === "NotAllowedError") {
-        console.log("⚠️ Autoplay prevented by browser policy");
+        console.log(" Autoplay prevented by browser policy");
         // User needs to interact with the page first
       } else {
         console.error("❌ Video play error:", error);
@@ -544,10 +477,10 @@ const VideoPreviewPlayer = ({
     setCurrentTime(resetTime);
 
     if (firstSubtitle) {
-      const newMaxTime = Math.min(firstSubtitle.endTime + 3, resetTime + 15);
+      const newMaxTime = resetTime + 30;
       setMaxPlayTime(newMaxTime);
     } else {
-      setMaxPlayTime(10);
+      setMaxPlayTime(30);
     }
 
     video.pause();
@@ -606,22 +539,13 @@ const VideoPreviewPlayer = ({
               preload="metadata"
               playsInline={true}
               muted={false}
-              onLoadStart={() => console.log("🎬 Video load started")}
               onError={(e) => {
                 const video = videoRef.current;
-                console.error("🎬 Video error:", {
+                console.error(" Video error:", {
                   code: video?.error?.code,
                   message: video?.error?.message,
                   networkState: video?.networkState,
                   readyState: video?.readyState,
-                });
-              }}
-              onLoadedMetadata={() => {
-                const video = videoRef.current;
-                console.log("✅ Video metadata loaded:", {
-                  duration: video.duration,
-                  width: video.videoWidth,
-                  height: video.videoHeight,
                 });
               }}
             >
@@ -693,18 +617,6 @@ const VideoPreviewPlayer = ({
                   {formatTime(currentTime)} / {formatTime(maxPlayTime)}
                 </span>
               </div>
-
-              {parsedSubtitles.length > 0 && (
-                <div
-                  className={`text-xs mt-1 transition-colors duration-300 ${
-                    isDarkMode ? "text-orange-300" : "text-orange-200"
-                  }`}
-                >
-                  {parsedSubtitles[0].startTime > 0
-                    ? `First subtitle starts at ${formatTime(parsedSubtitles[0].startTime)} (playing from ${formatTime(Math.max(0, parsedSubtitles[0].startTime - 1))})`
-                    : "Playing from beginning with subtitles"}
-                </div>
-              )}
             </div>
           </div>
         </div>
@@ -790,7 +702,6 @@ const TranscriptionApp = ({
       };
 
       sessionStorage.setItem("transcriptionState", JSON.stringify(state));
-      console.log("💾 Saved transcription state with media_url:", state);
     }
   }, [
     projectId,
@@ -803,248 +714,12 @@ const TranscriptionApp = ({
     censorProfanity,
   ]);
 
-  const clearBackendCache = async () => {
-    if (!projectId) {
-      setError("No project ID available");
-      return;
-    }
-
-    try {
-      console.log(
-        "🧹 Attempting to clear backend cache for project:",
-        projectId,
-      );
-
-      // Try to force a fresh transcription status check
-      const response = await fetch(
-        `${BACKEND_URL}/api/transcription-status-check/${projectId}?force_refresh=true&_=${Date.now()}`,
-        {
-          credentials: "include",
-          cache: "no-cache",
-          headers: {
-            "Cache-Control": "no-cache",
-            Pragma: "no-cache",
-          },
-        },
-      );
-
-      if (response.ok) {
-        const data = await response.json();
-        console.log("✅ Backend cache refresh response:", data);
-
-        if (data.filename) {
-          // Update the transcription result with the fresh filename
-          setTranscriptionResult((prev) => ({
-            ...prev,
-            transcribed_filename: data.filename,
-          }));
-
-          console.log("📁 Updated filename to:", data.filename);
-          showNotification(
-            "Backend cache cleared. Try preview again.",
-            "success",
-          );
-        }
-      } else {
-        throw new Error(`Cache clear failed: ${response.status}`);
-      }
-    } catch (error) {
-      console.error("❌ Failed to clear backend cache:", error);
-      setError(`Failed to clear backend cache: ${error.message}`);
-    }
-  };
-
-  // Add this debug function to your component
-  const debugVideoSetup = async () => {
-    console.log("🔍 COMPREHENSIVE VIDEO DEBUG:");
-    console.log("1. File info:", {
-      name: file?.name,
-      type: file?.type,
-      size: file?.size,
-      lastModified: file?.lastModified,
-    });
-
-    if (file) {
-      try {
-        // Test if we can read the file
-        const arrayBuffer = await file.arrayBuffer();
-        console.log("2. File ArrayBuffer size:", arrayBuffer.byteLength);
-
-        // Test blob URL creation
-        const testUrl = URL.createObjectURL(file);
-        console.log("3. Test blob URL created:", testUrl);
-
-        // Test if blob URL is accessible
-        try {
-          const response = await fetch(testUrl);
-          console.log("4. Blob URL fetch status:", response.status);
-          console.log(
-            "5. Blob URL content-type:",
-            response.headers.get("content-type"),
-          );
-
-          URL.revokeObjectURL(testUrl); // Clean up test URL
-        } catch (fetchError) {
-          console.error("4. Blob URL fetch failed:", fetchError);
-        }
-      } catch (fileError) {
-        console.error("2. File read failed:", fileError);
-      }
-    }
-
-    // Check video element state
-    const video = videoRef.current;
-    if (video) {
-      console.log("6. Video element state:", {
-        src: video.src,
-        readyState: video.readyState,
-        networkState: video.networkState,
-        error: video.error,
-      });
-    }
-  };
-
-  const debugBackendResponse = async () => {
-    const projectId = "5988d15a-6ab0-4abc-9a30-f505c3cdd132"; // Your current project
-
-    console.log("🔍 DIRECT BACKEND TEST:");
-
-    try {
-      // Test the status endpoint directly
-      const response = await fetch(
-        `${BACKEND_URL}/api/transcription-status-check/${projectId}`,
-        {
-          credentials: "include",
-          headers: {
-            Accept: "application/json",
-            "Cache-Control": "no-cache",
-          },
-        },
-      );
-
-      console.log("📊 Response status:", response.status);
-      console.log(
-        "📊 Response headers:",
-        Object.fromEntries(response.headers.entries()),
-      );
-
-      if (response.ok) {
-        const data = await response.json();
-        console.log("📊 Response data:", data);
-        console.log("📊 Response keys:", Object.keys(data));
-        console.log("📊 Has media_url?", "media_url" in data);
-        console.log("📊 Media URL value:", data.media_url);
-      } else {
-        const errorText = await response.text();
-        console.log("❌ Error response:", errorText);
-      }
-    } catch (error) {
-      console.log("❌ Request failed:", error);
-    }
-
-    // Also test the debug endpoint
-    try {
-      const debugResponse = await fetch(
-        `${BACKEND_URL}/api/debug-project/${projectId}`,
-        { credentials: "include" },
-      );
-
-      if (debugResponse.ok) {
-        const debugData = await debugResponse.json();
-        console.log("🔍 Debug endpoint data:", debugData);
-      }
-    } catch (error) {
-      console.log("Debug endpoint not available:", error);
-    }
-  };
-  const debugPreviewProcess = async () => {
-    console.log("🎬 ENHANCED PREVIEW DEBUG:");
-
-    console.log("1. Initial state:", {
-      projectId,
-      transcriptionResult,
-      hasMediaUrl: !!transcriptionResult?.media_url,
-    });
-
-    if (!projectId) {
-      console.log("❌ No project ID");
-      return;
-    }
-
-    // Step 1: Fresh status check
-    console.log("2. Fetching fresh status...");
-    try {
-      const statusResponse = await fetch(
-        `${BACKEND_URL}/api/transcription-status-check/${projectId}`,
-        {
-          credentials: "include",
-          headers: { "Cache-Control": "no-cache" },
-        },
-      );
-
-      console.log("   Status response OK:", statusResponse.ok);
-
-      if (statusResponse.ok) {
-        const freshData = await statusResponse.json();
-        console.log("   Fresh data:", freshData);
-        console.log("   Fresh data keys:", Object.keys(freshData));
-        console.log("   Has media_url in response:", "media_url" in freshData);
-
-        if (freshData.media_url) {
-          console.log("✅ Found media_url in backend response!");
-          console.log(
-            "   Media URL:",
-            freshData.media_url.substring(0, 100) + "...",
-          );
-
-          // Update state
-          setTranscriptionResult((prev) => ({
-            ...prev,
-            ...freshData,
-          }));
-
-          // Test media URL accessibility
-          try {
-            const mediaTest = await fetch(freshData.media_url, {
-              method: "HEAD",
-              credentials: "include",
-            });
-            console.log("   Media URL accessible:", mediaTest.ok);
-            console.log("   Media URL status:", mediaTest.status);
-            console.log(
-              "   Content-Type:",
-              mediaTest.headers.get("content-type"),
-            );
-
-            if (mediaTest.ok) {
-              console.log("🎬 Setting up video preview...");
-              setVideoUrl(freshData.media_url);
-              setShowVideoPreview(true);
-              console.log("✅ Video preview should now be visible");
-            } else {
-              console.log("❌ Media URL not accessible");
-            }
-          } catch (mediaError) {
-            console.log("❌ Media URL test failed:", mediaError);
-          }
-        } else {
-          console.log("❌ No media_url in backend response");
-        }
-      } else {
-        console.log("❌ Status request failed:", statusResponse.status);
-      }
-    } catch (error) {
-      console.log("❌ Status request error:", error);
-    }
-  };
-
   // Restore state from sessionStorage
   const restoreTranscriptionState = useCallback(() => {
     const savedState = sessionStorage.getItem("transcriptionState");
     if (savedState && !hasRestoredState) {
       try {
         const state = JSON.parse(savedState);
-        console.log("🔄 Restoring transcription state:", state);
 
         const now = Date.now();
         const stateAge = now - (state.timestamp || 0);
@@ -1058,12 +733,8 @@ const TranscriptionApp = ({
           setMaxSpeakers(state.maxSpeakers);
           setCensorProfanity(state.censorProfanity);
 
-          // ← NEW: Restore video URL from media_url if available
+          //  Restore video URL from media_url if available
           if (state.transcriptionResult?.media_url) {
-            console.log(
-              "🎬 Restoring video from media_url:",
-              state.transcriptionResult.media_url,
-            );
             setVideoUrl(state.transcriptionResult.media_url);
             if (
               state.file?.type?.startsWith("video/") ||
@@ -1094,33 +765,8 @@ const TranscriptionApp = ({
   }, [hasRestoredState]);
 
   useEffect(() => {
-    console.log("📄 previewContent changed:", {
-      length: previewContent?.length,
-      preview: previewContent?.substring(0, 100),
-    });
-  }, [previewContent]);
-
-  useEffect(() => {
-    console.log("📺 convertedVttContent changed:", {
-      length: convertedVttContent?.length,
-      preview: convertedVttContent?.substring(0, 100),
-    });
-  }, [convertedVttContent]);
-
-  useEffect(() => {
-    console.log("🎬 parsedSubtitles changed:", {
-      count: parsedSubtitles?.length,
-      firstSubtitle: parsedSubtitles?.[0]?.text?.substring(0, 50),
-    });
-  }, [parsedSubtitles]);
-
-  useEffect(() => {
     // On component mount, if we have a projectId, always check fresh status
     if (projectId && !hasRestoredState && checkTranscriptionStatus) {
-      console.log(
-        "🚀 Component mounted, checking fresh status for:",
-        projectId,
-      );
       setTimeout(() => {
         checkTranscriptionStatus(projectId);
       }, 500);
@@ -1132,32 +778,8 @@ const TranscriptionApp = ({
     fetchLocales();
   }, []);
 
-  const testBackendConnection = async () => {
-    try {
-      console.log("🔍 Testing backend connection...");
-      const response = await fetch(`${BACKEND_URL}/api/locales`, {
-        credentials: "include",
-      });
-
-      if (response.ok) {
-        console.log("✅ Backend is responding");
-        const data = await response.json();
-        console.log("📊 Locales received:", Object.keys(data).length);
-      } else {
-        console.error(
-          "❌ Backend returned:",
-          response.status,
-          response.statusText,
-        );
-      }
-    } catch (error) {
-      console.error("❌ Backend connection failed:", error);
-    }
-  };
-
   const checkTranscriptionStatus = async (projectId) => {
     try {
-      console.log("🔍 Checking status for project:", projectId);
       const response = await fetch(
         `${BACKEND_URL}/api/transcription-status-check/${projectId}`, // ← CHANGED: Use new endpoint
         { credentials: "include" },
@@ -1165,10 +787,8 @@ const TranscriptionApp = ({
 
       if (response.ok) {
         const data = await response.json();
-        console.log("📊 Status response:", data);
 
         if (data.status === "Completed") {
-          console.log("✅ Transcription completed, updating UI");
           setIsTranscribing(false);
 
           // ← NEW: Get media_url from response
@@ -1189,10 +809,6 @@ const TranscriptionApp = ({
             (file?.type?.startsWith("video/") ||
               file?.type?.startsWith("audio/"))
           ) {
-            console.log(
-              "🎬 Setting video URL from backend media_url:",
-              mediaUrl,
-            );
             setVideoUrl(mediaUrl);
             setShowVideoPreview(true);
           }
@@ -1212,7 +828,6 @@ const TranscriptionApp = ({
             notificationService.stopMonitoring(projectId);
           }
         } else if (data.status === "In Progress") {
-          console.log("⏳ Transcription still in progress");
           setIsTranscribing(true);
           if (!isTranscribing) {
             connectToTranscriptionEvents(projectId);
@@ -1228,51 +843,6 @@ const TranscriptionApp = ({
     } catch (error) {
       console.error("Status check error:", error);
       setIsTranscribing(false);
-    }
-  };
-
-  const debugBackendFiles = async () => {
-    try {
-      console.log("🔍 Debugging backend files...");
-
-      // Try to get a list of available files (if your backend supports this)
-      const response = await fetch(
-        `${BACKEND_URL}/api/list-files?project_id=${projectId}`,
-        {
-          credentials: "include",
-        },
-      );
-
-      if (response.ok) {
-        const files = await response.json();
-        console.log("📁 Backend files:", files);
-      } else {
-        console.log("⚠️ Backend file list not available");
-      }
-
-      // Also try to get the exact content that the backend thinks it should serve
-      if (transcriptionResult?.transcribed_filename) {
-        console.log(
-          "📄 Trying to fetch:",
-          transcriptionResult.transcribed_filename,
-        );
-
-        const contentResponse = await fetch(
-          `${BACKEND_URL}/api/download-transcription?filename=${encodeURIComponent(transcriptionResult.transcribed_filename)}&debug=true&_=${Date.now()}`,
-          { credentials: "include" },
-        );
-
-        if (contentResponse.ok) {
-          const content = await contentResponse.text();
-          console.log("📊 Current backend content length:", content.length);
-          console.log(
-            "📄 Current backend content preview:",
-            content.substring(0, 200),
-          );
-        }
-      }
-    } catch (error) {
-      console.error("❌ Debug failed:", error);
     }
   };
 
@@ -1310,7 +880,7 @@ const TranscriptionApp = ({
     const uploadedFile = event.target.files[0];
     if (uploadedFile) {
       // Clear previous transcription data when new file is selected
-      console.log("🧹 Clearing previous data for new file upload");
+      console.log(" Clearing previous data for new file upload");
       setPreviewContent("");
       setConvertedVttContent("");
       setParsedSubtitles([]);
@@ -1337,11 +907,6 @@ const TranscriptionApp = ({
       setError("Please select a file first");
       return;
     }
-
-    // COMPREHENSIVE STATE RESET - Clear ALL previous transcription data
-    console.log(
-      "🧹 COMPREHENSIVE RESET: Clearing all previous transcription state",
-    );
 
     // Clear preview states
     setShowPreview(false);
@@ -1381,7 +946,6 @@ const TranscriptionApp = ({
     formData.append("output_format", outputFormat);
 
     try {
-      console.log("🚀 Starting transcription...");
       const response = await fetch(`${BACKEND_URL}/api/transcribe`, {
         method: "POST",
         body: formData,
@@ -1391,7 +955,7 @@ const TranscriptionApp = ({
       const data = await response.json();
 
       if (response.ok) {
-        console.log("✅ Transcription job started:", data);
+        console.log(" Transcription job started:", data);
         setTranscriptionResult(data);
         setProjectId(data.project_id);
 
@@ -1410,7 +974,7 @@ const TranscriptionApp = ({
           };
 
           console.log(
-            "📱 Adding to background monitoring on transcription start:",
+            " Adding to background monitoring on transcription start:",
             transcriptionData,
           );
 
@@ -1418,10 +982,6 @@ const TranscriptionApp = ({
             data.project_id,
             transcriptionData,
             (completionData) => {
-              console.log(
-                "🎉 Background transcription completed:",
-                completionData,
-              );
               // Update the stored state when background completes
               const savedState = sessionStorage.getItem("transcriptionState");
               if (savedState) {
@@ -1465,14 +1025,10 @@ const TranscriptionApp = ({
       return;
     }
 
-    console.log("🚀 Processing translation with current content...");
-
     let actualContent = previewContent;
 
     // If still no content, try one more backend fetch as fallback
     if (!actualContent && projectId) {
-      console.log("📥 Last resort: fetching from backend...");
-
       try {
         const cacheBuster = Date.now();
         const response = await fetch(
@@ -1489,7 +1045,6 @@ const TranscriptionApp = ({
 
         if (response.ok) {
           actualContent = await response.text();
-          console.log("✅ Backend fetch successful");
         }
       } catch (fetchError) {
         console.error("❌ Backend fetch failed:", fetchError);
@@ -1505,11 +1060,6 @@ const TranscriptionApp = ({
       return;
     }
 
-    console.log("✅ Final content validation passed:", {
-      length: actualContent.length,
-      preview: actualContent.substring(0, 100),
-    });
-
     const transcriptionFileData = {
       content: actualContent,
       filename: transcriptionResult.transcribed_filename,
@@ -1519,7 +1069,6 @@ const TranscriptionApp = ({
       timestamp: Date.now(),
     };
 
-    console.log("📤 Sending to translation hub");
     onTranslateTranscription?.(transcriptionFileData);
   };
 
@@ -1531,8 +1080,6 @@ const TranscriptionApp = ({
     }
 
     try {
-      console.log("⬇️ Starting download for project:", projectId);
-
       const response = await fetch(
         `${BACKEND_URL}/api/download-transcription/${projectId}`,
         {
@@ -1580,8 +1127,6 @@ const TranscriptionApp = ({
         a.click();
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
-
-        console.log("✅ Download completed:", filename);
       } else {
         const errorData = await response.json().catch(() => ({}));
         console.error("❌ Download failed:", response.status, errorData);
@@ -1641,50 +1186,15 @@ const TranscriptionApp = ({
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
   };
 
-  const verifyContentFreshness = () => {
-    console.log("🔍 Content freshness check:");
-    console.log("  Preview content length:", previewContent?.length);
-    console.log(
-      "  Preview content hash:",
-      previewContent
-        ? btoa(previewContent.substring(0, 100)).substring(0, 8)
-        : "none",
-    );
-    console.log("  Edited content length:", editedContent?.length);
-    console.log("  Converted VTT length:", convertedVttContent?.length);
-    console.log("  Is editing:", isEditing);
-    console.log("  Project ID:", projectId);
-
-    // Check for old content patterns
-    const contentToCheck = isEditing ? editedContent : previewContent;
-    if (contentToCheck) {
-      const hasOldPatterns = [
-        "So here like I'v",
-        "recordings, yeah, initially",
-        "speech recognition partners",
-      ].some((pattern) => contentToCheck.includes(pattern));
-
-      console.log("  Contains old patterns:", hasOldPatterns);
-
-      if (hasOldPatterns) {
-        console.warn("⚠️ OLD CONTENT DETECTED!");
-        return false;
-      }
-    }
-
-    return true;
-  };
-
   // Preview feature functions
   const handlePreview = async () => {
     if (!transcriptionResult?.transcribed_filename) return;
 
     if (loadingPreview) {
-      console.log("⚠️ Preview already loading, ignoring request");
+      console.log(" Preview  loading");
       return;
     }
 
-    console.log("🎬 Starting preview with media URL fix");
     setLoadingPreview(true);
     setError("");
 
@@ -1704,7 +1214,6 @@ const TranscriptionApp = ({
 
       if (projectId) {
         try {
-          console.log("📊 Fetching fresh project status for media URL");
           const statusResponse = await fetch(
             `${BACKEND_URL}/api/transcription-status-check/${projectId}`,
             { credentials: "include" },
@@ -1712,7 +1221,6 @@ const TranscriptionApp = ({
 
           if (statusResponse.ok) {
             const statusData = await statusResponse.json();
-            console.log("📊 Fresh status data:", statusData);
 
             // Update our transcription result with fresh data
             freshTranscriptionResult = {
@@ -1721,7 +1229,6 @@ const TranscriptionApp = ({
             };
 
             setTranscriptionResult(freshTranscriptionResult);
-            console.log("✅ Updated transcription result with fresh data");
           }
         } catch (statusError) {
           console.warn(
@@ -1732,7 +1239,7 @@ const TranscriptionApp = ({
       }
 
       // Step 2: Fetch transcription content
-      console.log("📥 Fetching transcription content");
+
       const response = await fetch(
         `${BACKEND_URL}/api/download-transcription/${projectId}`,
         {
@@ -1751,13 +1258,12 @@ const TranscriptionApp = ({
       }
 
       const freshContent = await response.text();
-      console.log(`✅ Got fresh content, length: ${freshContent.length}`);
+
       setPreviewContent(freshContent);
 
       // Step 3: Convert to VTT if needed
       let vttContent = "";
       if (outputFormat === "srt") {
-        console.log("🔄 Converting SRT to VTT");
         vttContent = convertSrtToVttManual(freshContent);
       } else {
         vttContent = freshContent;
@@ -1766,7 +1272,7 @@ const TranscriptionApp = ({
 
       // Step 4: Parse subtitles
       const parsedSubs = parseSubtitles(freshContent, outputFormat);
-      console.log("✅ Parsed subtitles count:", parsedSubs.length);
+
       setParsedSubtitles(parsedSubs);
 
       // Step 5: Setup video preview with fixed media URL
@@ -1774,18 +1280,7 @@ const TranscriptionApp = ({
       const isMediaFile =
         file?.type?.startsWith("video/") || file?.type?.startsWith("audio/");
 
-      console.log("🎬 Video setup check:", {
-        hasMediaUrl: !!mediaUrl,
-        isMediaFile,
-        fileType: file?.type,
-      });
-
       if (mediaUrl && isMediaFile) {
-        console.log(
-          "🎬 Setting up video preview with URL:",
-          mediaUrl.substring(0, 100) + "...",
-        );
-
         try {
           // Test media URL accessibility
           const testResponse = await fetch(mediaUrl, {
@@ -1796,7 +1291,6 @@ const TranscriptionApp = ({
           if (testResponse.ok) {
             setVideoUrl(mediaUrl);
             setShowVideoPreview(true);
-            console.log("✅ Video preview setup successful");
           } else {
             console.warn("⚠️ Media URL not accessible:", testResponse.status);
             setError(`Video preview unavailable (${testResponse.status})`);
@@ -1806,7 +1300,7 @@ const TranscriptionApp = ({
           setError("Video preview unavailable - connection issue");
         }
       } else {
-        console.log("ℹ️ Video preview skipped:", {
+        console.log(" Video preview skipped:", {
           reason: !mediaUrl ? "No media URL" : "Unsupported file type",
           mediaUrl: !!mediaUrl,
           fileType: file?.type,
@@ -1821,8 +1315,6 @@ const TranscriptionApp = ({
           block: "start",
         });
       }, 300);
-
-      console.log("✅ Preview setup completed");
     } catch (err) {
       console.error("❌ Preview error:", err);
       setError(`Preview failed: ${err.message}`);
@@ -1832,8 +1324,6 @@ const TranscriptionApp = ({
   };
 
   const closePreview = () => {
-    console.log("🧹 Closing preview");
-
     setShowPreview(false);
     setPreviewContent("");
     setConvertedVttContent("");
@@ -1868,14 +1358,12 @@ const TranscriptionApp = ({
 
   // Parse SRT format subtitles - FIXED VERSION
   const parseSrtSubtitles = (content) => {
-    console.log("🎯 Parsing SRT content, length:", content.length);
     const blocks = content.trim().split(/\n\s*\n/);
-    console.log("📊 Found blocks:", blocks.length);
+
     const subtitles = [];
 
     blocks.forEach((block, blockIndex) => {
       const lines = block.trim().split("\n");
-      console.log(`Block ${blockIndex}:`, lines);
 
       if (lines.length >= 3) {
         const timeLine = lines[1];
@@ -1895,12 +1383,6 @@ const TranscriptionApp = ({
               text: text.trim(),
               originalBlock: block,
             });
-
-            console.log(`✅ Parsed subtitle ${blockIndex}:`, {
-              startTime,
-              endTime,
-              text: text.substring(0, 50),
-            });
           } catch (parseError) {
             console.error(
               `❌ Failed to parse block ${blockIndex}:`,
@@ -1918,13 +1400,12 @@ const TranscriptionApp = ({
       }
     });
 
-    console.log("✅ Total parsed subtitles:", subtitles.length);
     return subtitles;
   };
 
   // Parse VTT format subtitles - FIXED VERSION
   const parseVttSubtitles = (content) => {
-    console.log("🎯 Parsing VTT content, length:", content.length);
+    console.log(" Parsing VTT content, length:", content.length);
     const lines = content.split("\n");
     const subtitles = [];
     let currentSubtitle = null;
@@ -1970,19 +1451,11 @@ const TranscriptionApp = ({
       subtitles.push(currentSubtitle);
     }
 
-    console.log("✅ Total parsed VTT subtitles:", subtitles.length);
     return subtitles;
   };
 
   // Main parsing function - ENHANCED VERSION
   const parseSubtitles = (content, format) => {
-    console.log(
-      "🚀 parseSubtitles called with format:",
-      format,
-      "content length:",
-      content.length,
-    );
-
     if (!content || content.trim().length === 0) {
       console.log("❌ No content to parse");
       return [];
@@ -1994,10 +1467,8 @@ const TranscriptionApp = ({
       format === "srt" ||
       (!content.startsWith("WEBVTT") && content.match(/^\d+\s*$/m))
     ) {
-      console.log("📝 Parsing as SRT format");
       result = parseSrtSubtitles(content);
     } else if (format === "vtt" || content.startsWith("WEBVTT")) {
-      console.log("📺 Parsing as VTT format");
       result = parseVttSubtitles(content);
     } else {
       console.log("⚠️ Unknown format, trying SRT first...");
@@ -2008,7 +1479,6 @@ const TranscriptionApp = ({
       }
     }
 
-    console.log("🎬 Final parsing result:", result.length, "subtitles");
     return result;
   };
 
@@ -2031,8 +1501,6 @@ const TranscriptionApp = ({
   // Add the main SSE connection function
   // Replace your existing connectToTranscriptionEvents function
   const connectToTranscriptionEvents = (projectId) => {
-    console.log(`🔄 Starting smart polling for project: ${projectId}`);
-
     let pollCount = 0;
     const maxPolls = 120; // 10 minutes max
 
@@ -2048,7 +1516,6 @@ const TranscriptionApp = ({
           console.log(`📊 Poll ${pollCount + 1}: ${data.status}`);
 
           if (data.status === "Completed") {
-            console.log("✅ Transcription completed via polling!");
             setIsTranscribing(false);
 
             const updatedResult = {
@@ -2114,8 +1581,6 @@ const TranscriptionApp = ({
     // Check if we should open a specific project from notification click
     const openProjectId = sessionStorage.getItem("openTranscriptionProject");
     if (openProjectId && openProjectId !== projectId) {
-      console.log("📱 Opening project from notification:", openProjectId);
-
       // Clear the flag
       sessionStorage.removeItem("openTranscriptionProject");
 
@@ -2130,8 +1595,6 @@ const TranscriptionApp = ({
   useEffect(() => {
     // Cleanup function for component unmount
     return () => {
-      console.log("🧹 Component unmounting, cleaning up resources");
-
       // Clean up video URL
       if (videoUrl) {
         URL.revokeObjectURL(videoUrl);
@@ -2188,11 +1651,6 @@ const TranscriptionApp = ({
   };
 
   const handleNavigationConfirm = () => {
-    console.log("🚀 Confirming navigation - adding to background monitoring");
-    console.log("Project ID:", projectId);
-    console.log("Transcription Result:", transcriptionResult);
-    console.log("File:", file);
-
     if (projectId && (isTranscribing || transcriptionResult)) {
       // Add to background monitoring
       const transcriptionData = {
@@ -2207,13 +1665,10 @@ const TranscriptionApp = ({
         isTranscribing: isTranscribing,
       };
 
-      console.log("📱 Adding to background monitoring:", transcriptionData);
-
       notificationService.addBackgroundTranscription(
         projectId,
         transcriptionData,
         (completionData) => {
-          console.log("🎉 Background transcription completed:", completionData);
           // Update the stored state when background completes
           const savedState = sessionStorage.getItem("transcriptionState");
           if (savedState) {
@@ -2797,19 +2252,6 @@ const TranscriptionApp = ({
                     </div>
                   </div>
                 </div>
-                {transcriptionResult && (
-                  <button
-                    onClick={() => {
-                      console.log("🔄 Force refreshing status...");
-                      if (projectId) {
-                        checkTranscriptionStatus(projectId);
-                      }
-                    }}
-                    className="mb-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-                  >
-                    Refresh
-                  </button>
-                )}
 
                 {/* File Information */}
                 <div
@@ -2923,10 +2365,6 @@ const TranscriptionApp = ({
 
                       <button
                         onClick={async () => {
-                          console.log(
-                            "🚀 Starting intelligent translation process...",
-                          );
-
                           // Step 1: Check if we have fresh content
                           const hasFreshContent =
                             previewContent && previewContent.trim().length > 0;
@@ -2940,18 +2378,8 @@ const TranscriptionApp = ({
                               previewContent.includes(pattern),
                             );
 
-                          console.log("🔍 Content analysis:", {
-                            hasFreshContent,
-                            hasOldPatterns,
-                            previewLength: previewContent?.length,
-                          });
-
                           // Step 2: Refresh content if needed
                           if (!hasFreshContent || hasOldPatterns) {
-                            console.log(
-                              "🔄 Content needs refresh, loading fresh content...",
-                            );
-
                             try {
                               // Show loading state (optional - you can add a loading state here)
                               await handlePreview();
@@ -2961,9 +2389,7 @@ const TranscriptionApp = ({
                                 setTimeout(resolve, 1500),
                               );
 
-                              console.log(
-                                "✅ Content refreshed, proceeding with translation",
-                              );
+                              console.log();
                             } catch (error) {
                               console.error(
                                 "❌ Failed to refresh content:",
@@ -2975,9 +2401,7 @@ const TranscriptionApp = ({
                               return;
                             }
                           } else {
-                            console.log(
-                              "✅ Content is fresh, proceeding directly to translation",
-                            );
+                            console.log();
                           }
 
                           // Step 3: Proceed with translation using the enhanced function

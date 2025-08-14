@@ -26,18 +26,6 @@ const MAX_SELECTED_LANGUAGES = 5;
 
 const apiCall = async (endpoint, options = {}) => {
   try {
-    console.log(`🔥 API Call Details:`, {
-      endpoint: `${API_BASE_URL}${endpoint}`,
-      method: options.method || "GET",
-      headers: options.headers,
-      bodyType: typeof options.body,
-      bodyContent: options.body
-        ? options.body instanceof FormData
-          ? "FormData (cannot log)"
-          : options.body
-        : null,
-    });
-
     // If it's JSON, let's parse and validate it
     if (
       options.body &&
@@ -45,30 +33,6 @@ const apiCall = async (endpoint, options = {}) => {
     ) {
       try {
         const parsedBody = JSON.parse(options.body);
-        console.log(`📋 Parsed JSON body:`, parsedBody);
-
-        // Validate the structure
-        console.log(`🔍 Body validation:`, {
-          hasProjectName: !!parsedBody.project_name,
-          projectNameType: typeof parsedBody.project_name,
-          projectNameValue: parsedBody.project_name,
-          hasFilenames: !!parsedBody.filenames,
-          filenamesIsArray: Array.isArray(parsedBody.filenames),
-          filenamesLength: parsedBody.filenames?.length,
-          filenamesValues: parsedBody.filenames,
-          hasTargetLanguages: !!parsedBody.target_languages,
-          targetLanguagesIsArray: Array.isArray(parsedBody.target_languages),
-          targetLanguagesLength: parsedBody.target_languages?.length,
-          targetLanguagesValues: parsedBody.target_languages,
-          hasOriginalFilename: !!parsedBody.original_filename,
-          originalFilenameValue: parsedBody.original_filename,
-          hasDescription: "description" in parsedBody,
-          descriptionValue: parsedBody.description,
-          hasIsPublic: "is_public" in parsedBody,
-          isPublicValue: parsedBody.is_public,
-          hasEditedFiles: "edited_files" in parsedBody,
-          editedFilesValue: parsedBody.edited_files,
-        });
       } catch (parseError) {
         console.error(`❌ Failed to parse JSON body:`, parseError);
       }
@@ -78,12 +42,6 @@ const apiCall = async (endpoint, options = {}) => {
       ...options,
       credentials: "include",
     });
-
-    console.log(`📡 Response status: ${response.status}`);
-    console.log(
-      `📡 Response headers:`,
-      Object.fromEntries(response.headers.entries()),
-    );
 
     if (!response.ok) {
       let errorData;
@@ -125,10 +83,10 @@ const apiCall = async (endpoint, options = {}) => {
     }
 
     const result = await response.json();
-    console.log(`✅ Success response:`, result);
+
     return result;
   } catch (error) {
-    console.error("💥 API call failed:", error);
+    console.error(" API call failed:", error);
     throw error;
   }
 };
@@ -426,17 +384,6 @@ const StaticSubtitleUpload = ({
   // Handle initial transcription data
   useEffect(() => {
     if (initialTranscriptionData) {
-      console.log("📥 Received transcription data:", initialTranscriptionData);
-      console.log(
-        "📄 Content preview:",
-        initialTranscriptionData.content?.substring(0, 200),
-      );
-      console.log(
-        "📏 Content length:",
-        initialTranscriptionData.content?.length,
-      );
-      console.log("🔗 Content type:", typeof initialTranscriptionData.content);
-
       // Validate that we have content
       if (!initialTranscriptionData.content) {
         setError("No transcription content available for translation");
@@ -467,8 +414,6 @@ const StaticSubtitleUpload = ({
       setFromTranscription(true);
       setError(null);
       setBackendConnected(true);
-
-      console.log("✅ Transcription data processed for translation");
     }
   }, [initialTranscriptionData]);
 
@@ -517,10 +462,6 @@ const StaticSubtitleUpload = ({
   };
 
   const startTranslation = async () => {
-    console.log("🎬 startTranslation called");
-    console.log("fromTranscription:", fromTranscription);
-    console.log("transcriptionFile:", transcriptionFile);
-    console.log("uploadedFile:", uploadedFile);
     if (!backendConnected) {
       setError("Backend not connected. Please start your FastAPI server.");
       return;
@@ -569,16 +510,12 @@ const StaticSubtitleUpload = ({
               );
             }
 
-            console.log("📝 Using transcription content for translation");
-            console.log("🔍 Original filename:", transcriptionFile.filename);
-            console.log("🔍 Original format:", transcriptionFile.format);
+            console.log(" Using transcription content for translation");
 
             // FIXED: Use the actual filename and format from transcription
             const actualFilename =
               transcriptionFile.filename ||
               `transcription.${transcriptionFile.format || "srt"}`;
-
-            console.log("✅ Using actual filename:", actualFilename);
 
             const blob = new Blob([fileContent], { type: "text/plain" });
             const file = new File([blob], actualFilename, {
@@ -587,75 +524,12 @@ const StaticSubtitleUpload = ({
             formData.append("file", file);
           } else {
             // For regular file uploads
-            console.log("📁 Using uploaded file for translation");
+
             formData.append("file", uploadedFile);
           }
 
           formData.append("censor_profanity", censorProfanity);
           formData.append("target_language", targetLang);
-          console.log("🔍 DEBUG - FormData contents:");
-          console.log("fromTranscription:", fromTranscription);
-          console.log("transcriptionFile:", transcriptionFile);
-          console.log("uploadedFile:", uploadedFile);
-
-          // Check what's actually in the FormData
-          for (let [key, value] of formData.entries()) {
-            console.log(`FormData ${key}:`, value);
-            if (value instanceof File) {
-              console.log(`  File name: ${value.name}`);
-              console.log(`  File size: ${value.size}`);
-              console.log(`  File type: ${value.type}`);
-
-              // Read the file content to verify it's not a blob URL
-              const reader = new FileReader();
-              reader.onload = (e) => {
-                const content = e.target.result;
-                console.log(
-                  `  File content preview: ${content.substring(0, 100)}...`,
-                );
-                console.log(`  Content length: ${content.length}`);
-              };
-              reader.readAsText(value);
-            }
-          }
-
-          // Debug the transcription content specifically
-          if (fromTranscription && transcriptionFile) {
-            console.log("🔍 Transcription file debug:");
-            console.log(
-              "  Content preview:",
-              transcriptionFile.content?.substring(0, 100),
-            );
-            console.log("  Content type:", typeof transcriptionFile.content);
-            console.log("  Content length:", transcriptionFile.content?.length);
-          }
-
-          console.log("🔍 DEBUG - FormData contents:");
-          console.log("fromTranscription:", fromTranscription);
-          console.log("transcriptionFile:", transcriptionFile);
-          console.log("uploadedFile:", uploadedFile);
-
-          // Check what's actually in the FormData
-          for (let [key, value] of formData.entries()) {
-            console.log(`FormData ${key}:`, value);
-            if (value instanceof File) {
-              console.log(`  File name: ${value.name}`);
-              console.log(`  File size: ${value.size}`);
-              console.log(`  File type: ${value.type}`);
-            }
-          }
-
-          // Debug logging
-          console.log("🔍 About to make API call");
-          console.log("FormData entries:");
-          for (let [key, value] of formData.entries()) {
-            console.log(`  ${key}:`, value);
-            if (value instanceof File) {
-              console.log(
-                `    File details - name: ${value.name}, size: ${value.size}, type: ${value.type}`,
-              );
-            }
-          }
 
           const result = await apiCall("/translate", {
             method: "POST",
@@ -926,6 +800,15 @@ const StaticSubtitleUpload = ({
   };
 
   const closePreview = () => {
+    // Save any current edits before closing
+    if (isEditing && editedContent.trim() && previewingFile) {
+      setPreviewContent(editedContent);
+      setEditedFiles((prev) => ({
+        ...prev,
+        [previewingFile.filename]: editedContent,
+      }));
+    }
+
     setShowPreview(false);
     setPreviewingFile(null);
     setPreviewContent("");
@@ -934,69 +817,36 @@ const StaticSubtitleUpload = ({
     setIsEditing(false);
     setEditedContent("");
     setIsSaving(false);
+    // Keep editHistory and historyIndex for potential re-opening
   };
 
   const startEditing = () => {
-    setEditedContent(previewContent);
+    // Use existing edited content if available, otherwise use preview content
+    const contentToEdit =
+      editedFiles[previewingFile.filename] || previewContent;
+    setEditedContent(contentToEdit);
     setIsEditing(true);
-    initializeEditHistory(previewContent);
+
+    // Only initialize history if it's empty (first time editing)
+    if (editHistory.length === 0) {
+      initializeEditHistory(contentToEdit);
+    }
   };
 
   const cancelEditing = () => {
-    setIsEditing(false);
-    setEditedContent("");
-    setEditHistory([]);
-    setHistoryIndex(-1);
-    if (translatedPreviewRef.current) {
-      translatedPreviewRef.current.scrollTop = 0;
-    }
-  };
-
-  const saveEditedFile = async () => {
-    if (!backendConnected || !previewingFile) {
-      setError("Cannot save: Backend not connected or no file selected.");
-      return;
-    }
-
-    setIsSaving(true);
-    setError(null);
-
-    try {
+    // Update preview content with the latest edited content
+    if (editedContent.trim()) {
       setPreviewContent(editedContent);
       setEditedFiles((prev) => ({
         ...prev,
         [previewingFile.filename]: editedContent,
       }));
-      setIsEditing(false);
-      setEditedContent("");
-    } catch (err) {
-      setError(`Save failed: ${err.message}`);
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const downloadEditedFile = async (filename) => {
-    const editedContent = editedFiles[filename];
-    if (!editedContent) {
-      setError("No edited content found for this file.");
-      return;
     }
 
-    try {
-      const blob = new Blob([editedContent], { type: "text/plain" });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename
-        .replace(".srt", "_edited.srt")
-        .replace(".vtt", "_edited.vtt");
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
-    } catch (err) {
-      setError(`Download failed: ${err.message}`);
+    setIsEditing(false);
+    // Don't clear editedContent and history - keep them for potential re-editing
+    if (translatedPreviewRef.current) {
+      translatedPreviewRef.current.scrollTop = 0;
     }
   };
 
@@ -1011,11 +861,15 @@ const StaticSubtitleUpload = ({
       newHistory.push(content);
       if (newHistory.length > 50) {
         newHistory.shift();
-        setHistoryIndex(Math.min(historyIndex, newHistory.length - 1));
         return newHistory;
       }
-      setHistoryIndex(newHistory.length - 1);
       return newHistory;
+    });
+
+    // Update historyIndex after state update
+    setHistoryIndex((prev) => {
+      const newIndex = Math.min(historyIndex + 1, 49); // Max 50 items
+      return newIndex;
     });
   };
 
@@ -1132,7 +986,6 @@ const StaticSubtitleUpload = ({
     }
 
     // Validate required data before sending
-    console.log("🔍 Validating project data:", projectData);
 
     if (
       !projectData.project_name ||
@@ -1162,12 +1015,12 @@ const StaticSubtitleUpload = ({
     const requestKey = `save_${projectData.project_name}_${JSON.stringify(projectData.filenames)}`;
 
     if (pendingRequests.has(requestKey)) {
-      console.log("🔄 Duplicate save request detected, ignoring...");
+      console.log(" Duplicate save request detected, ignoring...");
       return;
     }
 
     if (isSavingProject) {
-      console.log("⏳ Save already in progress, skipping duplicate request");
+      console.log(" Save already in progress, skipping duplicate request");
       return;
     }
 
@@ -1225,9 +1078,6 @@ const StaticSubtitleUpload = ({
           [],
       };
 
-      console.log("✨ Cleaned project data:", cleanProjectData);
-      console.log("🚀 Sending save request...");
-
       const response = await apiCall("/save-project", {
         method: "POST",
         headers: {
@@ -1235,8 +1085,6 @@ const StaticSubtitleUpload = ({
         },
         body: JSON.stringify(cleanProjectData),
       });
-
-      console.log("🎉 Project saved successfully:", response);
 
       setProjectSaveSuccess({
         projectName: cleanProjectData.project_name,
@@ -1253,7 +1101,7 @@ const StaticSubtitleUpload = ({
         setProjectSaveSuccess(null);
       }, 5000);
     } catch (err) {
-      console.error("💥 Project save error:", err);
+      console.error(" Project save error:", err);
       let errorMessage = err.message;
       if (err.message.includes("422")) {
         errorMessage = `Validation error: ${err.message}. Please check that all required fields are properly filled and files exist.`;
@@ -1994,9 +1842,7 @@ const StaticSubtitleUpload = ({
                       )}
 
                       <button
-                        onClick={
-                          isEditing ? () => setIsEditing(false) : startEditing
-                        }
+                        onClick={isEditing ? cancelEditing : startEditing}
                         disabled={loadingPreview}
                         className={`text-sm flex items-center space-x-1 transition-colors duration-300 ${
                           isDarkMode
@@ -2117,21 +1963,37 @@ const StaticSubtitleUpload = ({
 
                 <button
                   onClick={() => {
-                    if (
-                      editedFiles[previewingFile.filename] &&
-                      !projectSaved &&
-                      !hasAutoSaved
-                    ) {
-                      setShowSaveProjectModal(true);
-                    } else if (editedFiles[previewingFile.filename]) {
-                      downloadEditedFile(previewingFile.filename);
+                    // Always check for edited content first, then edited files, then original
+                    const contentToDownload =
+                      editedContent || editedFiles[previewingFile.filename];
+                    if (contentToDownload) {
+                      // Create and download the edited content
+                      const blob = new Blob([contentToDownload], {
+                        type: "text/plain",
+                      });
+                      const url = window.URL.createObjectURL(blob);
+                      const a = document.createElement("a");
+                      a.href = url;
+                      a.download = previewingFile.filename
+                        .replace(".srt", "_edited.srt")
+                        .replace(".vtt", "_edited.vtt");
+                      document.body.appendChild(a);
+                      a.click();
+                      document.body.removeChild(a);
+                      window.URL.revokeObjectURL(url);
                     } else {
                       downloadFile(previewingFile.filename);
                     }
                   }}
-                  disabled={isEditing && !editedFiles[previewingFile.filename]}
+                  disabled={
+                    isEditing &&
+                    !editedFiles[previewingFile.filename] &&
+                    !editedContent
+                  }
                   className={`flex items-center justify-center space-x-2 px-4 py-2 rounded-lg transition-colors duration-300 ${
-                    isEditing && !editedFiles[previewingFile.filename]
+                    isEditing &&
+                    !editedFiles[previewingFile.filename] &&
+                    !editedContent
                       ? isDarkMode
                         ? "bg-gray-600 text-gray-400 cursor-not-allowed"
                         : "bg-gray-300 text-gray-500 cursor-not-allowed"
@@ -2140,15 +2002,9 @@ const StaticSubtitleUpload = ({
                 >
                   <Download className="w-4 h-4" />
                   <span>
-                    {isEditing && !editedFiles[previewingFile.filename]
-                      ? "Save Project First"
-                      : editedFiles[previewingFile.filename] &&
-                          !projectSaved &&
-                          !hasAutoSaved
-                        ? "Save & Download"
-                        : editedFiles[previewingFile.filename]
-                          ? "Download Edited"
-                          : "Download File"}
+                    {editedContent || editedFiles[previewingFile.filename]
+                      ? "Download Edited"
+                      : "Download File"}
                   </span>
                 </button>
               </div>
@@ -2181,10 +2037,7 @@ const StaticSubtitleUpload = ({
             original_file_path: translationData.originalFilePath || "",
             translated_file_path: translationData.translatedFilePaths || [],
           };
-          console.log(
-            "Saving project with complete data:",
-            completeProjectData,
-          );
+
           await saveAsProject(completeProjectData);
         }}
         translatedFiles={translatedFiles}

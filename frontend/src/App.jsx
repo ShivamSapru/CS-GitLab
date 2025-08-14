@@ -18,7 +18,6 @@ import TranscriptionTranslationHub from "./components/TranscriptionTranslationHu
 import NotificationDisplay from "./components/NotificationDisplay";
 import notificationService from "./services/notificationService";
 import NotificationCenter from "./components/NotificationCenter";
-import TranscriptionDebugger from "./components/TranscriptionDebugger";
 
 const SubtitleTranslatorApp = () => {
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -85,7 +84,7 @@ const SubtitleTranslatorApp = () => {
       id: "library",
       name: "Translation Library",
       path: "/library",
-      requiresAuth: false, // IMPORTANT: This is false now
+      requiresAuth: false,
     },
     {
       id: "transcribe",
@@ -136,12 +135,9 @@ const SubtitleTranslatorApp = () => {
   };
 
   const handleUserInfoClick = () => {
-    console.log("Profile clicked, user:", user);
     if (!user) {
-      console.log("No user, showing signup modal");
       setShowSignupModal(true);
     } else {
-      console.log("User exists, navigating to profile");
       navigate("/profile");
     }
   };
@@ -194,16 +190,6 @@ const SubtitleTranslatorApp = () => {
     }
   };
 
-  const debugUserState = () => {
-    console.log("=== USER STATE DEBUG ===");
-    console.log("user:", user);
-    console.log("pendingUser:", pendingUser);
-    console.log("loadingUser:", loadingUser);
-    console.log("showSetup2FAModal:", showSetup2FAModal);
-    console.log("showVerify2FAModal:", showVerify2FAModal);
-    console.log("========================");
-  };
-
   const handleVerify2FAComplete = (userData) => {
     setUser(userData);
     setPendingUser(null);
@@ -238,8 +224,6 @@ const SubtitleTranslatorApp = () => {
           withCredentials: true,
         });
         const userData = res.data;
-
-        console.log("🚀 /me response:", userData);
 
         if (userData?.twofa_required) {
           // User has 2FA enabled but hasn't verified yet
@@ -286,7 +270,6 @@ const SubtitleTranslatorApp = () => {
   useEffect(() => {
     const handleTranscriptionNavigation = (event) => {
       const { projectId } = event.detail;
-      console.log("🚀 Navigate to transcription results:", projectId);
 
       // Store the project ID for the transcription page to pick up
       sessionStorage.setItem("openTranscriptionProject", projectId);
@@ -535,7 +518,6 @@ const SubtitleTranslatorApp = () => {
           }
         />
 
-        {/* IMPORTANT: Library is public now */}
         <Route
           path="/library"
           element={

@@ -18,7 +18,6 @@ class NotificationService {
 
       if (response.ok) {
         const notifications = await response.json();
-        console.log("📊 Fetched database notifications:", notifications);
 
         // Convert database notifications to frontend format
         this.databaseNotifications = notifications.map((notif) => ({
@@ -97,7 +96,7 @@ class NotificationService {
             isRead: true,
           }),
         );
-        console.log("✅ Marked notifications as read");
+
         return true;
       }
     } catch (error) {
@@ -127,7 +126,6 @@ class NotificationService {
   }
 
   emit(notification) {
-    console.log("🔔 Emitting notification:", notification);
     this.callbacks.forEach((callback) => {
       try {
         callback(notification);
@@ -139,8 +137,6 @@ class NotificationService {
 
   // Add transcription to background monitoring
   addBackgroundTranscription(projectId, transcriptionData, onComplete) {
-    console.log(`📱 Adding background transcription: ${projectId}`);
-
     this.activeTranscriptions.set(projectId, {
       ...transcriptionData,
       onComplete,
@@ -192,9 +188,6 @@ class NotificationService {
 
         if (response.ok) {
           const data = await response.json();
-          console.log(
-            `📊 Background poll ${pollCount + 1} for ${projectId}: ${data.status}`,
-          );
 
           if (data.status === "Completed") {
             this.handleTranscriptionComplete(projectId, data);
@@ -244,8 +237,6 @@ class NotificationService {
 
   // Handle successful transcription completion
   handleTranscriptionComplete(projectId, data) {
-    console.log(`✅ Background transcription completed: ${projectId}`);
-
     const transcriptionData = this.activeTranscriptions.get(projectId);
     if (!transcriptionData) {
       console.log("No transcription data found for:", projectId);
@@ -280,7 +271,6 @@ class NotificationService {
       },
     };
 
-    console.log("🔔 Emitting success notification:", notification);
     this.emit(notification);
 
     // Clean up
@@ -352,8 +342,6 @@ class NotificationService {
 
   // Navigate to results page
   navigateToResults(projectId) {
-    console.log("📱 Navigating to results for project:", projectId);
-
     // Store the project ID for the transcription page to pick up
     sessionStorage.setItem("openTranscriptionProject", projectId);
 

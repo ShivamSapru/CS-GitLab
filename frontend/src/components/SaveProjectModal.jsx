@@ -19,23 +19,6 @@ const SaveProjectModal = ({
   const [isPublic, setIsPublic] = useState(false);
 
   const handleSave = () => {
-    console.log("💾 Save button clicked");
-    console.log("📋 Current form state:", {
-      projectName: projectName,
-      projectNameTrimmed: projectName.trim(),
-      projectNameLength: projectName.trim().length,
-      description: description,
-      descriptionTrimmed: description.trim(),
-      isPublic: isPublic,
-      translatedFiles: translatedFiles,
-      translatedFilesLength: translatedFiles?.length,
-      targetLanguages: targetLanguages,
-      targetLanguagesLength: targetLanguages?.length,
-      originalFilename: originalFilename,
-      editedFiles: editedFiles,
-      editedFilesKeys: Object.keys(editedFiles || {}),
-    });
-
     if (!projectName.trim()) {
       console.error("❌ Project name is required");
       setError("Project name is required");
@@ -91,23 +74,6 @@ const SaveProjectModal = ({
       is_public: Boolean(isPublic),
       edited_files: editedFiles || {},
     };
-
-    console.log("📦 Final project data being sent:", projectData);
-    console.log("🔍 Project data validation:", {
-      projectNameValid:
-        typeof projectData.project_name === "string" &&
-        projectData.project_name.length >= 3,
-      filenamesValid:
-        Array.isArray(projectData.filenames) &&
-        projectData.filenames.length > 0,
-      targetLanguagesValid:
-        Array.isArray(projectData.target_languages) &&
-        projectData.target_languages.length > 0,
-      originalFilenameValid: typeof projectData.original_filename === "string",
-      descriptionValid: typeof projectData.description === "string",
-      isPublicValid: typeof projectData.is_public === "boolean",
-      editedFilesValid: typeof projectData.edited_files === "object",
-    });
 
     onSave(projectData);
   };

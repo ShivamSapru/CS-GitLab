@@ -1,9 +1,7 @@
-import React, { useState } from "react";
-import { FileText, Zap, Users, FolderOpen, Mic, Chrome } from "lucide-react";
+import React from "react";
+import { FileText, Users, FolderOpen, Mic, Chrome } from "lucide-react";
 
 const Dashboard = ({ onNavigate, isDarkMode, user, onShowLogin }) => {
-  const [activeFeature, setActiveFeature] = useState("static");
-
   const features = [
     {
       id: "static",
@@ -57,8 +55,6 @@ const Dashboard = ({ onNavigate, isDarkMode, user, onShowLogin }) => {
   ];
 
   const handleFeatureClick = (feature) => {
-    setActiveFeature(feature.id);
-
     if (feature.requiresAuth && !user) {
       if (onShowLogin) {
         onShowLogin();
