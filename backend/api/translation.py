@@ -644,7 +644,8 @@ async def save_project(
         #     is_read=False
         # )
         # db.add(notification)
-        # db.commit()
+        #
+        db.commit()
 
         return {
             "success": True,
