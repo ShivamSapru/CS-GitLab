@@ -15,7 +15,10 @@ POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD")
 POSTGRES_HOSTNAME = os.getenv("POSTGRES_HOSTNAME")
 POSTGRES_PORT = os.getenv("POSTGRES_PORT")
 
-DATABASE_URL = f"postgresql+psycopg2://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOSTNAME}:{POSTGRES_PORT}/{POSTGRES_DB}?sslmode=require"
+# Fixed: Make SSL conditional based on environment variable
+# Default to requiring SSL in production, but allow disabling for CI/testing
+ssl_mode = "require" if os.getenv("POSTGRES_REQUIRE_SSL", "true").lower() == "true" else "disable"
+DATABASE_URL = f"postgresql+psycopg2://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOSTNAME}:{POSTGRES_PORT}/{POSTGRES_DB}?sslmode={ssl_mode}"
 
 if not POSTGRES_DB or not POSTGRES_USER or not POSTGRES_PASSWORD or not POSTGRES_HOSTNAME or not POSTGRES_PORT:
     raise ValueError("One or more required PostgreSQL environment variables are missing. Please check your .env file or system environment.")
@@ -46,4 +49,3 @@ def get_db():
         yield db
     finally:
         db.close()
-

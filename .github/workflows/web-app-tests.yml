@@ -13,7 +13,7 @@ jobs:
     
     strategy:
       matrix:
-        python-version: [3.9, 3.10]
+        python-version: ["3.9", "3.10"]  # Fixed: Properly quoted Python versions
     
     services:
       postgres:
@@ -76,6 +76,7 @@ jobs:
         echo "POSTGRES_PASSWORD=testpass" >> $GITHUB_ENV
         echo "POSTGRES_HOSTNAME=localhost" >> $GITHUB_ENV
         echo "POSTGRES_PORT=5432" >> $GITHUB_ENV
+        echo "POSTGRES_REQUIRE_SSL=false" >> $GITHUB_ENV
         echo "SESSION_SECRET_KEY=test-secret-key-for-testing-only" >> $GITHUB_ENV
         echo "FRONTEND_URL=http://localhost:3000" >> $GITHUB_ENV
         # Mock Azure services for testing
@@ -112,6 +113,7 @@ jobs:
         POSTGRES_PASSWORD: testpass
         POSTGRES_HOSTNAME: localhost
         POSTGRES_PORT: 5432
+        POSTGRES_REQUIRE_SSL: false
         SESSION_SECRET_KEY: test-secret-key-for-testing-only
         FRONTEND_URL: http://localhost:3000
         # Mock Azure services for testing
@@ -143,6 +145,7 @@ jobs:
         POSTGRES_PASSWORD: testpass
         POSTGRES_HOSTNAME: localhost
         POSTGRES_PORT: 5432
+        POSTGRES_REQUIRE_SSL: false
         SESSION_SECRET_KEY: test-secret-key-for-testing-only
         FRONTEND_URL: http://localhost:3000
         # Mock Azure services for testing
@@ -183,6 +186,7 @@ jobs:
         POSTGRES_PASSWORD: testpass
         POSTGRES_HOSTNAME: localhost
         POSTGRES_PORT: 5432
+        POSTGRES_REQUIRE_SSL: false
         TEST_BASE_URL: http://localhost:8000
         # Mock Azure services for debugging
         AZURE_TRANSLATOR_KEY: mock-translator-key-for-testing
