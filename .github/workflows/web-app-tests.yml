@@ -33,11 +33,27 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
-      
+      with:
+        clean: true
+        
     - name: Setup Python ${{ matrix.python-version }}
       uses: actions/setup-python@v4
       with:
         python-version: ${{ matrix.python-version }}
+        
+    - name: Clear Python cache
+      run: |
+        python -m pip cache purge || true
+        python -Bc "import sys; sys.path_importer_cache.clear()" || true
+        
+    - name: Debug - Verify files are current
+      run: |
+        echo "Git commit info:"
+        git log -1 --oneline
+        echo "Test file verification:"
+        head -10 tests/web-app/unit-tests/test_api_routes.py
+        echo "Conftest.py exists:"
+        ls -la tests/conftest.py || echo "conftest.py not found"
         
     - name: Cache pip dependencies
       uses: actions/cache@v3
@@ -142,8 +158,13 @@ jobs:
         
     - name: Run Web App Unit Tests
       run: |
+        echo "Environment check:"
+        echo "TEST_BASE_URL: $TEST_BASE_URL"
+        echo "PYTHONPATH: $PYTHONPATH"
+        echo "Current directory: $(pwd)"
+        echo "Test file location: $(ls -la tests/web-app/unit-tests/test_api_routes.py)"
         cd tests/web-app/unit-tests
-        python -m pytest test_api_routes.py -v --tb=short
+        python -m pytest test_api_routes.py -v --tb=short -s
       env:
         PYTHONPATH: ${{ github.workspace }}
         TEST_BASE_URL: http://localhost:8000
