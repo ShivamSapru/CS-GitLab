@@ -20,7 +20,7 @@ import notificationService from "./services/notificationService";
 import NotificationCenter from "./components/NotificationCenter";
 
 const SubtitleTranslatorApp = () => {
-  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(true);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [user, setUser] = useState(null);
   const [pendingUser, setPendingUser] = useState(null);

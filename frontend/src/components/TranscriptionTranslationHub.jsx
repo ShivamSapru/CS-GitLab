@@ -226,49 +226,6 @@ const TranscriptionTranslationHub = ({
 
       {/* Content Area */}
       <div className="relative">
-        {/* Back button when coming from transcription */}
-        {activeMode === "translation" && transcriptionData && (
-          <div
-            className={`border-b py-2 transition-colors duration-300 ${
-              isDarkMode
-                ? "bg-orange-900/20 border-orange-800"
-                : "bg-orange-50 border-orange-200"
-            }`}
-          >
-            <div className="max-w-4xl mx-auto px-6">
-              <div className="flex items-center space-x-3">
-                <div
-                  className={`w-1 h-6 rounded-full bg-gradient-to-b ${
-                    isDarkMode
-                      ? "from-yellow-600 via-orange-600 to-red-700"
-                      : "from-yellow-500 via-orange-500 to-red-500"
-                  }`}
-                ></div>
-                <div className="flex-1">
-                  <button
-                    onClick={handleBackToTranscription}
-                    className={`flex items-center space-x-2 text-sm font-medium transition-colors duration-300 ${
-                      isDarkMode
-                        ? "text-orange-400 hover:text-orange-300"
-                        : "text-orange-600 hover:text-orange-800"
-                    }`}
-                  >
-                    <ArrowLeft className="w-4 h-4" />
-                    <span>Back to Transcription</span>
-                  </button>
-                  <p
-                    className={`text-xs mt-1 transition-colors duration-300 ${
-                      isDarkMode ? "text-orange-400" : "text-orange-600"
-                    }`}
-                  >
-                    Translating: {transcriptionData?.originalFilename}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Component Content */}
         {activeMode === "transcription" ? (
           <TranslationReview
