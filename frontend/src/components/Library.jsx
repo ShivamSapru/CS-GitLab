@@ -93,11 +93,6 @@ const Library = ({ isDarkMode, user, onShowLogin }) => {
 
       const data = await apiCall(endpoint);
       setProjects(data.projects || []);
-
-      console.log(
-        `Library component - ${user ? "all accessible" : "public"} projects:`,
-        JSON.stringify(data.projects, null, 2),
-      );
     } catch (err) {
       // If the user is not authenticated and we tried all-projects, fall back to public-projects
       if (

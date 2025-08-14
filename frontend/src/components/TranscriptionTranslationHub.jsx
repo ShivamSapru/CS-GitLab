@@ -1,4 +1,3 @@
-// TranscriptionTranslationHub.jsx - With orange/red accent colors
 import React, { useState, useEffect } from "react";
 import TranslationReview from "./TranslationReview";
 import StaticSubtitleUpload from "./StaticSubtitleUpload";
@@ -13,31 +12,29 @@ const TranscriptionTranslationHub = ({
   const [transcriptionData, setTranscriptionData] = useState(null);
 
   const handleTranslateTranscription = async (data) => {
-    console.log("🔄 Processing transcription for translation:", data);
-
     try {
       let fileContent = data.content;
 
       // If content is empty or not provided, try to fetch from backend
       if (!fileContent) {
-        console.log("📥 Fetching transcription content...");
+        console.log(" Fetching transcription content...");
         const BACKEND_URL =
           import.meta.env.VITE_BACKEND_URL || "http://localhost:8000";
 
         try {
           // First try direct Azure URL if available
           if (data.subtitle_file_url) {
-            console.log("📥 Trying direct Azure URL");
+            console.log(" Trying direct Azure URL");
             const azureResponse = await fetch(data.subtitle_file_url);
             if (azureResponse.ok) {
               fileContent = await azureResponse.text();
-              console.log("✅ Successfully fetched content from Azure");
+              console.log(" Successfully fetched content from Azure");
             }
           }
 
           // Fallback to backend endpoint (it will find the user's file automatically)
           if (!fileContent) {
-            console.log("📥 Trying backend endpoint");
+            console.log(" Trying backend endpoint");
             const response = await fetch(
               `${BACKEND_URL}/api/download-transcription?filename=any`,
               { credentials: "include" },
@@ -45,7 +42,7 @@ const TranscriptionTranslationHub = ({
 
             if (response.ok) {
               fileContent = await response.text();
-              console.log("✅ Successfully fetched content from backend");
+              console.log(" Successfully fetched content from backend");
             } else {
               throw new Error(`Failed to fetch file: ${response.status}`);
             }
@@ -91,12 +88,6 @@ const TranscriptionTranslationHub = ({
           cleanOriginalFilename.substring(0, 90) + "..." + ext;
       }
 
-      console.log("🧹 Cleaned filenames:", {
-        original: data.filename,
-        cleaned: cleanFilename,
-        originalFile: cleanOriginalFilename,
-      });
-
       // Create proper transcription data with actual content and clean filenames
       const processedData = {
         ...data,
@@ -107,14 +98,6 @@ const TranscriptionTranslationHub = ({
         // Remove any blob URLs to prevent confusion
         subtitle_file_url: undefined,
       };
-
-      console.log("✅ Transcription data processed for translation:", {
-        filename: processedData.filename,
-        originalFilename: processedData.originalFilename,
-        format: processedData.format,
-        hasContent: !!processedData.content,
-        contentLength: processedData.content?.length,
-      });
 
       setTranscriptionData(processedData);
       setActiveMode("translation");
@@ -148,9 +131,7 @@ const TranscriptionTranslationHub = ({
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
         // Page became visible again, clear any stale data
-        console.log(
-          "🔄 Page became visible, clearing stale transcription data",
-        );
+
         setTranscriptionData(null);
       }
     };

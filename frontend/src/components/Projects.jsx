@@ -57,7 +57,7 @@ const Projects = ({
   const [project, setProject] = useState(null);
   const [projectFiles, setProjectFiles] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [loadingFiles, setLoadingFiles] = useState(false);
+
   const [error, setError] = useState(null);
   const [previewingFile, setPreviewingFile] = useState(null);
   const [previewContent, setPreviewContent] = useState("");
@@ -180,20 +180,12 @@ const Projects = ({
       return;
     }
 
-    console.log("🔍 Preview Debug Info:", {
-      filename: filename,
-      targetLanguage: targetLanguage,
-      sourceLanguage: sourceLanguage,
-      projectId: projectId,
-    });
-
     setLoadingPreview(true);
     setLoadingOriginal(true);
     setError(null);
 
     try {
       // Fetch the translated file content
-      console.log(`🔍 Attempting to fetch translated file: ${filename}`);
 
       // Use the new public-access endpoint
       const translatedResponse = await fetch(
@@ -204,7 +196,6 @@ const Projects = ({
       let translatedContent = "";
 
       if (translatedResponse.ok) {
-        console.log("✅ Found translated file in project storage");
         translatedContent = await translatedResponse.text();
       } else {
         console.log(
@@ -213,7 +204,6 @@ const Projects = ({
           translatedResponse.statusText,
         );
 
-        // If it's a 401, show a more user-friendly message
         if (translatedResponse.status === 401) {
           throw new Error(
             "This is a private project. Please sign in or contact the owner for access.",
@@ -228,11 +218,9 @@ const Projects = ({
       setPreviewContent(translatedContent);
       setLoadingPreview(false);
 
-      // NOW FETCH THE ORIGINAL FILE
+      //  FETCH THE ORIGINAL FILE
       try {
-        console.log("🔍 Attempting to fetch original file...");
-
-        // First, find the original filename from the project files
+        //  find the original filename from the project files
         const originalFile = projectFiles.find(
           (file) =>
             file.is_original === true ||
@@ -243,11 +231,6 @@ const Projects = ({
         let originalContent = "";
 
         if (originalFile && originalFile.filename) {
-          console.log(
-            "📄 Found original file reference:",
-            originalFile.filename,
-          );
-
           // Try to fetch the original file using the same endpoint
           const originalResponse = await fetch(
             `${API_BASE_URL}/project/${projectId}/file/${encodeURIComponent(originalFile.filename)}`,
@@ -256,7 +239,6 @@ const Projects = ({
 
           if (originalResponse.ok) {
             originalContent = await originalResponse.text();
-            console.log("✅ Successfully fetched original file content");
           } else {
             console.log(
               "❌ Could not fetch original file from project storage",
@@ -295,7 +277,7 @@ const Projects = ({
         }
       }, 100);
     } catch (err) {
-      console.error("💥 Translation preview error:", err);
+      console.error(" Translation preview error:", err);
       setError(`Preview failed: ${err.message}`);
       setLoadingPreview(false);
       setLoadingOriginal(false);
@@ -310,22 +292,6 @@ const Projects = ({
       setLoading(true);
       setError(null);
       const data = await apiCall(`/project/${projectId}/files`);
-
-      console.log("🗂️ Project files from backend:", data.files);
-
-      // Enhanced logging to identify original vs translated files
-      data.files?.forEach((file, index) => {
-        console.log(`📄 File ${index + 1}:`, {
-          filename: file.filename,
-          target_language: file.target_language,
-          source_language: file.source_language,
-          file_format: file.file_format,
-          is_original: file.is_original,
-          // Add more debugging info
-          hasTargetLang: !!file.target_language,
-          isLikelyOriginal: !file.target_language || file.is_original === true,
-        });
-      });
 
       setProjectFiles(data.files || []);
       setProject(data.project);
@@ -409,54 +375,6 @@ const Projects = ({
     // Don't clear editedContent and history - keep them for potential re-editing
     if (translatedPreviewRef.current) {
       translatedPreviewRef.current.scrollTop = 0;
-    }
-  };
-
-  const saveEditedFile = async () => {
-    if (!previewingFile) {
-      setError("Cannot save: No file selected.");
-      return;
-    }
-
-    setIsSaving(true);
-    setError(null);
-
-    try {
-      setPreviewContent(editedContent);
-      setEditedFiles((prev) => ({
-        ...prev,
-        [previewingFile.filename]: editedContent,
-      }));
-      setIsEditing(false);
-      setEditedContent("");
-    } catch (err) {
-      setError(`Save failed: ${err.message}`);
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const downloadEditedFile = async (filename) => {
-    const editedContent = editedFiles[filename];
-    if (!editedContent) {
-      setError("No edited content found for this file.");
-      return;
-    }
-
-    try {
-      const blob = new Blob([editedContent], { type: "text/plain" });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename
-        .replace(".srt", "_edited.srt")
-        .replace(".vtt", "_edited.vtt");
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
-    } catch (err) {
-      setError(`Download failed: ${err.message}`);
     }
   };
 
