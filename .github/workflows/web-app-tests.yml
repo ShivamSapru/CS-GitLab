@@ -105,8 +105,7 @@ jobs:
         
     - name: Initialize Database Tables
       run: |
-        cd backend
-        python init_db.py
+        python backend/init_db.py
       env:
         POSTGRES_DB: testdb
         POSTGRES_USER: testuser
