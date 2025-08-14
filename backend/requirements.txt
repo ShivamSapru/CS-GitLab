@@ -55,3 +55,9 @@ pandas          # Data processing utility (used for CSV/JSON manipulation)
 # authenticator
 pyotp
 apscheduler
+
+# Testing dependencies
+pytest==7.4.4
+pytest-asyncio==0.23.2
+httpx==0.28.1  # Already included above but ensuring it's available for tests
+pytest-cov==4.1.0  # For coverage reporting

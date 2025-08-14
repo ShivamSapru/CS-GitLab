@@ -1,0 +1,99 @@
+name: Web App Tests
+
+on:
+  push:
+    branches: [ main, dev ]
+  pull_request:
+    branches: [ main, dev ]
+  workflow_dispatch:
+
+jobs:
+  web-app-tests:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        python-version: [3.9, 3.10]
+    
+    services:
+      postgres:
+        image: postgres:13
+        env:
+          POSTGRES_PASSWORD: testpass
+          POSTGRES_USER: testuser
+          POSTGRES_DB: testdb
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Setup Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+        
+    - name: Cache pip dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('backend/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+        
+    - name: Install backend dependencies
+      run: |
+        cd backend
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        
+    - name: Set up test environment variables
+      run: |
+        echo "POSTGRES_DB=testdb" >> $GITHUB_ENV
+        echo "POSTGRES_USER=testuser" >> $GITHUB_ENV
+        echo "POSTGRES_PASSWORD=testpass" >> $GITHUB_ENV
+        echo "POSTGRES_HOSTNAME=localhost" >> $GITHUB_ENV
+        echo "POSTGRES_PORT=5432" >> $GITHUB_ENV
+        echo "SESSION_SECRET_KEY=test-secret-key-for-testing-only" >> $GITHUB_ENV
+        echo "FRONTEND_URL=http://localhost:3000" >> $GITHUB_ENV
+        
+    - name: Wait for PostgreSQL
+      run: |
+        for i in {1..30}; do
+          if pg_isready -h localhost -p 5432 -U testuser; then
+            break
+          fi
+          echo "Waiting for PostgreSQL..."
+          sleep 2
+        done
+        
+    - name: Run Web App Unit Tests
+      run: |
+        cd tests/web-app/unit-tests
+        python -m pytest test_api_routes.py -v
+      env:
+        PYTHONPATH: /home/runner/work/${{ github.event.repository.name }}/${{ github.event.repository.name }}
+        
+    - name: Run Web App Integration Tests
+      run: |
+        cd tests/web-app/integration-tests
+        python -m pytest test_end_to_end.py -v
+      env:
+        PYTHONPATH: /home/runner/work/${{ github.event.repository.name }}/${{ github.event.repository.name }}
+        
+    # - name: Upload test results
+    #   uses: actions/upload-artifact@v4
+    #   if: always()
+    #   with:
+    #     name: web-app-test-results-python-${{ matrix.python-version }}
+    #     path: |
+    #       tests/web-app/test-results/
+    #       tests/web-app/coverage/
+    #     retention-days: 30
+  
