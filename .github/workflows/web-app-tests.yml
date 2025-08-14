@@ -73,19 +73,96 @@ jobs:
           sleep 2
         done
         
+    - name: Initialize Database Tables
+      run: |
+        cd backend
+        python init_db.py
+      env:
+        POSTGRES_DB: testdb
+        POSTGRES_USER: testuser
+        POSTGRES_PASSWORD: testpass
+        POSTGRES_HOSTNAME: localhost
+        POSTGRES_PORT: 5432
+        SESSION_SECRET_KEY: test-secret-key-for-testing-only
+        FRONTEND_URL: http://localhost:3000
+        # Mock Azure services for testing
+        AZURE_TRANSLATOR_KEY: mock-key-for-testing
+        AZURE_TRANSLATOR_ENDPOINT: https://mock-endpoint
+        AZURE_TRANSLATOR_REGION: mock-region
+        AZURE_SPEECH_KEY: mock-speech-key
+        AZURE_SPEECH_REGION: mock-region
+        
+    - name: Start FastAPI Server
+      run: |
+        cd backend
+        # Start server in background
+        python -m uvicorn main:app --host 0.0.0.0 --port 8000 &
+        SERVER_PID=$!
+        echo $SERVER_PID > /tmp/fastapi.pid
+        echo "FastAPI server started with PID: $SERVER_PID"
+      env:
+        POSTGRES_DB: testdb
+        POSTGRES_USER: testuser
+        POSTGRES_PASSWORD: testpass
+        POSTGRES_HOSTNAME: localhost
+        POSTGRES_PORT: 5432
+        SESSION_SECRET_KEY: test-secret-key-for-testing-only
+        FRONTEND_URL: http://localhost:3000
+        # Mock Azure services for testing
+        AZURE_TRANSLATOR_KEY: mock-key-for-testing
+        AZURE_TRANSLATOR_ENDPOINT: https://mock-endpoint
+        AZURE_TRANSLATOR_REGION: mock-region
+        AZURE_SPEECH_KEY: mock-speech-key
+        AZURE_SPEECH_REGION: mock-region
+        
+    - name: Wait for FastAPI Server
+      run: |
+        echo "Waiting for FastAPI server to be ready..."
+        for i in {1..30}; do
+          if curl -s http://localhost:8000/api/health > /dev/null; then
+            echo "FastAPI server is ready!"
+            break
+          fi
+          echo "Waiting for FastAPI server... ($i/30)"
+          sleep 2
+        done
+        # Final check
+        curl -s http://localhost:8000/api/health || (echo "FastAPI server failed to start" && exit 1)
+        
+    - name: Debug Connection
+      run: |
+        python debug_test_connection.py
+      env:
+        POSTGRES_DB: testdb
+        POSTGRES_USER: testuser
+        POSTGRES_PASSWORD: testpass
+        POSTGRES_HOSTNAME: localhost
+        POSTGRES_PORT: 5432
+        TEST_BASE_URL: http://localhost:8000
+        
     - name: Run Web App Unit Tests
       run: |
         cd tests/web-app/unit-tests
-        python -m pytest test_api_routes.py -v
+        python -m pytest test_api_routes.py -v --tb=short
       env:
-        PYTHONPATH: /home/runner/work/${{ github.event.repository.name }}/${{ github.event.repository.name }}
+        PYTHONPATH: ${{ github.workspace }}
+        TEST_BASE_URL: http://localhost:8000
         
     - name: Run Web App Integration Tests
       run: |
         cd tests/web-app/integration-tests
-        python -m pytest test_end_to_end.py -v
+        python -m pytest test_end_to_end.py -v --tb=short -k "not transcription" 
       env:
-        PYTHONPATH: /home/runner/work/${{ github.event.repository.name }}/${{ github.event.repository.name }}
+        PYTHONPATH: ${{ github.workspace }}
+        TEST_BASE_URL: http://localhost:8000
+        
+    - name: Stop FastAPI Server
+      if: always()
+      run: |
+        if [ -f /tmp/fastapi.pid ]; then
+          kill $(cat /tmp/fastapi.pid) || true
+          echo "FastAPI server stopped"
+        fi
         
     # - name: Upload test results
     #   uses: actions/upload-artifact@v4
@@ -96,4 +173,3 @@ jobs:
     #       tests/web-app/test-results/
     #       tests/web-app/coverage/
     #     retention-days: 30
-  
