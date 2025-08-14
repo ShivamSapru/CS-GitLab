@@ -519,7 +519,7 @@ async def transcribe_audio_video(
                 status_code=500,
                 content={"error": f"Azure storage initialization failed: {str(azure_error)}"}
             )
-        
+
          # Create database record
         try:
             project = TranscriptionProject(
@@ -1275,3 +1275,22 @@ async def proxy_media_options(project_id: str):
             "Access-Control-Allow-Headers": "*"
         }
     )
+
+
+@router.post("/test-transcribe")
+async def test_transcribe(
+    file: UploadFile = File(...),
+    locale: str = Form("en-US"),
+    max_speakers: int = Form(2),
+    censor_profanity: bool = Form(False),
+    output_format: str = Form("srt"),
+):
+    return {
+        "filename": file.filename,
+        "size": file.size,
+        "content_type": file.content_type,
+        "locale": locale,
+        "max_speakers": max_speakers,
+        "censor_profanity": censor_profanity,
+        "output_format": output_format
+    }

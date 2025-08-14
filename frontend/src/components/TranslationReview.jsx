@@ -1513,7 +1513,7 @@ const TranscriptionApp = ({
 
         if (response.ok) {
           const data = await response.json();
-          console.log(`📊 Poll ${pollCount + 1}: ${data.status}`);
+          console.log(` Poll ${pollCount + 1}: ${data.status}`);
 
           if (data.status === "Completed") {
             setIsTranscribing(false);

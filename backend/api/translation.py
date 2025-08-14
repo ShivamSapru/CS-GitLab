@@ -350,14 +350,167 @@ async def save_project(
         # 1. FIRST: Store the original subtitle file (if it exists)
         original_file_stored = False
         original_subtitle_file = None
-        original_filename = project_data.original_filename
-        local_path = project_data.original_file_path
 
-        # If original_file_path is empty or just a filename, construct the full path
+        # FIX: Properly access project_data fields (handle both dict and object access)
+        def get_project_field(data, field_name, default=None):
+            """Helper to get field from project_data whether it's dict or object"""
+            try:
+                if hasattr(data, field_name):
+                    return getattr(data, field_name, default)
+                elif isinstance(data, dict):
+                    return data.get(field_name, default)
+                else:
+                    return default
+            except:
+                return default
+
+        # Get the original filename and filenames safely
+        original_filename = get_project_field(project_data, 'original_filename', '')
+        filenames = get_project_field(project_data, 'filenames', [])
+        original_file_path = get_project_field(project_data, 'original_file_path', '')
+
+
+
+        # Determine the correct subtitle filename based on the project data
+        subtitle_filename = None
+
+        # Check if this is from transcription by looking at the file extension
+        is_from_transcription = (
+            original_filename and
+            any(ext in original_filename.lower() for ext in ['.mp4', '.mov', '.avi', '.mkv', '.webm', '.mp3', '.wav', '.m4a', '.flac'])
+        )
+
+
+
+        if is_from_transcription:
+            # For transcription data, derive subtitle filename from the first translated file
+            if filenames and len(filenames) > 0:
+                first_translated = filenames[0]
+
+
+                # Extract the base name and create original subtitle filename
+                # Example: "video (Translated to Spanish).es.srt" → "video.srt"
+                if '(Translated to' in first_translated:
+                    base_part = first_translated.split('(Translated to')[0].strip()
+                    extension = first_translated.split('.')[-1]
+                    subtitle_filename = f"{base_part}.{extension}"
+                else:
+                    # Fallback: use the original filename but change extension to subtitle format
+                    base_name = os.path.splitext(original_filename)[0] if original_filename else "transcription"
+                    extension = first_translated.split('.')[-1] if first_translated.endswith(('.srt', '.vtt')) else "srt"
+                    subtitle_filename = f"{base_name}.{extension}"
+            else:
+                # Last resort fallback for transcription
+                base_name = os.path.splitext(original_filename)[0] if original_filename else "transcription"
+                subtitle_filename = f"{base_name}.srt"
+        else:
+            # For direct subtitle uploads, use the original filename as-is
+            subtitle_filename = original_filename if original_filename else "original_subtitle.srt"
+
+        # Ensure we have a valid subtitle filename
+        if not subtitle_filename or subtitle_filename.strip() == "":
+            subtitle_filename = "original_subtitle.srt"
+
+
+
+        # Build the local path
+        local_path = original_file_path
         if not local_path or not os.path.isabs(local_path):
-            local_path = os.path.join(temp_dir, original_filename)
+            local_path = os.path.join(temp_dir, subtitle_filename)
 
-        print(f"Looking for original file at: {local_path}")
+        print(f"Looking for original subtitle file at: {local_path}")
+
+        if os.path.exists(local_path):
+            # Original file exists, store it
+            file_size = 0
+            blob_name = f"{TRANSLATION_PROJECTS_FOLDER}/{project_id}/{subtitle_filename}"
+            blob_url = f"https://{os.getenv('AZURE_STORAGE_ACCOUNT_NAME')}.blob.core.windows.net/{AZURE_STORAGE_CONTAINER_NAME}/{blob_name}"
+
+            with open(local_path, "rb") as f:
+                file_bytes = f.read()
+            file_size = len(file_bytes)
+            blob_client.get_blob_client(container=AZURE_STORAGE_CONTAINER_NAME, blob=blob_name).upload_blob(file_bytes, overwrite=True)
+
+            # Create the ORIGINAL subtitle file record
+            original_subtitle_file = SubtitleFile(
+                file_id=uuid4(),
+                project_id=project_id,
+                original_file_name=subtitle_filename,
+                file_format=subtitle_filename.split(".")[-1] if subtitle_filename else "srt",
+                file_size_bytes=file_size,
+                is_original=True,  # This is the original file
+                source_language=get_project_field(project_data, 'source_language', 'auto'),
+                blob_url=blob_url
+            )
+            db.add(original_subtitle_file)
+            db.flush()
+
+            uploaded_files.append({
+                "filename": subtitle_filename,
+                "blob_path": blob_name,
+                "size": file_size,
+                "is_original": True
+            })
+            original_file_stored = True
+            print(f" Original subtitle file uploaded to blob: {blob_name}")
+        else:
+            print(f" Warning: Original subtitle file not found at {local_path}")
+            # Try to find the file by looking for any subtitle file in temp_dir that might match
+            import glob
+
+            # Look for potential subtitle files
+            potential_files = []
+            if original_filename:
+                base_name = os.path.splitext(original_filename)[0]
+                potential_files.extend(glob.glob(os.path.join(temp_dir, f"{base_name}*.srt")))
+                potential_files.extend(glob.glob(os.path.join(temp_dir, f"{base_name}*.vtt")))
+
+            # Look for any recent subtitle files
+            potential_files.extend(glob.glob(os.path.join(temp_dir, "*.srt")))
+            potential_files.extend(glob.glob(os.path.join(temp_dir, "*.vtt")))
+
+            if potential_files:
+                # Use the most recently modified file
+                potential_files.sort(key=os.path.getmtime, reverse=True)
+                found_file = potential_files[0]
+                print(f" Found potential subtitle file: {found_file}")
+
+                # Try to use this file
+                try:
+                    with open(found_file, "rb") as f:
+                        file_bytes = f.read()
+                    file_size = len(file_bytes)
+
+                    blob_name = f"{TRANSLATION_PROJECTS_FOLDER}/{project_id}/{subtitle_filename}"
+                    blob_url = f"https://{os.getenv('AZURE_STORAGE_ACCOUNT_NAME')}.blob.core.windows.net/{AZURE_STORAGE_CONTAINER_NAME}/{blob_name}"
+
+                    blob_client.get_blob_client(container=AZURE_STORAGE_CONTAINER_NAME, blob=blob_name).upload_blob(file_bytes, overwrite=True)
+
+                    # Create the ORIGINAL subtitle file record
+                    original_subtitle_file = SubtitleFile(
+                        file_id=uuid4(),
+                        project_id=project_id,
+                        original_file_name=subtitle_filename,
+                        file_format=subtitle_filename.split(".")[-1] if subtitle_filename else "srt",
+                        file_size_bytes=file_size,
+                        is_original=True,
+                        source_language=get_project_field(project_data, 'source_language', 'auto'),
+                        blob_url=blob_url
+                    )
+                    db.add(original_subtitle_file)
+                    db.flush()
+
+                    uploaded_files.append({
+                        "filename": subtitle_filename,
+                        "blob_path": blob_name,
+                        "size": file_size,
+                        "is_original": True
+                    })
+                    original_file_stored = True
+                    print(f" Found and uploaded subtitle file: {blob_name}")
+
+                except Exception as fallback_error:
+                    print(f"❌ Failed to use fallback file: {fallback_error}")
 
         if os.path.exists(local_path):
             # Original file exists, store it
@@ -391,9 +544,9 @@ async def save_project(
                 "is_original": True
             })
             original_file_stored = True
-            print(f"✅ Original file uploaded to blob: {blob_name}")
+            print(f" Original file uploaded to blob: {blob_name}")
         else:
-            print(f"⚠️ Warning: Original file not found at {local_path}")
+            print(f" Warning: Original file not found at {local_path}")
 
         # 2. SECOND: Store each translated subtitle file as separate SubtitleFile records
         for idx, filename in enumerate(project_data.filenames):
@@ -598,7 +751,7 @@ async def get_original_file_content(
                     blob_data = blob_client_instance.download_blob()
                     content = blob_data.readall().decode('utf-8')
                     successful_blob_name = blob_name
-                    print(f"✅ Successfully found original file at: {blob_name}")
+                    print(f" Successfully found original file at: {blob_name}")
                     break
                 except Exception as e:
                     print(f"❌ Failed to fetch from {blob_name}: {str(e)}")

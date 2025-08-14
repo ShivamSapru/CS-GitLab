@@ -634,9 +634,11 @@ const StaticSubtitleUpload = ({
       project_name: uniqueProjectName,
       description: `Translated to ${targetLanguages.length} language${targetLanguages.length > 1 ? "s" : ""}: ${targetLanguages.join(", ")}.`,
       filenames: translatedFiles.map((file) => file.filename),
+
       original_filename: fromTranscription
-        ? transcriptionFile?.originalFilename
+        ? transcriptionFile?.filename
         : uploadedFile?.name || "",
+
       target_languages: targetLanguages,
       is_public: false,
       original_file_path: translationData.originalFilePath,
