@@ -215,6 +215,12 @@ jobs:
         AZURE_TRANSLATOR_ENDPOINT: https://api.cognitive.microsofttranslator.com
         AZURE_TRANSLATOR_REGION: mock-region
         
+    - name: Setup Test Data
+      run: |
+        cd tests
+        chmod +x setup-test-data.sh
+        ./setup-test-data.sh
+        
     - name: Run Web App Integration Tests
       run: |
         cd tests/web-app/integration-tests

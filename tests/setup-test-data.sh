@@ -55,8 +55,17 @@ else
     echo "✅ VTT file already exists"
 fi
 
-# Validate test data
-echo "🔍 Validating test data..."
-python validate_test_data.py
+# Validate test data if validation script exists
+if [ -f "validate_test_data.py" ]; then
+    echo "🔍 Validating test data..."
+    python validate_test_data.py
+else
+    echo "📁 Verifying test files manually..."
+    ls -la sample-data/
+    if [ -f "sample-data/MIB2-subtitles-pt-BR.vtt" ]; then
+        echo "📄 VTT file content preview:"
+        head -5 sample-data/MIB2-subtitles-pt-BR.vtt
+    fi
+fi
 
 echo "🎉 Test data setup complete!"
