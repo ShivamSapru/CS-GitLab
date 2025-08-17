@@ -1,0 +1,355 @@
+name: Web App Tests Enhanced
+
+on:
+  push:
+    branches: [ main, dev ]
+  pull_request:
+    branches: [ main, dev ]
+  workflow_dispatch:
+
+jobs:
+  frontend-unit-tests:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        node-version: ["18.x", "20.x"]
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'yarn'
+        cache-dependency-path: 'tests/web-app/frontend-tests/yarn.lock'
+        
+    - name: Install frontend test dependencies
+      run: |
+        cd tests/web-app/frontend-tests
+        yarn install --frozen-lockfile
+        
+    - name: Run Frontend Unit Tests
+      run: |
+        cd tests/web-app/frontend-tests
+        yarn test:ci
+      env:
+        CI: true
+        
+    - name: Upload Frontend Test Results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: frontend-test-results-node-${{ matrix.node-version }}
+        path: |
+          tests/web-app/frontend-tests/coverage/
+          tests/web-app/frontend-tests/test-results.xml
+        retention-days: 30
+
+  backend-integration-tests:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        python-version: ["3.9", "3.10", "3.11"]
+    
+    services:
+      postgres:
+        image: postgres:13
+        env:
+          POSTGRES_PASSWORD: testpass
+          POSTGRES_USER: testuser
+          POSTGRES_DB: testdb
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+        
+    - name: Setup Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+        
+    - name: Cache pip dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('backend/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+        
+    - name: Install backend dependencies
+      run: |
+        cd backend
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        
+    - name: Set up test environment variables
+      run: |
+        echo "POSTGRES_DB=testdb" >> $GITHUB_ENV
+        echo "POSTGRES_USER=testuser" >> $GITHUB_ENV
+        echo "POSTGRES_PASSWORD=testpass" >> $GITHUB_ENV
+        echo "POSTGRES_HOSTNAME=localhost" >> $GITHUB_ENV
+        echo "POSTGRES_PORT=5432" >> $GITHUB_ENV
+        echo "POSTGRES_REQUIRE_SSL=false" >> $GITHUB_ENV
+        echo "SESSION_SECRET_KEY=test-secret-key-for-testing-only" >> $GITHUB_ENV
+        echo "FRONTEND_URL=http://localhost:3000" >> $GITHUB_ENV
+        # Mock Azure services for testing
+        echo "AZURE_TRANSLATOR_KEY=mock-translator-key-for-testing" >> $GITHUB_ENV
+        echo "AZURE_TRANSLATOR_ENDPOINT=https://api.cognitive.microsofttranslator.com" >> $GITHUB_ENV
+        echo "AZURE_TRANSLATOR_REGION=mock-region" >> $GITHUB_ENV
+        echo "AZURE_TRANSLATOR_LANGUAGES=https://api.cognitive.microsofttranslator.com/languages?api-version=3.0" >> $GITHUB_ENV
+        echo "AZURE_SPEECH_KEY=mock-speech-key-for-testing" >> $GITHUB_ENV
+        echo "AZURE_SPEECH_REGION=mock-region" >> $GITHUB_ENV
+        echo "AZURE_STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=https;AccountName=mockaccount;AccountKey=bW9ja2tleWZvcnRlc3RpbmcxMjM0NTY3ODkwYWJjZGVmZ2hpams=;EndpointSuffix=core.windows.net" >> $GITHUB_ENV
+        echo "AZURE_STORAGE_CONTAINER_NAME=test-container" >> $GITHUB_ENV
+        echo "AZURE_STORAGE_ACCOUNT_NAME=mockaccount" >> $GITHUB_ENV
+        echo "TRANSLATION_PROJECTS_FOLDER=translation-projects" >> $GITHUB_ENV
+        echo "TRANSCRIPTION_PROJECTS_FOLDER=transcription-projects" >> $GITHUB_ENV
+        echo "BATCH_ENDPOINT=https://mock-region.api.cognitive.microsoft.com/speechtotext/v3.0/transcriptions" >> $GITHUB_ENV
+        echo "GET_ENDPOINT_TEMPLATE=https://mock-region.api.cognitive.microsoft.com/speechtotext/v3.0/transcriptions/" >> $GITHUB_ENV
+        
+    - name: Wait for PostgreSQL
+      run: |
+        for i in {1..30}; do
+          if pg_isready -h localhost -p 5432 -U testuser; then
+            break
+          fi
+          echo "Waiting for PostgreSQL..."
+          sleep 2
+        done
+        
+    - name: Initialize Database Tables
+      run: |
+        python backend/init_db.py
+      env:
+        POSTGRES_DB: testdb
+        POSTGRES_USER: testuser
+        POSTGRES_PASSWORD: testpass
+        POSTGRES_HOSTNAME: localhost
+        POSTGRES_PORT: 5432
+        POSTGRES_REQUIRE_SSL: false
+        SESSION_SECRET_KEY: test-secret-key-for-testing-only
+        FRONTEND_URL: http://localhost:3000
+        
+    - name: Start FastAPI Server
+      run: |
+        python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000 &
+        SERVER_PID=$!
+        echo $SERVER_PID > /tmp/fastapi.pid
+        echo "FastAPI server started with PID: $SERVER_PID"
+      env:
+        POSTGRES_DB: testdb
+        POSTGRES_USER: testuser
+        POSTGRES_PASSWORD: testpass
+        POSTGRES_HOSTNAME: localhost
+        POSTGRES_PORT: 5432
+        POSTGRES_REQUIRE_SSL: false
+        SESSION_SECRET_KEY: test-secret-key-for-testing-only
+        FRONTEND_URL: http://localhost:3000
+        AZURE_TRANSLATOR_KEY: mock-translator-key-for-testing
+        AZURE_TRANSLATOR_ENDPOINT: https://api.cognitive.microsofttranslator.com
+        AZURE_TRANSLATOR_REGION: mock-region
+        
+    - name: Wait for FastAPI Server
+      run: |
+        echo "Waiting for FastAPI server to be ready..."
+        for i in {1..30}; do
+          if curl -s http://localhost:8000/api/health > /dev/null; then
+            echo "FastAPI server is ready!"
+            break
+          fi
+          echo "Waiting for FastAPI server... ($i/30)"
+          sleep 2
+        done
+        curl -s http://localhost:8000/api/health || (echo "FastAPI server failed to start" && exit 1)
+        
+    - name: Run Enhanced API Tests
+      run: |
+        cd tests/web-app/unit-tests
+        python -m pytest test_api_routes.py -v --tb=short --junitxml=../../../api-test-results.xml
+      env:
+        PYTHONPATH: ${{ github.workspace }}
+        TEST_BASE_URL: http://localhost:8000
+        
+    - name: Run Authentication Flow Tests
+      run: |
+        cd tests/web-app/integration-tests
+        python -m pytest test_authentication_flow.py -v --tb=short --junitxml=../../../auth-test-results.xml
+      env:
+        PYTHONPATH: ${{ github.workspace }}
+        TEST_BASE_URL: http://localhost:8000
+        
+    - name: Setup Test Data
+      run: |
+        cd tests
+        chmod +x setup-test-data.sh
+        ./setup-test-data.sh
+        
+    - name: Run File Operations Tests
+      run: |
+        cd tests/web-app/integration-tests
+        python -m pytest test_file_operations.py -v --tb=short --junitxml=../../../file-ops-test-results.xml
+      env:
+        PYTHONPATH: ${{ github.workspace }}
+        TEST_BASE_URL: http://localhost:8000
+        
+    - name: Run Original Integration Tests
+      run: |
+        cd tests/web-app/integration-tests
+        python -m pytest test_end_to_end_improved.py -v --tb=short -k "not transcription" --junitxml=../../../integration-test-results.xml
+      env:
+        PYTHONPATH: ${{ github.workspace }}
+        TEST_BASE_URL: http://localhost:8000
+        
+    - name: Stop FastAPI Server
+      if: always()
+      run: |
+        if [ -f /tmp/fastapi.pid ]; then
+          kill $(cat /tmp/fastapi.pid) || true
+          echo "FastAPI server stopped"
+        fi
+        
+    - name: Upload Backend Test Results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: backend-test-results-python-${{ matrix.python-version }}
+        path: |
+          *-test-results.xml
+          tests/web-app/test-results/
+        retention-days: 30
+
+  e2e-tests:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        browser: [chromium, firefox, webkit]
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'yarn'
+        cache-dependency-path: 'tests/web-app/e2e-tests/yarn.lock'
+        
+    - name: Install E2E test dependencies
+      run: |
+        cd tests/web-app/e2e-tests
+        yarn install --frozen-lockfile
+        
+    - name: Install Playwright Browsers
+      run: |
+        cd tests/web-app/e2e-tests
+        npx playwright install --with-deps ${{ matrix.browser }}
+        
+    - name: Setup Frontend Environment
+      run: |
+        cd frontend
+        yarn install --frozen-lockfile
+        
+    - name: Build Frontend
+      run: |
+        cd frontend
+        yarn build
+        
+    - name: Start Frontend Server
+      run: |
+        cd frontend
+        yarn preview --port 3000 &
+        FRONTEND_PID=$!
+        echo $FRONTEND_PID > /tmp/frontend.pid
+        echo "Frontend server started with PID: $FRONTEND_PID"
+        
+    - name: Wait for Frontend Server
+      run: |
+        echo "Waiting for frontend server to be ready..."
+        for i in {1..30}; do
+          if curl -s http://localhost:3000 > /dev/null; then
+            echo "Frontend server is ready!"
+            break
+          fi
+          echo "Waiting for frontend server... ($i/30)"
+          sleep 2
+        done
+        
+    - name: Run E2E Tests
+      run: |
+        cd tests/web-app/e2e-tests
+        npx playwright test --project=${{ matrix.browser }} --reporter=html,junit,json
+      env:
+        TEST_FRONTEND_URL: http://localhost:3000
+        
+    - name: Stop Frontend Server
+      if: always()
+      run: |
+        if [ -f /tmp/frontend.pid ]; then
+          kill $(cat /tmp/frontend.pid) || true
+          echo "Frontend server stopped"
+        fi
+        
+    - name: Upload E2E Test Results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: e2e-test-results-${{ matrix.browser }}
+        path: |
+          tests/web-app/e2e-tests/playwright-report/
+          tests/web-app/e2e-tests/test-results/
+        retention-days: 30
+
+  test-summary:
+    runs-on: ubuntu-latest
+    needs: [frontend-unit-tests, backend-integration-tests, e2e-tests]
+    if: always()
+    
+    steps:
+    - name: Download All Test Artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: test-results
+        
+    - name: Display Test Summary
+      run: |
+        echo "# Web App Test Results Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        # Count test result files
+        frontend_results=$(find test-results -name "*frontend*" -type d | wc -l)
+        backend_results=$(find test-results -name "*backend*" -type d | wc -l)
+        e2e_results=$(find test-results -name "*e2e*" -type d | wc -l)
+        
+        echo "- 🧪 Frontend Unit Tests: $frontend_results job(s) completed" >> $GITHUB_STEP_SUMMARY
+        echo "- 🔧 Backend Integration Tests: $backend_results job(s) completed" >> $GITHUB_STEP_SUMMARY  
+        echo "- 🌐 E2E Tests: $e2e_results job(s) completed" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        if [ "${{ needs.frontend-unit-tests.result }}" = "success" ] && \
+           [ "${{ needs.backend-integration-tests.result }}" = "success" ] && \
+           [ "${{ needs.e2e-tests.result }}" = "success" ]; then
+          echo "✅ All test suites passed successfully!" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "❌ Some test suites failed. Check individual job results for details." >> $GITHUB_STEP_SUMMARY
+        fi
+        
+    - name: Upload Combined Test Results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: all-web-app-test-results
+        path: test-results/
+        retention-days: 30

@@ -1,0 +1,51 @@
+{
+  "name": "web-app-frontend-tests",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "test:ci": "jest --ci --coverage --watchAll=false"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.24.0",
+    "@babel/preset-env": "^7.24.0",
+    "@babel/preset-react": "^7.24.0",
+    "@testing-library/jest-dom": "^6.1.0",
+    "@testing-library/react": "^14.0.0",
+    "@testing-library/user-event": "^14.5.0",
+    "babel-jest": "^30.0.5",
+    "jest": "^30.0.5",
+    "jest-environment-jsdom": "^29.7.0",
+    "identity-obj-proxy": "^3.0.0"
+  },
+  "jest": {
+    "testEnvironment": "jsdom",
+    "setupFilesAfterEnv": [
+      "<rootDir>/setup.js",
+      "@testing-library/jest-dom"
+    ],
+    "transform": {
+      "^.+\\.(js|jsx)$": "babel-jest"
+    },
+    "moduleNameMapper": {
+      "\\.(css|less|scss|sass)$": "identity-obj-proxy",
+      "^@/(.*)$": "<rootDir>/../../../../frontend/src/$1"
+    },
+    "testMatch": [
+      "<rootDir>/components/**/*.test.jsx",
+      "<rootDir>/integration/**/*.test.js"
+    ],
+    "collectCoverageFrom": [
+      "components/**/*.jsx",
+      "!components/**/*.test.jsx"
+    ],
+    "coverageDirectory": "coverage",
+    "coverageReporters": [
+      "text",
+      "lcov",
+      "html"
+    ]
+  }
+}
