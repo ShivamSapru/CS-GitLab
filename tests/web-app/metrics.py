@@ -166,9 +166,7 @@ def main():
     ref_path, hyp_path = sys.argv[1], sys.argv[2]
 
     ref_text = load_text_from_file(ref_path)
-    # print(ref_text)
     hyp_text = load_text_from_file(hyp_path)
-    # print(hyp_text)
 
     # WER
     wer, S, D, I, N = wer_score(ref_text, hyp_text)
@@ -189,3 +187,10 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+# # Transcription quality (WER) – compare human transcript vs ASR output
+# python metrics.py data/ref_transcript.srt data/hyp_transcript.srt
+
+# # Translation quality (BLEU) – compare human translation vs system output
+# python metrics.py data/ref_translation.srt data/hyp_translation.srt
