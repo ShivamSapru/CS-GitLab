@@ -12,7 +12,7 @@ def validate_test_data():
     """Validate that all required test data files exist and are valid"""
     
     # Define required test files
-    test_data_dir = Path(__file__).parent / "sample-data"
+    test_data_dir = Path(__file__).parent / "sample-data/input"
     required_files = {
         "MIB2-subtitles-pt-BR.vtt": {
             "type": "vtt",
@@ -84,13 +84,13 @@ def validate_test_data():
         print("❌ Some test data files are missing or invalid.")
         print("\n💡 To fix missing files:")
         print("   - Run this script to see what's missing")
-        print("   - Check the sample-data directory")
+        print("   - Check the sample-data/input directory")
         print("   - Ensure files meet minimum size requirements")
         return 1
 
 def create_missing_files():
     """Create any missing test data files with sample content"""
-    test_data_dir = Path(__file__).parent / "sample-data"
+    test_data_dir = Path(__file__).parent / "sample-data/input"
     test_data_dir.mkdir(exist_ok=True)
     
     # Create sample VTT file if missing

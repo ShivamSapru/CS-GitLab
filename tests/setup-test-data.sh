@@ -9,13 +9,13 @@ echo "🔧 Setting up test data for CI/CD..."
 # Navigate to tests directory
 cd "$(dirname "$0")"
 
-# Create sample-data directory if it doesn't exist
-mkdir -p sample-data
+# Create sample-data/input directory if it doesn't exist
+mkdir -p sample-data/input
 
 # Check if VTT file exists, create if missing
-if [ ! -f "sample-data/MIB2-subtitles-pt-BR.vtt" ]; then
+if [ ! -f "sample-data/input/MIB2-subtitles-pt-BR.vtt" ]; then
     echo "📝 Creating sample VTT subtitle file..."
-    cat > sample-data/MIB2-subtitles-pt-BR.vtt << 'EOF'
+    cat > sample-data/input/MIB2-subtitles-pt-BR.vtt << 'EOF'
 WEBVTT
 
 1
@@ -61,10 +61,10 @@ if [ -f "validate_test_data.py" ]; then
     python validate_test_data.py
 else
     echo "📁 Verifying test files manually..."
-    ls -la sample-data/
-    if [ -f "sample-data/MIB2-subtitles-pt-BR.vtt" ]; then
+    ls -la sample-data/input/
+    if [ -f "sample-data/input/MIB2-subtitles-pt-BR.vtt" ]; then
         echo "📄 VTT file content preview:"
-        head -5 sample-data/MIB2-subtitles-pt-BR.vtt
+        head -5 sample-data/input/MIB2-subtitles-pt-BR.vtt
     fi
 fi
 

@@ -5,8 +5,7 @@
   "description": "Live translate video captions and subtitles into your preferred language.",
   "permissions": [
     "storage",
-    "activeTab",
-    "scripting"
+    "activeTab"
   ],
   "background": {
     "service_worker": "background/background.js",

@@ -20,7 +20,7 @@ def test_base_url():
 @pytest.fixture(scope="session") 
 def sample_data_dir():
     """Path to sample test data directory"""
-    return Path(__file__).parent / "sample-data"
+    return Path(__file__).parent / "sample-data/input"
 
 @pytest.fixture
 def sample_vtt_file(sample_data_dir):
