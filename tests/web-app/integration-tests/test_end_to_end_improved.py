@@ -111,7 +111,7 @@ async def test_transcription_and_status_check_with_fixtures(sample_mp4_file):
 ## Legacy tests (for backward compatibility) 
 ## Step 1: Test /api/translate
 # Provide a valid path to a small subtitle file (SRT/VTT)
-SUBTITLE_FILE_PATH = "../../sample-data/MIB2-subtitles-pt-BR.vtt"
+SUBTITLE_FILE_PATH = "../../sample-data/input/MIB2-subtitles-pt-BR.vtt"
 
 @pytest.mark.asyncio
 async def test_end_to_end_translation():
@@ -149,7 +149,7 @@ async def test_end_to_end_translation():
 
 ## Step 2: Test /api/transcribe and /api/transcription-status-check/{project_id}
 # Provide a valid path to a small audio/video file
-FILE_PATH = "../../sample-data/MIB2.mp4"
+FILE_PATH = "../../sample-data/input/MIB2.mp4"
 
 @pytest.mark.asyncio
 async def test_transcription_and_status_check():
