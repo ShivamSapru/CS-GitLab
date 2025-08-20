@@ -26,30 +26,30 @@ def validate_test_data():
         }
     }
     
-    print(f"🔍 Validating test data in: {test_data_dir.absolute()}")
+    print(f"Validating test data in: {test_data_dir.absolute()}")
     print("-" * 60)
     
     all_valid = True
     
     for filename, requirements in required_files.items():
         file_path = test_data_dir / filename
-        print(f"\n📁 Checking: {filename}")
+        print(f"\nChecking: {filename}")
         print(f"   Description: {requirements['description']}")
         
         # Check existence
         if not file_path.exists():
-            print(f"   ❌ File not found: {file_path}")
+            print(f"   File not found: {file_path}")
             all_valid = False
             continue
             
         # Check size
         file_size = file_path.stat().st_size
         if file_size < requirements['min_size']:
-            print(f"   ❌ File too small: {file_size} bytes (min: {requirements['min_size']})")
+            print(f"   File too small: {file_size} bytes (min: {requirements['min_size']})")
             all_valid = False
             continue
             
-        print(f"   ✅ Exists: {file_size:,} bytes")
+        print(f"   Exists: {file_size:,} bytes")
         
         # Type-specific validation
         if requirements['type'] == 'vtt':
@@ -57,11 +57,11 @@ def validate_test_data():
                 with open(file_path, 'r', encoding='utf-8') as f:
                     content = f.read()
                     if not content.startswith('WEBVTT'):
-                        print(f"   ⚠️  Warning: VTT file doesn't start with 'WEBVTT'")
+                        print(f"    Warning: VTT file doesn't start with 'WEBVTT'")
                     else:
-                        print(f"   ✅ VTT format valid")
+                        print(f"   VTT format valid")
             except Exception as e:
-                print(f"   ❌ Error reading VTT file: {e}")
+                print(f"   Error reading VTT file: {e}")
                 all_valid = False
                 
         elif requirements['type'] == 'mp4':
@@ -70,19 +70,19 @@ def validate_test_data():
                 with open(file_path, 'rb') as f:
                     header = f.read(8)
                     if b'ftyp' in header:
-                        print(f"   ✅ MP4 format valid")
+                        print(f"   MP4 format valid")
                     else:
-                        print(f"   ⚠️  Warning: File may not be a valid MP4")
+                        print(f"    Warning: File may not be a valid MP4")
             except Exception as e:
-                print(f"   ❌ Error reading MP4 file: {e}")
+                print(f"   Error reading MP4 file: {e}")
     
     print("\n" + "=" * 60)
     if all_valid:
-        print("✅ All test data files are valid and ready for testing!")
+        print("All test data files are valid and ready for testing!")
         return 0
     else:
-        print("❌ Some test data files are missing or invalid.")
-        print("\n💡 To fix missing files:")
+        print("Some test data files are missing or invalid.")
+        print("\nTo fix missing files:")
         print("   - Run this script to see what's missing")
         print("   - Check the sample-data/input directory")
         print("   - Ensure files meet minimum size requirements")
@@ -96,7 +96,7 @@ def create_missing_files():
     # Create sample VTT file if missing
     vtt_file = test_data_dir / "MIB2-subtitles-pt-BR.vtt"
     if not vtt_file.exists():
-        print(f"🔧 Creating sample VTT file: {vtt_file}")
+        print(f"Creating sample VTT file: {vtt_file}")
         vtt_content = """WEBVTT
 
 1
@@ -133,7 +133,7 @@ Fim do teste de legendas."""
         
         with open(vtt_file, 'w', encoding='utf-8') as f:
             f.write(vtt_content)
-        print(f"✅ Created: {vtt_file}")
+        print(f"Created: {vtt_file}")
 
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "create":

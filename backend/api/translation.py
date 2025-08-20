@@ -452,9 +452,9 @@ async def save_project(
                 "is_original": True
             })
             original_file_stored = True
-            print(f" Original subtitle file uploaded to blob: {blob_name}")
+            print(f"Original subtitle file uploaded to blob: {blob_name}")
         else:
-            print(f" Warning: Original subtitle file not found at {local_path}")
+            print(f"Warning: Original subtitle file not found at {local_path}")
             # Try to find the file by looking for any subtitle file in temp_dir that might match
             import glob
 
@@ -473,7 +473,7 @@ async def save_project(
                 # Use the most recently modified file
                 potential_files.sort(key=os.path.getmtime, reverse=True)
                 found_file = potential_files[0]
-                print(f" Found potential subtitle file: {found_file}")
+                print(f"Found potential subtitle file: {found_file}")
 
                 # Try to use this file
                 try:
@@ -507,10 +507,10 @@ async def save_project(
                         "is_original": True
                     })
                     original_file_stored = True
-                    print(f" Found and uploaded subtitle file: {blob_name}")
+                    print(f"Found and uploaded subtitle file: {blob_name}")
 
                 except Exception as fallback_error:
-                    print(f"❌ Failed to use fallback file: {fallback_error}")
+                    print(f"Failed to use fallback file: {fallback_error}")
 
         if os.path.exists(local_path):
             # Original file exists, store it
@@ -544,9 +544,9 @@ async def save_project(
                 "is_original": True
             })
             original_file_stored = True
-            print(f" Original file uploaded to blob: {blob_name}")
+            print(f"Original file uploaded to blob: {blob_name}")
         else:
-            print(f" Warning: Original file not found at {local_path}")
+            print(f"Warning: Original file not found at {local_path}")
 
         # 2. SECOND: Store each translated subtitle file as separate SubtitleFile records
         for idx, filename in enumerate(project_data.filenames):
@@ -752,10 +752,10 @@ async def get_original_file_content(
                     blob_data = blob_client_instance.download_blob()
                     content = blob_data.readall().decode('utf-8')
                     successful_blob_name = blob_name
-                    print(f" Successfully found original file at: {blob_name}")
+                    print(f"Successfully found original file at: {blob_name}")
                     break
                 except Exception as e:
-                    print(f"❌ Failed to fetch from {blob_name}: {str(e)}")
+                    print(f"Failed to fetch from {blob_name}: {str(e)}")
                     continue
 
             if content:

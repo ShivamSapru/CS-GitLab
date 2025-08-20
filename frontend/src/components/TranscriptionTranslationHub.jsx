@@ -17,24 +17,24 @@ const TranscriptionTranslationHub = ({
 
       // If content is empty or not provided, try to fetch from backend
       if (!fileContent) {
-        console.log(" Fetching transcription content...");
+        console.log("Fetching transcription content...");
         const BACKEND_URL =
           import.meta.env.VITE_BACKEND_URL || "http://localhost:8000";
 
         try {
           // First try direct Azure URL if available
           if (data.subtitle_file_url) {
-            console.log(" Trying direct Azure URL");
+            console.log("Trying direct Azure URL");
             const azureResponse = await fetch(data.subtitle_file_url);
             if (azureResponse.ok) {
               fileContent = await azureResponse.text();
-              console.log(" Successfully fetched content from Azure");
+              console.log("Successfully fetched content from Azure");
             }
           }
 
           // Fallback to backend endpoint (it will find the user's file automatically)
           if (!fileContent) {
-            console.log(" Trying backend endpoint");
+            console.log("Trying backend endpoint");
             const response = await fetch(
               `${BACKEND_URL}/api/download-transcription?filename=any`,
               { credentials: "include" },
@@ -42,13 +42,13 @@ const TranscriptionTranslationHub = ({
 
             if (response.ok) {
               fileContent = await response.text();
-              console.log(" Successfully fetched content from backend");
+              console.log("Successfully fetched content from backend");
             } else {
               throw new Error(`Failed to fetch file: ${response.status}`);
             }
           }
         } catch (fetchError) {
-          console.error("❌ Failed to fetch content:", fetchError);
+          console.error("Failed to fetch content:", fetchError);
           throw new Error(
             `Could not load transcription content: ${fetchError.message}`,
           );
@@ -103,7 +103,7 @@ const TranscriptionTranslationHub = ({
       setActiveMode("translation");
     } catch (error) {
       console.error(
-        "❌ Error processing transcription for translation:",
+        "Error processing transcription for translation:",
         error,
       );
       alert(`Failed to load transcription for translation: ${error.message}`);

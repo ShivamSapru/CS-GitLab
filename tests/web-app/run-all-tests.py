@@ -268,7 +268,7 @@ class WebAppTestRunner:
         print()
         
         for suite_name, result in self.results.items():
-            status = "✅ PASS" if result.get('success', False) else "❌ FAIL"
+            status = "PASS" if result.get('success', False) else "FAIL"
             print(f"{status} {suite_name}")
             
             if not result.get('success', False) and result.get('error'):

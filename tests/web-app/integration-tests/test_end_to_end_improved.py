@@ -38,7 +38,7 @@ async def test_end_to_end_translation_with_fixtures(sample_vtt_file):
             for field in required_fields:
                 assert field in result, f"Missing required field: {field}"
 
-            print("\n✅ Translation test completed successfully")
+            print("\nTranslation test completed successfully")
             print(f"Translation message: {result['message']}")
             print(f"Source language: {result.get('source_language', 'unknown')}")
             print(f"Target language: {result.get('target_language', 'unknown')}")
@@ -73,7 +73,7 @@ async def test_transcription_and_status_check_with_fixtures(sample_mp4_file):
             assert "project_id" in result, "Missing 'project_id' in transcription response"
             project_id = result["project_id"]
 
-            print(f"\n✅ Transcription started successfully")
+            print(f"\nTranscription started successfully")
             print(f"Transcription message: {result['message']}")
             print(f"Project ID: {project_id}")
 
@@ -91,11 +91,11 @@ async def test_transcription_and_status_check_with_fixtures(sample_mp4_file):
                 print(f"Transcription Status (attempt {attempt + 1}): {status_result.get('status', 'unknown')}")
 
                 if status_result["status"] == "Completed":
-                    print("✅ Transcription completed successfully")
+                    print("Transcription completed successfully")
                     if "subtitle_file_url" in status_result:
                         print(f"Subtitle File URL: {status_result['subtitle_file_url']}")
                     else:
-                        print("⚠️  No subtitle_file_url available yet.")
+                        print(" No subtitle_file_url available yet.")
                     break
                 elif status_result["status"] == "Failed":
                     raise Exception(f"Transcription failed: {status_result}")

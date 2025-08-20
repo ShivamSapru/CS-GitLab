@@ -54,7 +54,7 @@ const convertSrtToVttManual = (srtContent) => {
 
 // Also fix the parseVttSubtitles function to handle this properly:
 const parseVttSubtitles = (content) => {
-  console.log(" Parsing VTT content, length:", content.length);
+  // console.log("Parsing VTT content, length:", content.length);
   const lines = content.split("\n");
   const subtitles = [];
   let currentSubtitle = null;
@@ -90,7 +90,7 @@ const parseVttSubtitles = (content) => {
           originalBlock: line,
         };
       } catch (parseError) {
-        console.error("❌ Failed to parse VTT timestamp:", parseError);
+        console.error("Failed to parse VTT timestamp:", parseError);
         currentSubtitle = null;
       }
     } else if (currentSubtitle && line) {
@@ -224,7 +224,7 @@ const VideoPreviewPlayer = ({
     const enableSubtitles = () => {
       if (video.textTracks && video.textTracks.length > 0) {
         video.textTracks[0].mode = "showing";
-        console.log(" Subtitles enabled");
+        console.log("Subtitles enabled");
       }
     };
 
@@ -240,9 +240,9 @@ const VideoPreviewPlayer = ({
     if (window.previousSubtitleUrl) {
       try {
         URL.revokeObjectURL(window.previousSubtitleUrl);
-        console.log(" Revoked previous subtitle URL");
+        console.log("Revoked previous subtitle URL");
       } catch (error) {
-        console.log(" Error revoking subtitle URL:", error);
+        console.log("Error revoking subtitle URL:", error);
       }
       window.previousSubtitleUrl = null;
       window.currentSubtitleContent = null;
@@ -263,7 +263,7 @@ const VideoPreviewPlayer = ({
           }
         }
       } catch (error) {
-        console.log(" Error disabling tracks:", error);
+        console.log("Error disabling tracks:", error);
       }
     }
   }, [convertedVttContent, previewContent, setCurrentSubtitleIndex]);
@@ -272,13 +272,13 @@ const VideoPreviewPlayer = ({
     try {
       const subtitleContent = convertedVttContent || previewContent;
       if (!subtitleContent || subtitleContent.trim().length === 0) {
-        console.log("❌ No subtitle content available for track");
+        console.log("No subtitle content available for track");
         return null;
       }
 
       //  Check if this is old content
       if (subtitleContent.includes("So here like I'v")) {
-        console.error(" Old content detected in createSubtitleTrack!");
+        console.error("Old content detected in createSubtitleTrack!");
         return null;
       }
 
@@ -290,20 +290,20 @@ const VideoPreviewPlayer = ({
 
       // Check if we already have this exact content
       if (window.currentSubtitleHash === contentHash) {
-        console.log(" Using existing subtitle track for same content");
+        console.log("Using existing subtitle track for same content");
         return window.previousSubtitleUrl;
       }
 
-      console.log(
-        " Creating NEW subtitle track for different content:",
-        contentHash,
-      );
+      // console.log(
+      //   "Creating NEW subtitle track for different content:",
+      //   contentHash,
+      // );
 
       let vttContent = subtitleContent.trim();
 
       // Check if content is SRT format and convert it manually
       if (!vttContent.startsWith("WEBVTT") && vttContent.match(/^\d+\s*$/m)) {
-        console.log(" Converting SRT to VTT");
+        console.log("Converting SRT to VTT");
         vttContent = convertSrtToVttManual(vttContent);
       }
 
@@ -326,9 +326,9 @@ const VideoPreviewPlayer = ({
       ) {
         try {
           URL.revokeObjectURL(window.previousSubtitleUrl);
-          console.log(" Revoked old subtitle URL");
+          console.log("Revoked old subtitle URL");
         } catch (error) {
-          console.log(" Error revoking old URL:", error);
+          console.log("Error revoking old URL:", error);
         }
       }
 
@@ -344,7 +344,7 @@ const VideoPreviewPlayer = ({
 
       return url;
     } catch (error) {
-      console.error("❌ Error creating subtitle track:", error);
+      console.error("Error creating subtitle track:", error);
       return null;
     }
   }, [convertedVttContent, previewContent]); // Remove convertSrtToVttManual from dependencies
@@ -391,7 +391,7 @@ const VideoPreviewPlayer = ({
             clearTimeout(timeout);
             video.removeEventListener("canplay", handleCanPlay);
             video.removeEventListener("error", handleError);
-            console.error("❌ Video load error:", e);
+            console.error("Video load error:", e);
             reject(new Error("Video load failed"));
           };
 
@@ -401,7 +401,7 @@ const VideoPreviewPlayer = ({
           video.load();
         });
       } catch (error) {
-        console.error("❌ Video setup failed:", error);
+        console.error("Video setup failed:", error);
         setError(`Video setup failed: ${error.message}`);
       }
     };
@@ -453,12 +453,12 @@ const VideoPreviewPlayer = ({
       }
     } catch (error) {
       if (error.name === "AbortError") {
-        console.log(" Play request was interrupted (expected behavior)");
+        console.log("Play request was interrupted (expected behavior)");
       } else if (error.name === "NotAllowedError") {
-        console.log(" Autoplay prevented by browser policy");
+        console.log("Autoplay prevented by browser policy");
         // User needs to interact with the page first
       } else {
-        console.error("❌ Video play error:", error);
+        console.error("Video play error:", error);
       }
     }
   };
@@ -541,7 +541,7 @@ const VideoPreviewPlayer = ({
               muted={false}
               onError={(e) => {
                 const video = videoRef.current;
-                console.error(" Video error:", {
+                console.error("Video error:", {
                   code: video?.error?.code,
                   message: video?.error?.message,
                   networkState: video?.networkState,
@@ -820,7 +820,7 @@ const TranscriptionApp = ({
             notificationService.stopMonitoring(projectId);
           }
         } else if (data.status === "Failed") {
-          console.log("❌ Transcription failed");
+          console.log("Transcription failed");
           setIsTranscribing(false);
           setError(data.message || "Transcription failed");
 
@@ -880,7 +880,7 @@ const TranscriptionApp = ({
     const uploadedFile = event.target.files[0];
     if (uploadedFile) {
       // Clear previous transcription data when new file is selected
-      console.log(" Clearing previous data for new file upload");
+      console.log("Clearing previous data for new file upload");
       setPreviewContent("");
       setConvertedVttContent("");
       setParsedSubtitles([]);
@@ -955,7 +955,8 @@ const TranscriptionApp = ({
       const data = await response.json();
 
       if (response.ok) {
-        console.log(" Transcription job started:", data);
+        // console.log("Transcription job started:", data);
+        console.log("Transcription job started");
         setTranscriptionResult(data);
         setProjectId(data.project_id);
 
@@ -973,10 +974,10 @@ const TranscriptionApp = ({
             isTranscribing: true,
           };
 
-          console.log(
-            " Adding to background monitoring on transcription start:",
-            transcriptionData,
-          );
+          // console.log(
+          //   "Adding to background monitoring on transcription start:",
+          //   transcriptionData,
+          // );
 
           window.notificationService.addBackgroundTranscription(
             data.project_id,
@@ -1021,7 +1022,7 @@ const TranscriptionApp = ({
 
   const handleTranslateTranscription = async () => {
     if (!transcriptionResult || !file) {
-      console.error("❌ Missing transcription result or file");
+      console.error("Missing transcription result or file");
       return;
     }
 
@@ -1047,13 +1048,13 @@ const TranscriptionApp = ({
           actualContent = await response.text();
         }
       } catch (fetchError) {
-        console.error("❌ Backend fetch failed:", fetchError);
+        console.error("Backend fetch failed:", fetchError);
       }
     }
 
     // Final validation
     if (!actualContent || actualContent.trim().length === 0) {
-      console.error("❌ No valid content available");
+      console.error("No valid content available");
       alert(
         "No transcription content available. Please ensure the transcription is complete and try again.",
       );
@@ -1129,11 +1130,11 @@ const TranscriptionApp = ({
         document.body.removeChild(a);
       } else {
         const errorData = await response.json().catch(() => ({}));
-        console.error("❌ Download failed:", response.status, errorData);
+        console.error("Download failed:", response.status, errorData);
         setError(errorData.error || `Download failed: ${response.status}`);
       }
     } catch (err) {
-      console.error("❌ Download error:", err);
+      console.error("Download error:", err);
       setError(`Download error occurred: ${err.message}`);
     }
   };
@@ -1191,7 +1192,7 @@ const TranscriptionApp = ({
     if (!transcriptionResult?.transcribed_filename) return;
 
     if (loadingPreview) {
-      console.log(" Preview  loading");
+      console.log("Preview loading...");
       return;
     }
 
@@ -1232,7 +1233,7 @@ const TranscriptionApp = ({
           }
         } catch (statusError) {
           console.warn(
-            "⚠️ Status fetch failed, continuing with existing data:",
+            "Status fetch failed, continuing with existing data:",
             statusError,
           );
         }
@@ -1292,15 +1293,15 @@ const TranscriptionApp = ({
             setVideoUrl(mediaUrl);
             setShowVideoPreview(true);
           } else {
-            console.warn("⚠️ Media URL not accessible:", testResponse.status);
+            console.warn("Media URL not accessible:", testResponse.status);
             setError(`Video preview unavailable (${testResponse.status})`);
           }
         } catch (mediaError) {
-          console.warn("⚠️ Media URL test failed:", mediaError);
+          console.warn("Media URL test failed:", mediaError);
           setError("Video preview unavailable - connection issue");
         }
       } else {
-        console.log(" Video preview skipped:", {
+        console.log("Video preview skipped:", {
           reason: !mediaUrl ? "No media URL" : "Unsupported file type",
           mediaUrl: !!mediaUrl,
           fileType: file?.type,
@@ -1316,7 +1317,7 @@ const TranscriptionApp = ({
         });
       }, 300);
     } catch (err) {
-      console.error("❌ Preview error:", err);
+      console.error("Preview error:", err);
       setError(`Preview failed: ${err.message}`);
     } finally {
       setLoadingPreview(false);
@@ -1385,16 +1386,16 @@ const TranscriptionApp = ({
             });
           } catch (parseError) {
             console.error(
-              `❌ Failed to parse block ${blockIndex}:`,
+              `Failed to parse block ${blockIndex}:`,
               parseError,
             );
           }
         } else {
-          console.log(`⚠️ No time match found in line: "${timeLine}"`);
+          console.log(`No time match found in line: "${timeLine}"`);
         }
       } else {
         console.log(
-          `⚠️ Block ${blockIndex} has insufficient lines:`,
+          `Block ${blockIndex} has insufficient lines:`,
           lines.length,
         );
       }
@@ -1405,7 +1406,7 @@ const TranscriptionApp = ({
 
   // Parse VTT format subtitles - FIXED VERSION
   const parseVttSubtitles = (content) => {
-    console.log(" Parsing VTT content, length:", content.length);
+    // console.log("Parsing VTT content, length:", content.length);
     const lines = content.split("\n");
     const subtitles = [];
     let currentSubtitle = null;
@@ -1436,7 +1437,7 @@ const TranscriptionApp = ({
             originalBlock: line,
           };
         } catch (parseError) {
-          console.error("❌ Failed to parse VTT timestamp:", parseError);
+          console.error("Failed to parse VTT timestamp:", parseError);
           currentSubtitle = null;
         }
       } else if (currentSubtitle && line) {
@@ -1457,7 +1458,7 @@ const TranscriptionApp = ({
   // Main parsing function - ENHANCED VERSION
   const parseSubtitles = (content, format) => {
     if (!content || content.trim().length === 0) {
-      console.log("❌ No content to parse");
+      console.log("No content to parse");
       return [];
     }
 
@@ -1471,10 +1472,10 @@ const TranscriptionApp = ({
     } else if (format === "vtt" || content.startsWith("WEBVTT")) {
       result = parseVttSubtitles(content);
     } else {
-      console.log("⚠️ Unknown format, trying SRT first...");
+      console.log("Unknown format, trying SRT first...");
       result = parseSrtSubtitles(content);
       if (result.length === 0) {
-        console.log("⚠️ SRT parsing failed, trying VTT...");
+        console.log("SRT parsing failed, trying VTT...");
         result = parseVttSubtitles(content);
       }
     }
@@ -1513,7 +1514,7 @@ const TranscriptionApp = ({
 
         if (response.ok) {
           const data = await response.json();
-          console.log(` Poll ${pollCount + 1}: ${data.status}`);
+          // console.log(` Poll ${pollCount + 1}: ${data.status}`);
 
           if (data.status === "Completed") {
             setIsTranscribing(false);
@@ -1546,7 +1547,7 @@ const TranscriptionApp = ({
 
             return; // Stop polling
           } else if (data.status === "Failed") {
-            console.log("❌ Transcription failed via polling!");
+            console.log("Transcription failed via polling!");
             setIsTranscribing(false);
             setError(data.message || "Transcription failed");
             showNotification(data.message || "Transcription failed", "error");
@@ -2392,7 +2393,7 @@ const TranscriptionApp = ({
                               console.log();
                             } catch (error) {
                               console.error(
-                                "❌ Failed to refresh content:",
+                                "Failed to refresh content:",
                                 error,
                               );
                               alert(

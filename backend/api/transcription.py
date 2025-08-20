@@ -88,7 +88,7 @@ def get_locales() -> Dict[str, str]:
 async def check_status_with_fallback(project_id: str, request: Request, db: Session = Depends(get_db)):
     """Status check with media_url fallback logic"""
     try:
-        print(f"🔍 Status check for: {project_id}")
+        print(f"Status check for: {project_id}")
 
         project = db.query(TranscriptionProject).filter_by(project_id=project_id).first()
 
@@ -105,7 +105,7 @@ async def check_status_with_fallback(project_id: str, request: Request, db: Sess
             # Always provide proxy URL for completed projects
             proxy_url = f"http://localhost:8000/api/proxy-media/{project_id}"
             response["media_url"] = proxy_url
-            print(f"✅ Added proxy media_url: {proxy_url}")
+            print(f"Added proxy media_url: {proxy_url}")
 
         # Add other fields
         if hasattr(project, 'filename') and project.filename:
@@ -117,7 +117,7 @@ async def check_status_with_fallback(project_id: str, request: Request, db: Sess
         return response
 
     except Exception as e:
-        print(f"❌ Status check error: {str(e)}")
+        print(f"Status check error: {str(e)}")
         return {"status": "Error", "message": str(e)}
 
 # Convert mono audio, 16kHz WAV
@@ -212,9 +212,9 @@ def get_transcription_file(files_url: str):
 
 async def send_sse_update(project_id: str, data: dict):
     """Send update to SSE connection with better error handling"""
-    print(f"📤 Attempting to send SSE update to {project_id}: {data.get('status', 'unknown')}")
-    print(f"📊 Active connections check: {project_id in active_connections}")
-    print(f"📊 All active connections: {list(active_connections.keys())}")
+    print(f"Attempting to send SSE update to {project_id}: {data.get('status', 'unknown')}")
+    print(f"Active connections check: {project_id in active_connections}")
+    print(f"All active connections: {list(active_connections.keys())}")
 
     # More robust check
     connection = active_connections.get(project_id)
@@ -222,17 +222,17 @@ async def send_sse_update(project_id: str, data: dict):
         try:
             # Try to put the data with a timeout
             await asyncio.wait_for(connection.put(data), timeout=5.0)
-            print(f"✅ SSE update sent successfully to {project_id}")
+            print(f"SSE update sent successfully to {project_id}")
         except asyncio.TimeoutError:
-            print(f"⏱️ SSE update timeout for {project_id}")
+            print(f"SSE update timeout for {project_id}")
             # Remove stale connection
             active_connections.pop(project_id, None)
         except Exception as e:
-            print(f"❌ Failed to send SSE update to {project_id}: {e}")
+            print(f"Failed to send SSE update to {project_id}: {e}")
             # Remove failed connection
             active_connections.pop(project_id, None)
     else:
-        print(f"⚠️ No active SSE connection found for project {project_id}")
+        print(f"No active SSE connection found for project {project_id}")
 
 # Simple user helper
 def get_or_create_user(db: Session, request: Request = None):
@@ -277,7 +277,7 @@ def get_or_create_user(db: Session, request: Request = None):
 def monitor_transcription_job(job_id, project_id, user_id, file_name, output_format, locale="en-US"):
     """Background task to monitor transcription with custom filename format"""
     try:
-        print(f"🚀 Starting monitoring for project {project_id}")
+        print(f"Starting monitoring for project {project_id}")
 
         db = SessionLocal()
 
@@ -301,7 +301,7 @@ def monitor_transcription_job(job_id, project_id, user_id, file_name, output_for
         out_name = f"{base_name}_transcribed_.{locale}.{output_format}"
         out_path = os.path.join(temp_dir, out_name)
 
-        print(f"💾 Saving subtitle file: {out_name}")
+        print(f"Saving subtitle file: {out_name}")
 
         with open(out_path, "w", encoding="utf-8") as f:
             f.write(subtitle_content)
@@ -325,10 +325,10 @@ def monitor_transcription_job(job_id, project_id, user_id, file_name, output_for
                 expiry=datetime.now(timezone.utc) + timedelta(hours=2)
             )
             subtitle_file_url = f"https://{blob_service.account_name}.blob.core.windows.net/{AZURE_BLOB_CONTAINER}/{blob_name}?{sas_token}"
-            print(f"✅ Azure backup saved: {blob_name}")
+            print(f"Azure backup saved: {blob_name}")
 
         except Exception as azure_error:
-            print(f"⚠️ Azure upload failed (continuing anyway): {azure_error}")
+            print(f"Azure upload failed (continuing anyway): {azure_error}")
             subtitle_file_url = None
 
         # Update database
@@ -339,7 +339,7 @@ def monitor_transcription_job(job_id, project_id, user_id, file_name, output_for
             project.filename = out_name  # UPDATED: Store the new filename format
             project.updated_at = datetime.now(timezone.utc)  # Add timestamp
             db.commit()
-            print(f"✅ Database updated with filename: {out_name}")
+            print(f"Database updated with filename: {out_name}")
 
         # UPDATED: Better notification message
         notif = Notification(
@@ -363,11 +363,11 @@ def monitor_transcription_job(job_id, project_id, user_id, file_name, output_for
             "timestamp": datetime.now(timezone.utc)
         }
 
-        print(f"🎉 Transcription completed successfully: {out_name}")
+        print(f"Transcription completed successfully: {out_name}")
         db.close()
 
     except Exception as e:
-        print(f"❌ Background task failed: {str(e)}")
+        print(f"Background task failed: {str(e)}")
         import traceback
         traceback.print_exc()
 
@@ -399,7 +399,7 @@ def monitor_transcription_job(job_id, project_id, user_id, file_name, output_for
             db.add(notif)
             db.commit()
         except Exception as db_error:
-            print(f"❌ Failed to update database with error: {db_error}")
+            print(f"Failed to update database with error: {db_error}")
         finally:
             db.close()
 
@@ -418,8 +418,8 @@ async def transcribe_audio_video(
     db: Session = Depends(get_db)
 ):
     try:
-        print(f"🎯 Starting transcription for: {file.filename}")
-        print(f"📊 File info: size={file.size}, type={file.content_type}")
+        print(f"Starting transcription for: {file.filename}")
+        print(f"File info: size={file.size}, type={file.content_type}")
 
         # Validate environment variables first
         required_env_vars = [
@@ -436,7 +436,7 @@ async def transcribe_audio_video(
 
         if missing_vars:
             error_msg = f"Missing environment variables: {', '.join(missing_vars)}"
-            print(f"❌ {error_msg}")
+            print(f"{error_msg}")
             return JSONResponse(
                 status_code=500,
                 content={"error": f"Server configuration error: {error_msg}"}
@@ -445,9 +445,9 @@ async def transcribe_audio_video(
         # Get or create user
         try:
             user, user_id = get_or_create_user(db, request)
-            print(f"✅ User: {user.email}")
+            print(f"User: {user.email}")
         except Exception as user_error:
-            print(f"❌ User creation error: {user_error}")
+            print(f"User creation error: {user_error}")
             return JSONResponse(
                 status_code=500,
                 content={"error": f"User authentication error: {str(user_error)}"}
@@ -483,27 +483,27 @@ async def transcribe_audio_video(
         input_filename = f"{safe_name}_input_{unique_id}{file_ext}"
         input_path = os.path.join(temp_dir, input_filename)
 
-        print(f"📁 Saving file to: {input_path}")
+        print(f"Saving file to: {input_path}")
 
         # Save uploaded file
         try:
             file_content = await file.read()
-            print(f"📊 Read {len(file_content)} bytes from upload")
+            print(f"Read {len(file_content)} bytes from upload")
 
             with open(input_path, "wb") as f:
                 f.write(file_content)
 
-            print(f"✅ File saved successfully")
+            print(f"File saved successfully")
 
             # Verify file was written
             if not os.path.exists(input_path):
                 raise Exception("File was not saved properly")
 
             file_size = os.path.getsize(input_path)
-            print(f"📊 Saved file size: {file_size} bytes")
+            print(f"Saved file size: {file_size} bytes")
 
         except Exception as file_error:
-            print(f"❌ File save error: {file_error}")
+            print(f"File save error: {file_error}")
             return JSONResponse(
                 status_code=500,
                 content={"error": f"Failed to save uploaded file: {str(file_error)}"}
@@ -512,9 +512,9 @@ async def transcribe_audio_video(
         # Initialize Azure Blob Service
         try:
             blob_service = BlobServiceClient.from_connection_string(AZURE_STORAGE_CONNECTION_STRING)
-            print("✅ Azure Blob Service initialized")
+            print("Azure Blob Service initialized")
         except Exception as azure_error:
-            print(f"❌ Azure initialization error: {azure_error}")
+            print(f"Azure initialization error: {azure_error}")
             return JSONResponse(
                 status_code=500,
                 content={"error": f"Azure storage initialization failed: {str(azure_error)}"}
@@ -532,13 +532,13 @@ async def transcribe_audio_video(
             db.add(project)
             db.commit()
             db.refresh(project)
-            print(f"✅ Database record created: {project.project_id}")
-            print(f"   Project ID: {project.project_id}")
-            # print(f"   Media URL in object: {media_url}")
-            # print(f"   Media URL stored: {getattr(project, 'media_url', 'ATTRIBUTE_MISSING')}")
+            print(f"Database record created: {project.project_id}")
+            print(f"Project ID: {project.project_id}")
+            # print(f"Media URL in object: {media_url}")
+            # print(f"Media URL stored: {getattr(project, 'media_url', 'ATTRIBUTE_MISSING')}")
 
         except Exception as db_error:
-            print(f"❌ Database error: {db_error}")
+            print(f"Database error: {db_error}")
             # Clean up files
             try:
                 os.remove(input_path)
@@ -571,17 +571,17 @@ async def transcribe_audio_video(
             )
 
             media_url = f"https://{blob_service.account_name}.blob.core.windows.net/{AZURE_BLOB_CONTAINER}/{blob_name_original}?{sas_token_original}"
-            print(f"✅ Original file uploaded for preview: {blob_name_original}")
+            print(f"Original file uploaded for preview: {blob_name_original}")
 
              # Update database
             project = db.query(TranscriptionProject).filter_by(project_id=project.project_id).first()
             if project:
                 project.media_url = media_url
                 db.commit()
-                print(f"✅ Database updated with media_url: {media_url}")
+                print(f"Database updated with media_url: {media_url}")
 
         except Exception as upload_error:
-            print(f"❌ Azure upload error: {upload_error}")
+            print(f"Azure upload error: {upload_error}")
             return JSONResponse(
                 status_code=500,
                 content={"error": f"Failed to upload file to Azure: {str(upload_error)}"}
@@ -592,17 +592,17 @@ async def transcribe_audio_video(
             wav_filename = f"{safe_name}_converted_{unique_id}.wav"
             wav_path = os.path.join(temp_dir, wav_filename)
 
-            print(f"🔄 Converting to WAV: {wav_path}")
+            print(f"Converting to WAV: {wav_path}")
             convert_to_wav(input_path, wav_path)
 
             if not os.path.exists(wav_path):
                 raise Exception("WAV conversion failed - output file not created")
 
             wav_size = os.path.getsize(wav_path)
-            print(f"✅ WAV conversion complete: {wav_size} bytes")
+            print(f"WAV conversion complete: {wav_size} bytes")
 
         except Exception as conv_error:
-            print(f"❌ WAV conversion error: {conv_error}")
+            print(f"WAV conversion error: {conv_error}")
             # Clean up input file
             try:
                 os.remove(input_path)
@@ -635,10 +635,10 @@ async def transcribe_audio_video(
             )
 
             audio_url = f"https://{blob_service.account_name}.blob.core.windows.net/{AZURE_BLOB_CONTAINER}/{blob_name_wav}?{sas_token_wav}"
-            print(f"✅ WAV file uploaded for transcription: {blob_name_wav}")
+            print(f"WAV file uploaded for transcription: {blob_name_wav}")
 
         except Exception as wav_upload_error:
-            print(f"❌ WAV upload error: {wav_upload_error}")
+            print(f"WAV upload error: {wav_upload_error}")
             # Clean up files
             try:
                 os.remove(input_path)
@@ -652,12 +652,12 @@ async def transcribe_audio_video(
 
         # Start Azure transcription job
         try:
-            print(f"🚀 Starting Azure transcription job")
+            print(f"Starting Azure transcription job")
             job_id = create_transcription_job(audio_url, censor_profanity, max_speakers, locale)
-            print(f"✅ Transcription job started: {job_id}")
+            print(f"Transcription job started: {job_id}")
 
         except Exception as job_error:
-            print(f"❌ Transcription job error: {job_error}")
+            print(f"Transcription job error: {job_error}")
             # Clean up files
             try:
                 os.remove(input_path)
@@ -683,10 +683,10 @@ async def transcribe_audio_video(
                 output_format,
                 locale
             )
-            print(f"✅ Background task scheduled")
+            print(f"Background task scheduled")
 
         except Exception as bg_error:
-            print(f"❌ Background task error: {bg_error}")
+            print(f"Background task error: {bg_error}")
             # Update project status to failed
             try:
                 project.status = "Failed"
@@ -702,12 +702,12 @@ async def transcribe_audio_video(
         try:
             os.remove(input_path)
             os.remove(wav_path)
-            print("✅ Local files cleaned up")
+            print("Local files cleaned up")
         except Exception as cleanup_error:
-            print(f"⚠️ Cleanup warning: {cleanup_error}")
+            print(f"Cleanup warning: {cleanup_error}")
             # Don't fail the request for cleanup issues
 
-        print(f"🎉 Transcription request completed successfully")
+        print(f"Transcription request completed successfully")
 
         return {
             "message": "Transcription job started successfully.",
@@ -720,7 +720,7 @@ async def transcribe_audio_video(
 
 
     except Exception as e:
-        print(f"❌ Unexpected transcription error: {str(e)}")
+        print(f"Unexpected transcription error: {str(e)}")
         import traceback
         traceback.print_exc()
 
@@ -812,7 +812,7 @@ async def download_transcription_custom_filename(
 ):
     """Download transcription with custom filename format"""
     try:
-        print(f"🔍 Download request for project: {project_id}")
+        print(f"Download request for project: {project_id}")
 
         project = db.query(TranscriptionProject).filter_by(project_id=project_id).first()
 
@@ -829,7 +829,7 @@ async def download_transcription_custom_filename(
                 async with httpx.AsyncClient(timeout=30.0) as client:
                     response = await client.get(project.subtitle_file_url)
                     if response.status_code == 200:
-                        print("✅ Azure download successful")
+                        print("Azure download successful")
 
                         # Generate custom filename format: filename_transcribed_.locale.extension
                         filename = "transcription_transcribed_.en-US.srt"  # default
@@ -865,7 +865,7 @@ async def download_transcription_custom_filename(
                             }
                         )
             except Exception as azure_error:
-                print(f"❌ Azure download failed: {azure_error}")
+                print(f"Azure download failed: {azure_error}")
 
         # Fallback to local files
         import glob
@@ -883,7 +883,7 @@ async def download_transcription_custom_filename(
                 base_name = original_filename.replace('.srt', '').replace('.vtt', '')
                 filename = f"{base_name}_transcribed_.en-US.srt"
 
-            print(f"✅ Using local file with custom filename: {filename}")
+            print(f"Using local file with custom filename: {filename}")
             return FileResponse(
                 path=actual_file,
                 media_type="text/plain",
@@ -897,7 +897,7 @@ async def download_transcription_custom_filename(
         )
 
     except Exception as e:
-        print(f"❌ Download error: {str(e)}")
+        print(f"Download error: {str(e)}")
         return JSONResponse(
             status_code=500,
             content={"error": f"Download failed: {str(e)}"}
@@ -916,30 +916,30 @@ async def check_transcription_status_fixed_user(
 ):
     """Status check with better user handling"""
     try:
-        print(f"🔍 Status check for: {project_id}")
+        print(f"Status check for: {project_id}")
 
         # Check completed transcriptions cache first (no user filtering)
         if project_id in completed_transcriptions:
             cached_result = completed_transcriptions[project_id]
-            print(f"📊 Found in cache: {list(cached_result.keys())}")
+            print(f"Found in cache: {list(cached_result.keys())}")
 
             # Always get fresh data from database for media_url
             try:
                 project = db.query(TranscriptionProject).filter_by(project_id=project_id).first()
                 if project and project.media_url:
                     cached_result["media_url"] = project.media_url
-                    print(f"✅ Added media_url from DB to cache")
+                    print(f"Added media_url from DB to cache")
             except Exception as db_error:
-                print(f"⚠️ DB lookup failed: {db_error}")
+                print(f"DB lookup failed: {db_error}")
 
             return cached_result
 
         # Try to get user, but don't fail if user creation fails
         try:
             user, user_id = get_or_create_user(db, request)
-            print(f"✅ User: {user_id}")
+            print(f"User: {user_id}")
         except Exception as user_error:
-            print(f"⚠️ User creation failed: {user_error}")
+            print(f"User creation failed: {user_error}")
             user_id = None
 
         # First try with user filtering
@@ -949,21 +949,21 @@ async def check_transcription_status_fixed_user(
                 project_id=project_id,
                 user_id=user_id
             ).first()
-            print(f"📊 Project found with user filter: {project is not None}")
+            print(f"Project found with user filter: {project is not None}")
 
         # If not found with user filter, try without user filter (for guest scenarios)
         if not project:
-            print("🔄 Trying without user filter...")
+            print("Trying without user filter...")
             project = db.query(TranscriptionProject).filter_by(project_id=project_id).first()
-            print(f"📊 Project found without user filter: {project is not None}")
+            print(f"Project found without user filter: {project is not None}")
 
         if not project:
-            print(f"❌ Project not found: {project_id}")
+            print(f"Project not found: {project_id}")
             return {"status": "Not Found", "message": "Project not found"}
 
-        print(f"✅ Found project: {project.status}")
-        print(f"   Project user: {project.user_id}")
-        print(f"   Request user: {user_id}")
+        print(f"Found project: {project.status}")
+        print(f"Project user: {project.user_id}")
+        print(f"Request user: {user_id}")
 
         # Build response with all available data
         response = {
@@ -974,25 +974,25 @@ async def check_transcription_status_fixed_user(
         # Add media_url if it exists
         if hasattr(project, 'media_url') and project.media_url:
             response["media_url"] = project.media_url
-            print(f"✅ Added media_url to response: {project.media_url[:50]}...")
+            print(f"Added media_url to response: {project.media_url[:50]}...")
         else:
-            print(f"❌ No media_url in project")
+            print(f"No media_url in project")
 
         # Add filename if it exists
         if hasattr(project, 'filename') and project.filename:
             response["filename"] = project.filename
-            print(f"✅ Added filename to response")
+            print(f"Added filename to response")
 
         # Add subtitle_file_url if it exists
         if hasattr(project, 'subtitle_file_url') and project.subtitle_file_url:
             response["subtitle_file_url"] = project.subtitle_file_url
-            print(f"✅ Added subtitle_file_url to response")
+            print(f"Added subtitle_file_url to response")
 
-        print(f"📊 Final response contains: {list(response.keys())}")
+        print(f"Final response contains: {list(response.keys())}")
         return response
 
     except Exception as e:
-        print(f"❌ Status check error: {str(e)}")
+        print(f"Status check error: {str(e)}")
         import traceback
         traceback.print_exc()
         return {"status": "Error", "message": str(e)}
@@ -1033,7 +1033,7 @@ async def get_transcription_status(
         return response_data
 
     except Exception as e:
-        print(f"❌ Status check error: {str(e)}")
+        print(f"Status check error: {str(e)}")
         return JSONResponse(status_code=500, content={"error": f"Status check failed: {str(e)}"})
 
 # Notifications endpoints
@@ -1187,7 +1187,7 @@ async def proxy_media_file(project_id: str, request: Request, db: Session = Depe
                 return JSONResponse(status_code=404, content={"error": "Media file not accessible"})
 
     except Exception as e:
-        print(f"❌ Media proxy error: {e}")
+        print(f"Media proxy error: {e}")
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 
@@ -1196,26 +1196,26 @@ async def proxy_media_file(project_id: str, request: Request, db: Session = Depe
 async def proxy_media_fixed(project_id: str, request: Request, db: Session = Depends(get_db)):
     """Fixed proxy with proper imports"""
     try:
-        print(f"🎬 Media proxy: {request.method} for {project_id}")
+        print(f"Media proxy: {request.method} for {project_id}")
 
         # Get project
         project = db.query(TranscriptionProject).filter_by(project_id=project_id).first()
 
         if not project:
-            print(f"❌ Project not found: {project_id}")
+            print(f"Project not found: {project_id}")
             return JSONResponse(status_code=404, content={"error": "Project not found"})
 
         # Get media URL
         media_url = getattr(project, 'media_url', None)
-        print(f"📊 Media URL: {media_url[:50] if media_url else 'NULL'}...")
+        print(f"Media URL: {media_url[:50] if media_url else 'NULL'}...")
 
         if not media_url:
-            print(f"❌ No media_url for project {project_id}")
+            print(f"No media_url for project {project_id}")
             return JSONResponse(status_code=404, content={"error": "No media file available"})
 
         # For HEAD requests
         if request.method == "HEAD":
-            print("📊 HEAD request - returning headers")
+            print("HEAD request - returning headers")
             return Response(
                 status_code=200,
                 headers={
@@ -1229,14 +1229,14 @@ async def proxy_media_fixed(project_id: str, request: Request, db: Session = Dep
 
         # For GET requests
         if request.method == "GET":
-            print("📊 GET request - proxying content")
+            print("GET request - proxying content")
 
             import httpx
             async with httpx.AsyncClient(timeout=30.0) as client:
                 azure_response = await client.get(media_url)
 
                 if azure_response.status_code == 200:
-                    print(f"✅ Azure success: {len(azure_response.content)} bytes")
+                    print(f"Azure success: {len(azure_response.content)} bytes")
 
                     return StreamingResponse(
                         iter([azure_response.content]),
@@ -1250,7 +1250,7 @@ async def proxy_media_fixed(project_id: str, request: Request, db: Session = Dep
                         }
                     )
                 else:
-                    print(f"❌ Azure error: {azure_response.status_code}")
+                    print(f"Azure error: {azure_response.status_code}")
                     return JSONResponse(
                         status_code=azure_response.status_code,
                         content={"error": f"Azure returned {azure_response.status_code}"}
@@ -1259,7 +1259,7 @@ async def proxy_media_fixed(project_id: str, request: Request, db: Session = Dep
         return JSONResponse(status_code=405, content={"error": "Method not allowed"})
 
     except Exception as e:
-        print(f"❌ Proxy error: {str(e)}")
+        print(f"Proxy error: {str(e)}")
         import traceback
         traceback.print_exc()
         return JSONResponse(status_code=500, content={"error": str(e)})

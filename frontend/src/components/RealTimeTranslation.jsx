@@ -233,7 +233,7 @@ const ChromeExtensionPage = ({ isDarkMode = false }) => {
             <h5
               className={`font-medium mb-2 ${isDarkMode ? "text-white" : "text-gray-900"}`}
             >
-              💡 Pro Tips
+              Pro Tips
             </h5>
             <ul
               className={`text-sm space-y-1 ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}

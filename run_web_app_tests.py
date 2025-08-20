@@ -24,14 +24,14 @@ def run_tests(test_type="all"):
         debug_result = subprocess.run([sys.executable, str(debug_script)], 
                                     capture_output=True, text=True)
         if debug_result.returncode != 0:
-            print("❌ Connection test failed!")
+            print("Connection test failed!")
             print("STDOUT:", debug_result.stdout)
             print("STDERR:", debug_result.stderr)
-            print("\n💡 Make sure the FastAPI server is running:")
-            print("   cd backend && python -m uvicorn main:app --host 0.0.0.0 --port 8000")
+            print("\nMake sure the FastAPI server is running:")
+            print(" cd backend && python -m uvicorn main:app --host 0.0.0.0 --port 8000")
             return 1
         else:
-            print("✅ Connection test passed!")
+            print("Connection test passed!")
     
     # Test commands based on type
     if test_type == "unit":

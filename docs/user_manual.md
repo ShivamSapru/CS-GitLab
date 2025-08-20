@@ -63,7 +63,7 @@ SESSION_SECRET_KEY=your_generated_secret_key
 
 ---
 
-## 🌐 Azure AI Translator Setup
+## Azure AI Translator Setup
 
 To enable subtitle translation:
 
@@ -269,7 +269,7 @@ npm run dev
 
 ---
 
-## 🚀 Docker Deployment
+## Docker Deployment
 
 Follow these steps to get the application up and running on your local machine using Docker Compose.
 

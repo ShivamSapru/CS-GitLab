@@ -19,7 +19,7 @@ const NotificationItem = ({ notification, onClose, isDarkMode }) => {
 
   const handleClick = () => {
     if (notification.clickable && notification.action?.onClick) {
-      console.log("🔔 Notification clicked, navigating...");
+      console.log("Notification clicked, navigating...");
       notification.action.onClick();
       handleClose();
     }

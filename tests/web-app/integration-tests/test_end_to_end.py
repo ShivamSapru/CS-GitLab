@@ -57,14 +57,14 @@ def clean_output_folder():
     if os.path.exists(OUTPUT_DIR):
         shutil.rmtree(OUTPUT_DIR)
     os.makedirs(OUTPUT_DIR, exist_ok=True)
-    print(f"\n🧹 Cleaned output folder: {os.path.abspath(OUTPUT_DIR)}")
+    print(f"\nCleaned output folder: {os.path.abspath(OUTPUT_DIR)}")
 
 ## Step 1: Test /api/translate
 @pytest.mark.asyncio
 async def test_end_to_end_translation():
     """Test the translation endpoint with a sample VTT subtitle file"""
 
-    print(f"\n🔍 Debug Info:")
+    print(f"\nDebug Info:")
     print(f"Current working directory: {os.getcwd()}")
     print(f"SUBTITLE_PATH: {SUBTITLE_PATH}")
     print(f"Absolute path would be: {os.path.abspath(SUBTITLE_PATH)}")
@@ -82,7 +82,7 @@ async def test_end_to_end_translation():
 
     # Fallback file if missing
     if not os.path.exists(SUBTITLE_PATH):
-        print(f"⚠️  VTT file missing, creating fallback test file...")
+        print(f" VTT file missing, creating fallback test file...")
         os.makedirs(os.path.dirname(os.path.abspath(SUBTITLE_PATH)), exist_ok=True)
         fallback_content = """WEBVTT
 
@@ -103,7 +103,7 @@ Vamos testar se a tradução funciona corretamente.
 O sistema deve traduzir estas legendas para o inglês."""
         with open(SUBTITLE_PATH, 'w', encoding='utf-8') as f:
             f.write(fallback_content)
-        print(f"✅ Created fallback VTT file: {os.path.abspath(SUBTITLE_PATH)}")
+        print(f"Created fallback VTT file: {os.path.abspath(SUBTITLE_PATH)}")
 
     assert os.path.exists(SUBTITLE_PATH), f"Subtitle file path does not exist: {os.path.abspath(SUBTITLE_PATH)}"
 
@@ -140,7 +140,7 @@ O sistema deve traduzir estas legendas para o inglês."""
             shutil.copy2(result["translated_file_path"], OUTPUT_DIR)
 
             # --------- latency metrics (translation) ----------
-            print("\n⏱️ Translation Latency Metrics")
+            print("\nTranslation Latency Metrics")
             print(f"Input size: {in_bytes} bytes ({in_kb:.2f} KB), chars: {in_chars}")
             print(f"Wall time: {fmt_secs(wall)}")
             print(f"Latency per KB: {(wall*1000)/in_kb:.2f} ms/KB")
@@ -150,16 +150,16 @@ O sistema deve traduzir estas legendas para o inglês."""
             # Clean up local files
             try:
                 os.remove(result["translated_file_path"])
-                print("✅ Local files cleaned up")
+                print("Local files cleaned up")
             except Exception as cleanup_error:
-                print(f"⚠️ Cleanup warning: {cleanup_error}")
+                print(f"Cleanup warning: {cleanup_error}")
 
 ## Step 2: Test /api/transcribe and /api/transcription-status-check/{project_id}
 @pytest.mark.asyncio
 async def test_transcription_and_status_check():
     """Test the transcription endpoint with a sample MP4 video file"""
 
-    print(f"\n🔍 Debug Info:")
+    print(f"\nDebug Info:")
     print(f"Current working directory: {os.getcwd()}")
     print(f"MEDIA_PATH: {MEDIA_PATH}")
     print(f"Absolute path would be: {os.path.abspath(MEDIA_PATH)}")
@@ -213,7 +213,7 @@ async def test_transcription_and_status_check():
                     print("Transcription Status:", status_result["status"])
 
                     # --------- latency metrics (transcription) ----------
-                    print("\n⏱️ Transcription Latency Metrics")
+                    print("\nTranscription Latency Metrics")
                     print(f"Input size: {media_bytes} bytes ({media_kb:.2f} KB)")
                     if duration_sec:
                         rtf = wall / duration_sec  # Real-Time Factor
@@ -239,7 +239,7 @@ async def test_transcription_and_status_check():
                             output_path = os.path.join(OUTPUT_DIR, filename)
                             with open(output_path, "wb") as f:
                                 f.write(resp.content)
-                        print(f"✅ Downloaded subtitle file to {output_path}")
+                        print(f"Downloaded subtitle file to {output_path}")
                     else:
                         print("No subtitle_file_url available yet.")
                     break

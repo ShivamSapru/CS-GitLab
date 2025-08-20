@@ -4,7 +4,7 @@
 
 set -e
 
-echo "🔧 Setting up test data for CI/CD..."
+echo "Setting up test data for CI/CD..."
 
 # Navigate to tests directory
 cd "$(dirname "$0")"
@@ -50,17 +50,17 @@ Obrigado por usar nosso sistema de tradução.
 00:00:35.000 --> 00:00:38.000
 Fim do teste de legendas.
 EOF
-    echo "✅ VTT file created successfully"
+    echo "VTT file created successfully"
 else
-    echo "✅ VTT file already exists"
+    echo "VTT file already exists"
 fi
 
 # Validate test data if validation script exists
 if [ -f "validate_test_data.py" ]; then
-    echo "🔍 Validating test data..."
+    echo "Validating test data..."
     python validate_test_data.py
 else
-    echo "📁 Verifying test files manually..."
+    echo "Verifying test files manually..."
     ls -la sample-data/input/
     if [ -f "sample-data/input/MIB2-subtitles-pt-BR.vtt" ]; then
         echo "📄 VTT file content preview:"
@@ -68,4 +68,4 @@ else
     fi
 fi
 
-echo "🎉 Test data setup complete!"
+echo "Test data setup complete!"

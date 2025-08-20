@@ -600,7 +600,7 @@ function showTranslationError(error) {
         border: 1px solid rgba(255, 68, 68, 0.3);
         animation: fadeInOut 4s ease-in-out;
     `;
-    errorDiv.textContent = '⚠️ Translation Error: ' + error;
+    errorDiv.textContent = 'Translation Error: ' + error;
     
     // Add CSS animation
     const style = document.createElement('style');

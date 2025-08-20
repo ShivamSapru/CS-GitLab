@@ -34,7 +34,7 @@ const apiCall = async (endpoint, options = {}) => {
       try {
         const parsedBody = JSON.parse(options.body);
       } catch (parseError) {
-        console.error(`❌ Failed to parse JSON body:`, parseError);
+        console.error(`Failed to parse JSON body:`, parseError);
       }
     }
 
@@ -46,16 +46,16 @@ const apiCall = async (endpoint, options = {}) => {
     if (!response.ok) {
       let errorData;
       const responseText = await response.text();
-      console.log(`❌ Raw error response:`, responseText);
+      console.log(`Raw error response:`, responseText);
 
       try {
         errorData = JSON.parse(responseText);
-        console.error(`❌ Parsed error response:`, errorData);
+        console.error(`Parsed error response:`, errorData);
 
         // Log detailed validation errors if they exist
         if (errorData.detail && Array.isArray(errorData.detail)) {
           console.error(
-            `🔍 Validation errors:`,
+            `Validation errors:`,
             errorData.detail.map((err) => ({
               location: err.loc,
               message: err.msg,
@@ -65,7 +65,7 @@ const apiCall = async (endpoint, options = {}) => {
           );
         }
       } catch (parseError) {
-        console.error("❌ Could not parse error response as JSON:", parseError);
+        console.error("Could not parse error response as JSON:", parseError);
         errorData = {
           error: `HTTP error! status: ${response.status}`,
           raw: responseText,
@@ -86,7 +86,7 @@ const apiCall = async (endpoint, options = {}) => {
 
     return result;
   } catch (error) {
-    console.error(" API call failed:", error);
+    console.error("API call failed:", error);
     throw error;
   }
 };
@@ -395,7 +395,7 @@ const StaticSubtitleUpload = ({
         typeof initialTranscriptionData.content === "string" &&
         initialTranscriptionData.content.startsWith("blob:")
       ) {
-        console.log("❌ ERROR: Content is a blob URL, not actual text!");
+        console.log("ERROR: Content is a blob URL, not actual text!");
         setError(
           "Invalid transcription content: received blob URL instead of text",
         );
@@ -510,7 +510,7 @@ const StaticSubtitleUpload = ({
               );
             }
 
-            console.log(" Using transcription content for translation");
+            console.log("Using transcription content for translation");
 
             // FIXED: Use the actual filename and format from transcription
             const actualFilename =
@@ -1017,12 +1017,12 @@ const StaticSubtitleUpload = ({
     const requestKey = `save_${projectData.project_name}_${JSON.stringify(projectData.filenames)}`;
 
     if (pendingRequests.has(requestKey)) {
-      console.log(" Duplicate save request detected, ignoring...");
+      console.log("Duplicate save request detected, ignoring...");
       return;
     }
 
     if (isSavingProject) {
-      console.log(" Save already in progress, skipping duplicate request");
+      console.log("Save already in progress, skipping duplicate request");
       return;
     }
 

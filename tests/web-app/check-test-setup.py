@@ -17,16 +17,16 @@ class TestSetupChecker:
         self.successes = []
 
     def log_success(self, message):
-        self.successes.append(f"✅ {message}")
-        print(f"✅ {message}")
+        self.successes.append(f"{message}")
+        print(f"{message}")
 
     def log_issue(self, message):
-        self.issues.append(f"❌ {message}")
-        print(f"❌ {message}")
+        self.issues.append(f"{message}")
+        print(f"{message}")
 
     def check_directory_structure(self):
         """Check if all test directories are present"""
-        print("\n🔍 Checking directory structure...")
+        print("\nChecking directory structure...")
         
         required_dirs = [
             self.test_dir / 'frontend-tests',
@@ -83,7 +83,7 @@ class TestSetupChecker:
 
     def check_dependencies(self):
         """Check if dependencies are installed"""
-        print("\n📦 Checking dependencies...")
+        print("\nChecking dependencies...")
         
         # Check Python dependencies
         try:
@@ -120,7 +120,7 @@ class TestSetupChecker:
 
     def check_github_actions(self):
         """Check GitHub Actions configuration"""
-        print("\n🔄 Checking GitHub Actions...")
+        print("\nChecking GitHub Actions...")
         
         workflows_dir = self.project_root / '.github' / 'workflows'
         if not workflows_dir.exists():
@@ -142,7 +142,7 @@ class TestSetupChecker:
 
     def check_test_configuration(self):
         """Check test configuration files"""
-        print("\n⚙️  Checking configuration files...")
+        print("\n Checking configuration files...")
         
         config_files = [
             ('frontend-tests/package.json', 'Frontend test config'),
@@ -161,7 +161,7 @@ class TestSetupChecker:
 
     def check_server_availability(self):
         """Check if servers are running"""
-        print("\n🌐 Checking server availability...")
+        print("\nChecking server availability...")
         
         servers = [
             ('http://localhost:8000/api/health', 'Backend API'),
@@ -194,11 +194,11 @@ class TestSetupChecker:
         print(f"Success Rate: {success_rate:.1f}%")
         
         if self.issues:
-            print(f"\n❌ Issues Found:")
+            print(f"\nIssues Found:")
             for issue in self.issues:
                 print(f"  {issue}")
             
-            print(f"\n💡 Recommendations:")
+            print(f"\nRecommendations:")
             if any("dependencies" in issue for issue in self.issues):
                 print("  • Run: cd frontend-tests && yarn install")
                 print("  • Run: cd e2e-tests && yarn install")
@@ -211,7 +211,7 @@ class TestSetupChecker:
             if any("Missing" in issue for issue in self.issues):
                 print("  • Some test files may need to be created")
         else:
-            print("\n🎉 All checks passed! Test setup is complete.")
+            print("\nAll checks passed! Test setup is complete.")
             print("\nYou can now run tests:")
             print("  • All tests: python run-all-tests.py")
             print("  • Frontend only: cd frontend-tests && yarn test")
@@ -222,7 +222,7 @@ class TestSetupChecker:
 
     def run_all_checks(self):
         """Run all setup checks"""
-        print("🧪 SubLingo Web App Test Setup Checker")
+        print("SubLingo Web App Test Setup Checker")
         print("="*60)
         
         self.check_directory_structure()

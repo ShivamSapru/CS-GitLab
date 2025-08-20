@@ -74,7 +74,7 @@ def verify_login_2fa(data: Login2FARequest, request: Request, db: Session = Depe
     if not totp.verify(data.otp):
         return JSONResponse(status_code=400, content={"detail": "Invalid OTP"})
 
-    # ✅ OTP is valid, complete login
+    # OTP is valid, complete login
     request.session["user"] = {
         "email": user.email,
         "display_name": user.display_name,

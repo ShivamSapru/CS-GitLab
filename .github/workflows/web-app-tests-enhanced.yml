@@ -333,17 +333,17 @@ jobs:
         backend_results=$(find test-results -name "*backend*" -type d | wc -l)
         e2e_results=$(find test-results -name "*e2e*" -type d | wc -l)
         
-        echo "- 🧪 Frontend Unit Tests: $frontend_results job(s) completed" >> $GITHUB_STEP_SUMMARY
-        echo "- 🔧 Backend Integration Tests: $backend_results job(s) completed" >> $GITHUB_STEP_SUMMARY  
-        echo "- 🌐 E2E Tests: $e2e_results job(s) completed" >> $GITHUB_STEP_SUMMARY
+        echo "- Frontend Unit Tests: $frontend_results job(s) completed" >> $GITHUB_STEP_SUMMARY
+        echo "- Backend Integration Tests: $backend_results job(s) completed" >> $GITHUB_STEP_SUMMARY  
+        echo "- E2E Tests: $e2e_results job(s) completed" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         
         if [ "${{ needs.frontend-unit-tests.result }}" = "success" ] && \
            [ "${{ needs.backend-integration-tests.result }}" = "success" ] && \
            [ "${{ needs.e2e-tests.result }}" = "success" ]; then
-          echo "✅ All test suites passed successfully!" >> $GITHUB_STEP_SUMMARY
+          echo "All test suites passed successfully!" >> $GITHUB_STEP_SUMMARY
         else
-          echo "❌ Some test suites failed. Check individual job results for details." >> $GITHUB_STEP_SUMMARY
+          echo "Some test suites failed. Check individual job results for details." >> $GITHUB_STEP_SUMMARY
         fi
         
     - name: Upload Combined Test Results

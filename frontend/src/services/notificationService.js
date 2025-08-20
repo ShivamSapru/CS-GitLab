@@ -211,7 +211,7 @@ class NotificationService {
         }
       } catch (error) {
         if (error.name === "AbortError") {
-          console.log(`⏱️ Polling timeout for ${projectId}`);
+          console.log(`Polling timeout for ${projectId}`);
         } else {
           console.error(`Polling error for ${projectId}:`, error);
         }
@@ -279,7 +279,7 @@ class NotificationService {
 
   // Handle transcription failure
   handleTranscriptionFailed(projectId, data) {
-    console.log(`❌ Background transcription failed: ${projectId}`);
+    console.log(`Background transcription failed: ${projectId}`);
 
     const transcriptionData = this.activeTranscriptions.get(projectId);
     if (!transcriptionData) return;
@@ -304,7 +304,7 @@ class NotificationService {
 
   // Handle transcription timeout
   handleTranscriptionTimeout(projectId) {
-    console.log(`⏱️ Background transcription timeout: ${projectId}`);
+    console.log(`Background transcription timeout: ${projectId}`);
 
     const transcriptionData = this.activeTranscriptions.get(projectId);
     if (!transcriptionData) return;

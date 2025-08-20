@@ -199,7 +199,7 @@ const Projects = ({
         translatedContent = await translatedResponse.text();
       } else {
         console.log(
-          "❌ Error fetching translated file:",
+          "Error fetching translated file:",
           translatedResponse.status,
           translatedResponse.statusText,
         );
@@ -241,19 +241,19 @@ const Projects = ({
             originalContent = await originalResponse.text();
           } else {
             console.log(
-              "❌ Could not fetch original file from project storage",
+              "Could not fetch original file from project storage",
             );
             originalContent = "Original file not available for comparison";
           }
         } else {
-          console.log("❌ No original file reference found in project files");
+          console.log("No original file reference found in project files");
           originalContent = "Original file not available for comparison";
         }
 
         setOriginalContent(originalContent);
         setLoadingOriginal(false);
       } catch (originalError) {
-        console.error("❌ Error fetching original file:", originalError);
+        console.error("Error fetching original file:", originalError);
         setOriginalContent("Could not load original file for comparison");
         setLoadingOriginal(false);
       }
@@ -277,7 +277,7 @@ const Projects = ({
         }
       }, 100);
     } catch (err) {
-      console.error(" Translation preview error:", err);
+      console.error("Translation preview error:", err);
       setError(`Preview failed: ${err.message}`);
       setLoadingPreview(false);
       setLoadingOriginal(false);

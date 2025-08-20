@@ -30,7 +30,7 @@ def test_connection(base_url="http://localhost:8000", max_attempts=10):
     for attempt in range(1, max_attempts + 1):
         try:
             response = httpx.get(f"{base_url}/api/health", timeout=5.0)
-            print(f"✅ Attempt {attempt}: Success! Status: {response.status_code}")
+            print(f"Attempt {attempt}: Success! Status: {response.status_code}")
             if response.status_code == 200:
                 json_response = response.json()
                 print(f"Response: {json_response}")
@@ -40,17 +40,17 @@ def test_connection(base_url="http://localhost:8000", max_attempts=10):
                 print(f"Unexpected status code: {response.status_code}")
                 print(f"Response text: {response.text}")
         except httpx.ConnectError as e:
-            print(f"❌ Attempt {attempt}: Connection failed - {e}")
+            print(f"Attempt {attempt}: Connection failed - {e}")
         except httpx.TimeoutException:
-            print(f"⏱️ Attempt {attempt}: Timeout")
+            print(f"Attempt {attempt}: Timeout")
         except Exception as e:
-            print(f"💥 Attempt {attempt}: Unexpected error - {e}")
+            print(f"Attempt {attempt}: Unexpected error - {e}")
         
         if attempt < max_attempts:
-            print("   Waiting 2 seconds before retry...")
+            print(" Waiting 2 seconds before retry...")
             time.sleep(2)
     
-    print(f"\n❌ Failed to connect after {max_attempts} attempts")
+    print(f"\nFailed to connect after {max_attempts} attempts")
     return False
 
 def test_postgres_connection():
@@ -74,16 +74,16 @@ def test_postgres_connection():
         if all(conn_params.values()):
             conn = psycopg2.connect(**conn_params)
             conn.close()
-            print("✅ PostgreSQL connection successful")
+            print("PostgreSQL connection successful")
             return True
         else:
-            print("⚠️ PostgreSQL parameters not fully configured, skipping connection test")
+            print("PostgreSQL parameters not fully configured, skipping connection test")
             return None
     except ImportError:
-        print("⚠️ psycopg2 not available, skipping PostgreSQL test")
+        print("psycopg2 not available, skipping PostgreSQL test")
         return None
     except Exception as e:
-        print(f"❌ PostgreSQL connection failed: {e}")
+        print(f"PostgreSQL connection failed: {e}")
         return False
 
 if __name__ == "__main__":
@@ -96,8 +96,8 @@ if __name__ == "__main__":
     fastapi_ok = test_connection(base_url)
     
     if fastapi_ok:
-        print("\n✅ All connections successful! Ready to run tests.")
+        print("\nAll connections successful! Ready to run tests.")
         sys.exit(0)
     else:
-        print("\n❌ Connection test failed. Check server status.")
+        print("\nConnection test failed. Check server status.")
         sys.exit(1)

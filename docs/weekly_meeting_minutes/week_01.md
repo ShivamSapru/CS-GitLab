@@ -7,7 +7,7 @@
 
 ---
 
-## 🎯 Key Project Goals
+## Key Project Goals
 
 ### 1. Subtitle Translator Web App (Primary Goal)
 Develop a simple, minimal web application that enables users to translate subtitles from English (or source language) to a selected target language and download the translated file:
@@ -59,7 +59,7 @@ Build a browser extension that allows real-time translation of subtitles while c
 
 ---
 
-## ✅ Action Items for the Coming Week
+## Action Items for the Coming Week
 
 - **Add Mentors to GitHub**: Grant access to Microsoft mentors for visibility and feedback.
 - **Implement Frontend Components**: Develop UI for subtitle file upload and source/target language selection.

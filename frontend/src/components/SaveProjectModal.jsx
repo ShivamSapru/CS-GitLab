@@ -20,25 +20,25 @@ const SaveProjectModal = ({
 
   const handleSave = () => {
     if (!projectName.trim()) {
-      console.error("❌ Project name is required");
+      console.error("Project name is required");
       setError("Project name is required");
       return;
     }
 
     if (projectName.length < 3) {
-      console.error("❌ Project name too short");
+      console.error("Project name too short");
       setError("Project name must be at least 3 characters long");
       return;
     }
 
     if (!translatedFiles || translatedFiles.length === 0) {
-      console.error("❌ No translated files available");
+      console.error("No translated files available");
       setError("No translated files available to save");
       return;
     }
 
     if (!targetLanguages || targetLanguages.length === 0) {
-      console.error("❌ No target languages specified");
+      console.error("No target languages specified");
       setError("No target languages specified");
       return;
     }
@@ -48,7 +48,7 @@ const SaveProjectModal = ({
       (file) => !file.filename || typeof file.filename !== "string",
     );
     if (invalidFiles.length > 0) {
-      console.error("❌ Invalid files found:", invalidFiles);
+      console.error("Invalid files found:", invalidFiles);
       setError("Some translated files have invalid filenames");
       return;
     }
@@ -58,7 +58,7 @@ const SaveProjectModal = ({
       (lang) => !lang || typeof lang !== "string",
     );
     if (invalidLanguages.length > 0) {
-      console.error("❌ Invalid languages found:", invalidLanguages);
+      console.error("Invalid languages found:", invalidLanguages);
       setError("Some target languages are invalid");
       return;
     }
