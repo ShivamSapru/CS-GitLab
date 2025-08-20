@@ -7,6 +7,7 @@ import srt
 import webvtt
 import time
 import json
+import uuid
 
 from fastapi import APIRouter, UploadFile, File, Form, Query, Request, Depends, Response
 from fastapi.responses import JSONResponse, FileResponse, StreamingResponse
@@ -160,6 +161,46 @@ def detect_and_translate(texts, to_lang, no_prof=False):
     detected_language = LANGUAGE_CODES.get(detected_language, "Unknown")
     return translated, detected_language
 
+# Simple user helper
+def get_or_create_user(db: Session, request: Request = None):
+    """Get user from session or create a default user - FIXED"""
+    user = None
+    user_id = None
+
+    # Try to get user from session first
+    if hasattr(request, 'session') and request and 'user' in request.session:
+        session_user = request.session['user']
+        user_email = session_user.get('email')
+
+        if user_email:
+            user = db.query(User).filter(User.email == user_email).first()
+            if user:
+                user_id = user.user_id
+                print(f"Found session user: {user.email}")
+
+    # If no session user, create/use guest user
+    if not user:
+        print("No session user found, using guest user")
+        default_email = "guest@transcription.app"
+        user = db.query(User).filter(User.email == default_email).first()
+
+        if not user:
+            # FIX: Use the correct field names from your User model
+            user = User(
+                user_id=str(uuid.uuid4()),
+                email=default_email,
+                display_name="Guest User",  # ← CHANGED: name -> display_name
+                password_hash="guest_user_no_password",  # ← ADDED: required field
+                role="guest"  # ← ADDED: optional but good to have
+            )
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+
+        user_id = user.user_id
+
+    return user, user_id
+
 LANGUAGE_CODES = fetch_language_codes()
 
 @router.get("/languages")
@@ -176,13 +217,24 @@ async def translate_file(
     db: Session = Depends(get_db)
 ):
     try:
-        session_user = request.session.get("user")
-        if not session_user or not session_user.get("email"):
-            return JSONResponse(status_code=401, content={"error": "User not authenticated"})
+        # session_user = request.session.get("user")
+        # if not session_user or not session_user.get("email"):
+        #     return JSONResponse(status_code=401, content={"error": "User not authenticated"})
 
-        user = db.query(User).filter(User.email == session_user["email"]).first()
-        if not user:
-            return JSONResponse(status_code=404, content={"error": "User not found"})
+        # user = db.query(User).filter(User.email == session_user["email"]).first()
+        # if not user:
+        #     return JSONResponse(status_code=404, content={"error": "User not found"})
+
+        # Get or create user
+        try:
+            user, user_id = get_or_create_user(db, request)
+            print(f"User: {user.email}")
+        except Exception as user_error:
+            print(f"User creation error: {user_error}")
+            return JSONResponse(
+                status_code=500,
+                content={"error": f"User authentication error: {str(user_error)}"}
+            )
 
         input_path = os.path.join(temp_dir, file.filename)
         base, ext = os.path.splitext(file.filename)
