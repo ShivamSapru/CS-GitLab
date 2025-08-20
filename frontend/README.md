@@ -23,7 +23,7 @@ node --version
 npm --version
 ```
 
-## Installation & Setup
+## 🚀 Installation & Setup
 
 
 
@@ -93,7 +93,7 @@ The application will open at: `http://localhost:`
 
 
 
-## Usage
+## 🎯 Usage
 
 ### 1. Start the Application
 
@@ -105,8 +105,8 @@ npm run dev
 
 The app will automatically attempt to connect to the backend at `http://localhost:8000`. You'll see:
 
-- **"Backend Status: Connected"** (green) - Ready to use
-- **"Backend Status: Disconnected"** (red) - Backend not available
+- ✅ **"Backend Status: Connected"** (green) - Ready to use
+- ❌ **"Backend Status: Disconnected"** (red) - Backend not available
 
 ### Customizing the Backend URL
 

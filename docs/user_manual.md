@@ -63,7 +63,7 @@ SESSION_SECRET_KEY=your_generated_secret_key
 
 ---
 
-## Azure AI Translator Setup
+## 🌐 Azure AI Translator Setup
 
 To enable subtitle translation:
 
@@ -222,16 +222,16 @@ psql -h sentinelserver.postgres.database.azure.com -U SentinelsDB -d postgres -W
 ### Step 4: Checking the schema in pgAdmin:
 * Open pgAdmin and create a new server.
 
-    ![alt text](image-1.png)
+    ![alt text](images/image-1.png)
 
     You can give any name to your server
 
 
-    ![alt text](image-2.png)
+    ![alt text](images/image-2.png)
 
     The Conntection tab should be like given in the image
 
-    ![alt text](image-3.png)
+    ![alt text](images/image-3.png)
 
     In Paramrters tab make sure that SSL mode value = require
 
@@ -269,7 +269,7 @@ npm run dev
 
 ---
 
-## Docker Deployment
+## 🚀 Docker Deployment
 
 Follow these steps to get the application up and running on your local machine using Docker Compose.
 

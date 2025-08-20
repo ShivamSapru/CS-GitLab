@@ -43,7 +43,7 @@ class TestSetupChecker:
 
     def check_test_files(self):
         """Check if test files are present"""
-        print("\n📋 Checking test files...")
+        print("\nChecking test files...")
         
         test_files = {
             'Frontend Tests': [

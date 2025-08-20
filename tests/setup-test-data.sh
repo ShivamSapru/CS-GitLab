@@ -14,7 +14,7 @@ mkdir -p sample-data/input
 
 # Check if VTT file exists, create if missing
 if [ ! -f "sample-data/input/MIB2-subtitles-pt-BR.vtt" ]; then
-    echo "📝 Creating sample VTT subtitle file..."
+    echo "Creating sample VTT subtitle file..."
     cat > sample-data/input/MIB2-subtitles-pt-BR.vtt << 'EOF'
 WEBVTT
 
@@ -63,7 +63,7 @@ else
     echo "Verifying test files manually..."
     ls -la sample-data/input/
     if [ -f "sample-data/input/MIB2-subtitles-pt-BR.vtt" ]; then
-        echo "📄 VTT file content preview:"
+        echo "VTT file content preview:"
         head -5 sample-data/input/MIB2-subtitles-pt-BR.vtt
     fi
 fi
