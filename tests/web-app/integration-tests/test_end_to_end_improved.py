@@ -9,6 +9,17 @@ BASE_URL = "http://localhost:8000"
 # Translation tests temporarily disabled due to Azure API mock issues in CI
 # These tests make real HTTP calls to Azure Translator API with mock credentials
 
+# Add a basic health check test to ensure there's something to run when transcription is excluded
+@pytest.mark.asyncio
+async def test_api_health_check():
+    """Test the health endpoint to ensure API is running"""
+    async with httpx.AsyncClient() as client:
+        response = await client.get(f"{BASE_URL}/api/health")
+        assert response.status_code == 200
+        result = response.json()
+        assert "status" in result
+        print(f"Health check passed: {result}")
+
 # Alternative implementation using fixtures (recommended approach) - DISABLED
 # @pytest.mark.asyncio 
 # @pytest.mark.e2e

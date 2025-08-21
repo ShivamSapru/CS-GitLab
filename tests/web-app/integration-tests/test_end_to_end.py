@@ -63,6 +63,17 @@ def clean_output_folder():
 # The test_end_to_end_translation test was making real HTTP calls to Azure Translator API
 # with mock credentials, causing 401 Unauthorized errors in GitHub Actions
 
+# Add a basic health check test to ensure there's something to run when transcription is excluded
+@pytest.mark.asyncio
+async def test_api_health_check():
+    """Test the health endpoint to ensure API is running"""
+    async with httpx.AsyncClient() as client:
+        response = await client.get(f"{BASE_URL}/api/health")
+        assert response.status_code == 200
+        result = response.json()
+        assert "status" in result
+        print(f"Health check passed: {result}")
+
 ## Step 2: Test /api/transcribe and /api/transcription-status-check/{project_id}
 @pytest.mark.asyncio
 async def test_transcription_and_status_check():
