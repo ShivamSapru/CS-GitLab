@@ -322,7 +322,7 @@ def monitor_transcription_job(job_id, project_id, user_id, file_name, output_for
                 blob_name=blob_name,
                 account_key=blob_service.credential.account_key,
                 permission=BlobSasPermissions(read=True),
-                expiry=datetime.now(timezone.utc) + timedelta(hours=2)
+                expiry=datetime.now(timezone.utc) + timedelta(hours=48)
             )
             subtitle_file_url = f"https://{blob_service.account_name}.blob.core.windows.net/{AZURE_BLOB_CONTAINER}/{blob_name}?{sas_token}"
             print(f"Azure backup saved: {blob_name}")
@@ -569,7 +569,6 @@ async def transcribe_audio_video(
                 permission=BlobSasPermissions(read=True),
                 expiry=datetime.now(timezone.utc) + timedelta(hours=48)
             )
-
             media_url = f"https://{blob_service.account_name}.blob.core.windows.net/{AZURE_BLOB_CONTAINER}/{blob_name_original}?{sas_token_original}"
             print(f"Original file uploaded for preview: {blob_name_original}")
 
@@ -631,9 +630,8 @@ async def transcribe_audio_video(
                 blob_name=blob_name_wav,
                 account_key=blob_service.credential.account_key,
                 permission=BlobSasPermissions(read=True),
-                expiry=datetime.now(timezone.utc) + timedelta(hours=48)
+                expiry=datetime.now(timezone.utc) + timedelta(hours=6)
             )
-
             audio_url = f"https://{blob_service.account_name}.blob.core.windows.net/{AZURE_BLOB_CONTAINER}/{blob_name_wav}?{sas_token_wav}"
             print(f"WAV file uploaded for transcription: {blob_name_wav}")
 

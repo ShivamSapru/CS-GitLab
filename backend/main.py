@@ -3,9 +3,11 @@ import os
 from dotenv import load_dotenv
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
+from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
 from backend.database.db import SessionLocal
-from backend.database.models import User
+from backend.database.models import User, TranscriptionProject, Notification
+from azure.storage.blob import BlobServiceClient
 
 # CRITICAL: Load environment variables FIRST, before any other imports
 load_dotenv()
@@ -24,6 +26,14 @@ if not POSTGRES_DB or not POSTGRES_USER or not POSTGRES_PASSWORD or not POSTGRES
 
 if not SESSION_SECRET_KEY:
     raise ValueError("SESSION_SECRET_KEY is required but not found in environment variables")
+
+AZURE_STORAGE_CONNECTION_STRING = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
+AZURE_BLOB_CONTAINER = os.getenv("AZURE_STORAGE_CONTAINER_NAME")
+TRANSCRIPTION_PROJECTS_FOLDER = os.getenv("TRANSCRIPTION_PROJECTS_FOLDER")
+
+def delete_blob(self, blob_service_client: BlobServiceClient, container_name: str, blob_name: str):
+    blob_client = blob_service_client.get_blob_client(container=container_name, blob=blob_name)
+    blob_client.delete_blob()
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -63,7 +73,77 @@ def reset_user_credits():
     finally:
         db.close()
 
-scheduler.add_job(reset_user_credits, CronTrigger(hour=0, minute=0))
+# --- Azure helpers ---
+def delete_blob_prefix(blob_service: BlobServiceClient, container: str, prefix: str) -> int:
+    """
+    Delete all blobs whose names start with `prefix`. Returns count deleted.
+    """
+    container_client = blob_service.get_container_client(container)
+    to_delete = [b.name for b in container_client.list_blobs(name_starts_with=prefix)]
+    if not to_delete:
+        return 0
+    # Delete sequentially; you can also batch if desired
+    for name in to_delete:
+        container_client.delete_blob(name)
+    return len(to_delete)
+
+def delete_transcription_project():
+    """
+    Delete transcription_projects rows whose created_at is older than 54 hours,
+    cascade-delete related notifications, and remove blobs under the project prefix.
+    """
+    db: Session = SessionLocal()
+    try:
+        # Use UTC to compare against TIMESTAMP
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=54)
+
+        # Load all projects to be deleted
+        projects = (
+            db.query(TranscriptionProject)
+              .filter(TranscriptionProject.created_at < cutoff)
+              .all()
+        )
+        if not projects:
+            print("Transcription projects cleanup: nothing to delete.")
+            return
+
+        project_ids = [p.project_id for p in projects]
+
+        # Prepare Azure client once
+        try:
+            blob_service = BlobServiceClient.from_connection_string(AZURE_STORAGE_CONNECTION_STRING)
+        except Exception as azure_init_err:
+            blob_service = None
+            print(f"Azure init failed (will skip blob deletes): {azure_init_err}")
+
+        total_blob_deletes = 0
+        for p in projects:
+            # Delete all blobs under this project's prefix (e.g., 'transcriptions/<project_id>/...')
+            if blob_service:
+                try:
+                    prefix = f"{TRANSCRIPTION_PROJECTS_FOLDER}/{p.project_id}"
+                    total_blob_deletes += delete_blob_prefix(blob_service, AZURE_BLOB_CONTAINER, prefix)
+                except Exception as azure_error:
+                    print(f"Azure delete failed for project {p.project_id}: {azure_error}")
+
+        # Delete dependent rows first (Notifications), then the projects
+        db.query(Notification).filter(Notification.project_id.in_(project_ids)).delete(synchronize_session=False)
+        deleted_count = (
+            db.query(TranscriptionProject)
+              .filter(TranscriptionProject.project_id.in_(project_ids))
+              .delete(synchronize_session=False)
+        )
+
+        db.commit()
+        print(f"Transcription projects cleanup: deleted {deleted_count} DB rows; removed {total_blob_deletes} blobs.")
+    except Exception as e:
+        db.rollback()
+        print(f"Error deleting old transcription projects: {e}")
+    finally:
+        db.close()
+
+scheduler.add_job(reset_user_credits, CronTrigger(hour=0, minute=0))  # daily at 00:00
+scheduler.add_job(delete_transcription_project, CronTrigger(minute=0))  # hourly at HH:00
 scheduler.start()
 
 @app.on_event("startup")

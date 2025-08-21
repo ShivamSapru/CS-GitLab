@@ -56,18 +56,18 @@ class Translation(Base):
     project_id = Column(pgUUID(as_uuid=True), ForeignKey('translation_projects.project_id'), nullable=True)
     blob_url = Column(String(512)) #Blob url for storing the translated subtitle file in Blob
 
-class LiveSession(Base):
-    __tablename__ = "live_sessions"
-    session_id = Column(pgUUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id = Column(pgUUID(as_uuid=True), ForeignKey("users.user_id"), nullable=False)
-    session_title = Column(String(100))
-    source_platform = Column(String(50))  # e.g., 'Zoom', 'Teams'
-    source_language = Column(String(50))
-    target_language = Column(String(50))
-    start_time = Column(TIMESTAMP)
-    end_time = Column(TIMESTAMP)
-    full_transcript_path = Column(String(512))
-    translation_log_path = Column(String(512))
+# class LiveSession(Base):
+#     __tablename__ = "live_sessions"
+#     session_id = Column(pgUUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+#     user_id = Column(pgUUID(as_uuid=True), ForeignKey("users.user_id"), nullable=False)
+#     session_title = Column(String(100))
+#     source_platform = Column(String(50))  # e.g., 'Zoom', 'Teams'
+#     source_language = Column(String(50))
+#     target_language = Column(String(50))
+#     start_time = Column(TIMESTAMP)
+#     end_time = Column(TIMESTAMP)
+#     full_transcript_path = Column(String(512))
+#     translation_log_path = Column(String(512))
 
 class TranscriptionProject(Base):
     __tablename__ = "transcription_projects"
