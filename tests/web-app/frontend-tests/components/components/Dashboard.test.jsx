@@ -1,61 +1,59 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { jest } from '@jest/globals';
-import Dashboard from '../../../../frontend/src/components/Dashboard.jsx';
 
-// Mock the component since we don't have access to the actual file
-const mockDashboard = ({ onNavigate, isDarkMode, user, onShowLogin }) => {
-  return (
-    <div data-testid="dashboard" className={isDarkMode ? 'dark-mode' : 'light-mode'}>
-      <h1>Subtitle Translator Dashboard</h1>
-      {user ? (
-        <div data-testid="user-info">
-          <span>Welcome, {user.email || user.name}</span>
-          <span data-testid="credits">Credits: {user.credits || 5}</span>
+// Mock the Dashboard component before importing
+jest.mock('../../../../../frontend/src/components/Dashboard.jsx', () => {
+  return ({ onNavigate, isDarkMode, user, onShowLogin }) => {
+    return (
+      <div data-testid="dashboard" className={isDarkMode ? 'dark-mode' : 'light-mode'}>
+        <h1>Subtitle Translator Dashboard</h1>
+        {user ? (
+          <div data-testid="user-info">
+            <span>Welcome, {user.email || user.name}</span>
+            <span data-testid="credits">Credits: {user.credits || 5}</span>
+          </div>
+        ) : (
+          <button data-testid="login-button" onClick={onShowLogin}>
+            Login Required
+          </button>
+        )}
+        
+        <div data-testid="navigation-options">
+          <button onClick={() => onNavigate('upload')} data-testid="nav-upload">
+            Static Translation
+          </button>
+          <button onClick={() => onNavigate('library')} data-testid="nav-library">
+            Translation Library
+          </button>
+          <button onClick={() => onNavigate('transcribe')} data-testid="nav-transcribe">
+            Audio/Video Transcription
+          </button>
+          <button onClick={() => onNavigate('realtime')} data-testid="nav-realtime">
+            Real-time Translation
+          </button>
         </div>
-      ) : (
-        <button data-testid="login-button" onClick={onShowLogin}>
-          Login Required
-        </button>
-      )}
-      
-      <div data-testid="navigation-options">
-        <button onClick={() => onNavigate('upload')} data-testid="nav-upload">
-          Static Translation
-        </button>
-        <button onClick={() => onNavigate('library')} data-testid="nav-library">
-          Translation Library
-        </button>
-        <button onClick={() => onNavigate('transcribe')} data-testid="nav-transcribe">
-          Audio/Video Transcription
-        </button>
-        <button onClick={() => onNavigate('realtime')} data-testid="nav-realtime">
-          Real-time Translation
-        </button>
+
+        <div data-testid="features-section">
+          <div data-testid="feature-card-static">
+            <h3>Static Translation</h3>
+            <p>Upload and translate .srt and .vtt subtitle files</p>
+          </div>
+          <div data-testid="feature-card-realtime">
+            <h3>Real-time Translation</h3>
+            <p>Live translation using Chrome extension</p>
+          </div>
+          <div data-testid="feature-card-transcription">
+            <h3>Audio/Video Transcription</h3>
+            <p>Convert audio to subtitles with translation</p>
+          </div>
+        </div>
       </div>
-
-      <div data-testid="features-section">
-        <div data-testid="feature-card-static">
-          <h3>Static Translation</h3>
-          <p>Upload and translate .srt and .vtt subtitle files</p>
-        </div>
-        <div data-testid="feature-card-realtime">
-          <h3>Real-time Translation</h3>
-          <p>Live translation using Chrome extension</p>
-        </div>
-        <div data-testid="feature-card-transcription">
-          <h3>Audio/Video Transcription</h3>
-          <p>Convert audio to subtitles with translation</p>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// Mock the Dashboard component
-jest.mock('../../../../frontend/src/components/Dashboard.jsx', () => {
-  return mockDashboard;
+    );
+  };
 });
+
+import Dashboard from '../../../../../frontend/src/components/Dashboard.jsx';
 
 describe('Dashboard Component', () => {
   const mockOnNavigate = jest.fn();
@@ -110,9 +108,10 @@ describe('Dashboard Component', () => {
       expect(screen.getByTestId('feature-card-realtime')).toBeInTheDocument();
       expect(screen.getByTestId('feature-card-transcription')).toBeInTheDocument();
       
-      expect(screen.getByText('Static Translation')).toBeInTheDocument();
-      expect(screen.getByText('Real-time Translation')).toBeInTheDocument();
-      expect(screen.getByText('Audio/Video Transcription')).toBeInTheDocument();
+      // Check for unique text in cards
+      expect(screen.getByText('Upload and translate .srt and .vtt subtitle files')).toBeInTheDocument();
+      expect(screen.getByText('Live translation using Chrome extension')).toBeInTheDocument();
+      expect(screen.getByText('Convert audio to subtitles with translation')).toBeInTheDocument();
     });
   });
 

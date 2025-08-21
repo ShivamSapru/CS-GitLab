@@ -25,6 +25,9 @@
     "@babel/core": "^7.24.0",
     "@babel/preset-env": "^7.24.0",
     "@babel/preset-react": "^7.24.0",
+    "@testing-library/jest-dom": "^6.0.0",
+    "@testing-library/react": "^14.0.0",
+    "@testing-library/user-event": "^14.0.0",
     "babel-jest": "^30.0.5",
     "jest": "^30.0.5",
     "jest-environment-jsdom": "^29.7.0"
@@ -34,6 +37,7 @@
   "license": "ISC",
   "jest": {
     "testEnvironment": "jsdom",
+    "setupFilesAfterEnv": ["<rootDir>/jest.setup.js"],
     "transform": {
       "^.+\\.(js|jsx)$": "babel-jest"
     },
