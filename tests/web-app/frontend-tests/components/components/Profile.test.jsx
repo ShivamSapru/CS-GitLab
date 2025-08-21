@@ -3,7 +3,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { jest } from '@jest/globals';
 
 // Mock Profile component
-const mockProfile = ({ isDarkMode, onLogout, onShowLogin }) => {
+const MockProfile = ({ isDarkMode, onLogout, onShowLogin }) => {
   const [user, setUser] = React.useState({
     email: 'test@example.com',
     first_name: 'John',
