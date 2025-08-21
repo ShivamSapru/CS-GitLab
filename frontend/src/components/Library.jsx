@@ -21,6 +21,17 @@ import {
   Languages,
   LogIn,
   UserPlus,
+  Folder,
+  File,
+  BarChart3,
+  PieChart,
+  Database,
+  Archive,
+  BookOpen,
+  Files,
+  HardDrive,
+  Cloud,
+  Server,
 } from "lucide-react";
 
 import Projects from "./Projects";
@@ -73,11 +84,33 @@ const Library = ({ isDarkMode, user, onShowLogin }) => {
   const [editedFiles, setEditedFiles] = useState({});
   const [editHistory, setEditHistory] = useState([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
+  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+  const containerRef = useRef(null);
 
   // Load projects on component mount
   useEffect(() => {
     loadProjects();
   }, [user]); // Re-load when user changes
+
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      if (containerRef.current) {
+        const rect = containerRef.current.getBoundingClientRect();
+        setMousePosition({
+          x: (e.clientX - rect.left - rect.width / 2) / rect.width,
+          y: (e.clientY - rect.top - rect.height / 2) / rect.height,
+        });
+      }
+    };
+
+    const container = containerRef.current;
+    if (container) {
+      container.addEventListener("mousemove", handleMouseMove);
+      return () => {
+        container.removeEventListener("mousemove", handleMouseMove);
+      };
+    }
+  }, []);
 
   const loadProjects = async () => {
     try {
@@ -517,6 +550,93 @@ const Library = ({ isDarkMode, user, onShowLogin }) => {
     return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${sizes[i]}`;
   };
 
+  const renderLibraryBackground = () => {
+    return (
+      <div className="absolute inset-0 overflow-hidden">
+        {/* Base gradient */}
+        <div
+          className={`absolute inset-0 bg-gradient-to-br ${
+            isDarkMode
+              ? "from-violet-950 via-purple-900 to-slate-950"
+              : "from-purple-50 via-violet-50 to-slate-100"
+          }`}
+        />
+
+        {/* Floating folders and files */}
+        <div className="absolute inset-0">
+          {[
+            Folder,
+            File,
+            BarChart3,
+            PieChart,
+            Database,
+            Archive,
+            BookOpen,
+            Files,
+            HardDrive,
+            Cloud,
+            Server,
+            Folder,
+          ].map((IconComponent, i) => (
+            <div
+              key={i}
+              className={`absolute ${isDarkMode ? "text-purple-400/20" : "text-purple-600/15"} transition-all duration-1000`}
+              style={{
+                left: `${10 + ((i * 15) % 80)}%`,
+                top: `${15 + ((i * 18) % 70)}%`,
+                transform: `translate(${mousePosition.x * (8 + i)}px, ${mousePosition.y * (6 + i * 0.8)}px) rotate(${i * 15}deg)`,
+                animation: `drift ${4 + i * 0.3}s ease-in-out infinite alternate`,
+              }}
+            >
+              <IconComponent size={24 + (i % 3) * 8} />
+            </div>
+          ))}
+        </div>
+
+        {/* Organizational grid */}
+        <div className="absolute inset-0 opacity-5">
+          <div
+            className={`absolute inset-0 ${isDarkMode ? "border-purple-400" : "border-purple-600"}`}
+            style={{
+              backgroundImage: `linear-gradient(${isDarkMode ? "rgba(168, 85, 247, 0.1)" : "rgba(147, 51, 234, 0.1)"} 1px, transparent 1px), linear-gradient(90deg, ${isDarkMode ? "rgba(168, 85, 247, 0.1)" : "rgba(147, 51, 234, 0.1)"} 1px, transparent 1px)`,
+              backgroundSize: "60px 60px",
+              transform: `translate(${mousePosition.x * 5}px, ${mousePosition.y * 5}px)`,
+            }}
+          />
+        </div>
+
+        {/* Data visualization elements */}
+        <div className="absolute inset-0">
+          {[...Array(6)].map((_, i) => (
+            <div
+              key={i}
+              className={`absolute w-32 h-2 ${isDarkMode ? "bg-purple-500/20" : "bg-purple-400/15"} rounded-full`}
+              style={{
+                left: `${20 + i * 12}%`,
+                top: `${30 + i * 8}%`,
+                transform: `scaleX(${0.3 + i * 0.15}) translateX(${mousePosition.x * 10}px)`,
+                animation: `pulse ${2 + i * 0.5}s ease-in-out infinite alternate`,
+              }}
+            />
+          ))}
+        </div>
+
+        <style jsx>{`
+          @keyframes drift {
+            from {
+              transform: translate(0, 0);
+            }
+            to {
+              transform: translate(10px, -8px);
+            }
+          }
+        `}</style>
+      </div>
+    );
+  };
+
+  // ... rest of your existing component logic
+
   return (
     <div>
       {showProjects ? (
@@ -531,378 +651,385 @@ const Library = ({ isDarkMode, user, onShowLogin }) => {
         />
       ) : (
         <div
-          className={`max-w-6xl mx-auto p-6 min-h-screen transition-colors duration-300 ${
+          ref={containerRef}
+          className={`relative w-full min-h-screen transition-colors duration-300 ${
             isDarkMode ? "bg-gray-900" : "bg-gray-50"
           }`}
         >
-          <div
-            className={`rounded-xl shadow-lg p-8 transition-colors duration-300 ${
-              isDarkMode ? "bg-gray-800" : "bg-white"
-            }`}
-          >
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
-              <div className="flex-1">
-                <h2
-                  className={`text-2xl font-bold mb-2 transition-colors duration-300 ${
-                    isDarkMode ? "text-white" : "text-gray-900"
-                  }`}
-                >
-                  <span className="flex items-center">
+          {/* Add the animated background */}
+          {renderLibraryBackground()}
+
+          {/* Centered content container */}
+          <div className="relative z-10 max-w-6xl mx-auto p-6">
+            <div
+              className={`relative z-10 rounded-xl shadow-lg p-8 transition-colors duration-300 backdrop-blur-sm ${
+                isDarkMode ? "bg-gray-800/90" : "bg-white/90"
+              }`}
+            >
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
+                <div className="flex-1">
+                  <h2
+                    className={`text-2xl font-bold mb-2 transition-colors duration-300 ${
+                      isDarkMode ? "text-white" : "text-gray-900"
+                    }`}
+                  >
+                    <span className="flex items-center">
+                      <div
+                        className={`w-1 h-8 rounded-full mr-3 bg-gradient-to-b ${
+                          isDarkMode
+                            ? "from-purple-600 via-purple-700 to-violet-800"
+                            : "from-purple-500 via-purple-600 to-violet-600"
+                        }`}
+                      ></div>
+                      Translation Library
+                    </span>
+                  </h2>
+                  {!user && (
                     <div
-                      className={`w-1 h-8 rounded-full mr-3 bg-gradient-to-b ${
-                        isDarkMode
-                          ? "from-purple-600 via-purple-700 to-violet-800"
-                          : "from-purple-500 via-purple-600 to-violet-600"
+                      className={`flex items-center space-x-2 text-sm transition-colors duration-300 ${
+                        isDarkMode ? "text-gray-400" : "text-gray-600"
                       }`}
-                    ></div>
-                    Translation Library
-                  </span>
-                </h2>
-                {!user && (
-                  <div
-                    className={`flex items-center space-x-2 text-sm transition-colors duration-300 ${
-                      isDarkMode ? "text-gray-400" : "text-gray-600"
+                    >
+                      <Globe className="w-4 h-4" />
+                      <span>Viewing public projects only.</span>
+                      <button
+                        onClick={onShowLogin}
+                        className="text-purple-500 hover:text-purple-600 font-medium underline"
+                      >
+                        Sign in
+                      </button>
+                      <span>to see your projects</span>
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-center space-x-4 mt-4 sm:mt-0">
+                  {!user && (
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={onShowLogin}
+                        className={`flex items-center space-x-2 px-3 py-2 text-sm border rounded-lg transition-colors duration-300 ${
+                          isDarkMode
+                            ? "text-purple-400 border-purple-400 hover:bg-purple-400/10"
+                            : "text-purple-600 border-purple-600 hover:bg-purple-50"
+                        }`}
+                      >
+                        <LogIn className="w-4 h-4" />
+                        <span>Sign In</span>
+                      </button>
+                    </div>
+                  )}
+                  <button
+                    onClick={loadProjects}
+                    disabled={loading}
+                    className={`flex items-center space-x-2 px-3 py-2 text-sm border rounded-lg disabled:opacity-50 transition-colors duration-300 ${
+                      isDarkMode
+                        ? "text-gray-300 hover:text-gray-100 border-gray-600 hover:bg-gray-700"
+                        : "text-gray-600 hover:text-gray-800 border-gray-300 hover:bg-gray-50"
                     }`}
                   >
-                    <Globe className="w-4 h-4" />
-                    <span>Viewing public projects only.</span>
-                    <button
-                      onClick={onShowLogin}
-                      className="text-purple-500 hover:text-purple-600 font-medium underline"
-                    >
-                      Sign in
-                    </button>
-                    <span>to see your projects</span>
+                    <RefreshCw
+                      className={`w-4 h-4 ${loading ? "animate-spin" : ""}`}
+                    />
+                    <span>Refresh</span>
+                  </button>
+                  <div
+                    className={`text-sm transition-colors duration-300 ${
+                      isDarkMode ? "text-gray-400" : "text-gray-500"
+                    }`}
+                  >
+                    {sortedProjects.length} project
+                    {sortedProjects.length !== 1 ? "s" : ""} found
                   </div>
-                )}
+                </div>
               </div>
-              <div className="flex items-center space-x-4 mt-4 sm:mt-0">
-                {!user && (
-                  <div className="flex items-center space-x-2">
-                    <button
-                      onClick={onShowLogin}
-                      className={`flex items-center space-x-2 px-3 py-2 text-sm border rounded-lg transition-colors duration-300 ${
-                        isDarkMode
-                          ? "text-purple-400 border-purple-400 hover:bg-purple-400/10"
-                          : "text-purple-600 border-purple-600 hover:bg-purple-50"
-                      }`}
-                    >
-                      <LogIn className="w-4 h-4" />
-                      <span>Sign In</span>
-                    </button>
-                  </div>
-                )}
-                <button
-                  onClick={loadProjects}
-                  disabled={loading}
-                  className={`flex items-center space-x-2 px-3 py-2 text-sm border rounded-lg disabled:opacity-50 transition-colors duration-300 ${
-                    isDarkMode
-                      ? "text-gray-300 hover:text-gray-100 border-gray-600 hover:bg-gray-700"
-                      : "text-gray-600 hover:text-gray-800 border-gray-300 hover:bg-gray-50"
-                  }`}
-                >
-                  <RefreshCw
-                    className={`w-4 h-4 ${loading ? "animate-spin" : ""}`}
-                  />
-                  <span>Refresh</span>
-                </button>
+
+              {/* Error Display */}
+              {error && (
                 <div
-                  className={`text-sm transition-colors duration-300 ${
-                    isDarkMode ? "text-gray-400" : "text-gray-500"
+                  className={`mb-6 p-4 border rounded-lg transition-colors duration-300 ${
+                    isDarkMode
+                      ? "bg-red-900/20 border-red-800"
+                      : "bg-red-50 border-red-200"
                   }`}
                 >
-                  {sortedProjects.length} project
-                  {sortedProjects.length !== 1 ? "s" : ""} found
-                </div>
-              </div>
-            </div>
-
-            {/* Error Display */}
-            {error && (
-              <div
-                className={`mb-6 p-4 border rounded-lg transition-colors duration-300 ${
-                  isDarkMode
-                    ? "bg-red-900/20 border-red-800"
-                    : "bg-red-50 border-red-200"
-                }`}
-              >
-                <div className="flex items-start">
-                  <AlertCircle className="w-5 h-5 text-red-500 mr-2 mt-0.5 flex-shrink-0" />
-                  <div
-                    className={`transition-colors duration-300 ${
-                      isDarkMode ? "text-red-300" : "text-red-800"
-                    }`}
-                  >
-                    <div className="font-medium mb-1">Error</div>
-                    <div className="text-sm">{error}</div>
+                  <div className="flex items-start">
+                    <AlertCircle className="w-5 h-5 text-red-500 mr-2 mt-0.5 flex-shrink-0" />
+                    <div
+                      className={`transition-colors duration-300 ${
+                        isDarkMode ? "text-red-300" : "text-red-800"
+                      }`}
+                    >
+                      <div className="font-medium mb-1">Error</div>
+                      <div className="text-sm">{error}</div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* Search and Filter Controls */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-              {/* Search */}
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                <input
-                  type="text"
-                  placeholder="Search projects..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors duration-300 ${
-                    isDarkMode
-                      ? "border-gray-600 bg-gray-700 text-gray-200 placeholder-gray-400"
-                      : "border-gray-300 bg-white text-gray-900 placeholder-gray-500"
-                  }`}
-                />
-              </div>
+              {/* Search and Filter Controls */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                {/* Search */}
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <input
+                    type="text"
+                    placeholder="Search projects..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors duration-300 ${
+                      isDarkMode
+                        ? "border-gray-600 bg-gray-700 text-gray-200 placeholder-gray-400"
+                        : "border-gray-300 bg-white text-gray-900 placeholder-gray-500"
+                    }`}
+                  />
+                </div>
 
-              {/* Language Filter */}
-              <div className="relative">
-                <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                {/* Language Filter */}
+                <div className="relative">
+                  <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <select
+                    value={filterLanguage}
+                    onChange={(e) => setFilterLanguage(e.target.value)}
+                    className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 appearance-none transition-colors duration-300 ${
+                      isDarkMode
+                        ? "border-gray-600 bg-gray-700 text-gray-200"
+                        : "border-gray-300 bg-white text-gray-900"
+                    }`}
+                  >
+                    <option value="all">All Languages</option>
+                    {getUniqueLanguages().map((langName) => (
+                      <option key={langName} value={langName}>
+                        {langName}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Sort By */}
                 <select
-                  value={filterLanguage}
-                  onChange={(e) => setFilterLanguage(e.target.value)}
-                  className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 appearance-none transition-colors duration-300 ${
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors duration-300 ${
                     isDarkMode
                       ? "border-gray-600 bg-gray-700 text-gray-200"
                       : "border-gray-300 bg-white text-gray-900"
                   }`}
                 >
-                  <option value="all">All Languages</option>
-                  {getUniqueLanguages().map((langName) => (
-                    <option key={langName} value={langName}>
-                      {langName}
-                    </option>
-                  ))}
+                  <option value="date">Sort by Date</option>
+                  <option value="name">Sort by Name</option>
+                  <option value="files">Sort by File Count</option>
+                  <option value="translations">Sort by Translations</option>
                 </select>
               </div>
 
-              {/* Sort By */}
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors duration-300 ${
-                  isDarkMode
-                    ? "border-gray-600 bg-gray-700 text-gray-200"
-                    : "border-gray-300 bg-white text-gray-900"
-                }`}
-              >
-                <option value="date">Sort by Date</option>
-                <option value="name">Sort by Name</option>
-                <option value="files">Sort by File Count</option>
-                <option value="translations">Sort by Translations</option>
-              </select>
-            </div>
-
-            {/* Loading State */}
-            {loading ? (
-              <div className="text-center py-12">
-                <Loader2 className="w-8 h-8 text-purple-500 mx-auto mb-4 animate-spin" />
-                <h3
-                  className={`text-lg font-medium mb-2 transition-colors duration-300 ${
-                    isDarkMode ? "text-white" : "text-gray-900"
-                  }`}
-                >
-                  Loading Projects
-                </h3>
-                <p
-                  className={`transition-colors duration-300 ${
-                    isDarkMode ? "text-gray-400" : "text-gray-500"
-                  }`}
-                >
-                  Please wait while we fetch {user ? "your" : "public"}{" "}
-                  translation projects...
-                </p>
-              </div>
-            ) : sortedProjects.length === 0 ? (
-              <div className="text-center py-12">
-                <FolderOpen className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                <h3
-                  className={`text-lg font-medium mb-2 transition-colors duration-300 ${
-                    isDarkMode ? "text-white" : "text-gray-900"
-                  }`}
-                >
-                  No projects found
-                </h3>
-                <p
-                  className={`mb-4 transition-colors duration-300 ${
-                    isDarkMode ? "text-gray-400" : "text-gray-500"
-                  }`}
-                >
-                  {searchTerm || filterLanguage !== "all"
-                    ? "Try adjusting your search or filter criteria"
-                    : user
-                      ? "Start by uploading and translating your first subtitle file, then save it as a project"
-                      : "No public projects available at the moment"}
-                </p>
-                {!user && (
-                  <div className="space-y-2">
-                    <p
-                      className={`text-sm transition-colors duration-300 ${
-                        isDarkMode ? "text-gray-400" : "text-gray-500"
-                      }`}
-                    >
-                      Want to create and share your own projects?
-                    </p>
-                    <button
-                      onClick={onShowLogin}
-                      className={`inline-flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors duration-300 ${
-                        isDarkMode
-                          ? "bg-gradient-to-r from-purple-600 via-purple-700 to-violet-800 text-white hover:opacity-90"
-                          : "bg-gradient-to-r from-purple-500 via-purple-600 to-violet-600 text-white hover:opacity-90"
-                      }`}
-                    >
-                      <UserPlus className="w-4 h-4" />
-                      <span>Get Started</span>
-                    </button>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {sortedProjects.map((project) => (
-                  <div
-                    key={project.project_id}
-                    className={`border rounded-lg overflow-hidden hover:shadow-md transition-all duration-300 ${
-                      isDarkMode ? "border-gray-600" : "border-gray-200"
+              {/* Loading State */}
+              {loading ? (
+                <div className="text-center py-12">
+                  <Loader2 className="w-8 h-8 text-purple-500 mx-auto mb-4 animate-spin" />
+                  <h3
+                    className={`text-lg font-medium mb-2 transition-colors duration-300 ${
+                      isDarkMode ? "text-white" : "text-gray-900"
                     }`}
                   >
+                    Loading Projects
+                  </h3>
+                  <p
+                    className={`transition-colors duration-300 ${
+                      isDarkMode ? "text-gray-400" : "text-gray-500"
+                    }`}
+                  >
+                    Please wait while we fetch {user ? "your" : "public"}{" "}
+                    translation projects...
+                  </p>
+                </div>
+              ) : sortedProjects.length === 0 ? (
+                <div className="text-center py-12">
+                  <FolderOpen className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                  <h3
+                    className={`text-lg font-medium mb-2 transition-colors duration-300 ${
+                      isDarkMode ? "text-white" : "text-gray-900"
+                    }`}
+                  >
+                    No projects found
+                  </h3>
+                  <p
+                    className={`mb-4 transition-colors duration-300 ${
+                      isDarkMode ? "text-gray-400" : "text-gray-500"
+                    }`}
+                  >
+                    {searchTerm || filterLanguage !== "all"
+                      ? "Try adjusting your search or filter criteria"
+                      : user
+                        ? "Start by uploading and translating your first subtitle file, then save it as a project"
+                        : "No public projects available at the moment"}
+                  </p>
+                  {!user && (
+                    <div className="space-y-2">
+                      <p
+                        className={`text-sm transition-colors duration-300 ${
+                          isDarkMode ? "text-gray-400" : "text-gray-500"
+                        }`}
+                      >
+                        Want to create and share your own projects?
+                      </p>
+                      <button
+                        onClick={onShowLogin}
+                        className={`inline-flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors duration-300 ${
+                          isDarkMode
+                            ? "bg-gradient-to-r from-purple-600 via-purple-700 to-violet-800 text-white hover:opacity-90"
+                            : "bg-gradient-to-r from-purple-500 via-purple-600 to-violet-600 text-white hover:opacity-90"
+                        }`}
+                      >
+                        <UserPlus className="w-4 h-4" />
+                        <span>Get Started</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {sortedProjects.map((project) => (
                     <div
-                      className={`p-4 cursor-pointer transition-colors duration-300 ${
-                        isDarkMode ? "hover:bg-gray-700" : "hover:bg-gray-50"
+                      key={project.project_id}
+                      className={`border rounded-lg overflow-hidden hover:shadow-md transition-all duration-300 ${
+                        isDarkMode ? "border-gray-600" : "border-gray-200"
                       }`}
-                      onClick={() => handleProjectClick(project)}
                     >
-                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-                        <div className="flex-1 min-w-0 mb-4 sm:mb-0">
-                          <div className="flex items-center space-x-3 mb-2">
+                      <div
+                        className={`p-4 cursor-pointer transition-colors duration-300 ${
+                          isDarkMode ? "hover:bg-gray-700" : "hover:bg-gray-50"
+                        }`}
+                        onClick={() => handleProjectClick(project)}
+                      >
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+                          <div className="flex-1 min-w-0 mb-4 sm:mb-0">
+                            <div className="flex items-center space-x-3 mb-2">
+                              <div
+                                className={`w-2 h-2 rounded-full bg-gradient-to-r ${
+                                  isDarkMode
+                                    ? "from-purple-600 via-purple-700 to-violet-800"
+                                    : "from-purple-500 via-purple-600 to-violet-600"
+                                }`}
+                              ></div>
+                              <h3
+                                className={`text-lg font-medium truncate transition-colors duration-300 ${
+                                  isDarkMode ? "text-white" : "text-gray-900"
+                                }`}
+                              >
+                                {project.project_name}
+                              </h3>
+                              <div className="flex items-center space-x-2">
+                                {project.is_public && (
+                                  <span className="px-2 py-1 text-xs bg-green-100 text-green-800 rounded-full flex items-center space-x-1">
+                                    <Globe className="w-3 h-3" />
+                                    <span>Public</span>
+                                  </span>
+                                )}
+                                {/* Show if it's someone else's project */}
+                                {!project.is_own_project && (
+                                  <span
+                                    className={`px-2 py-1 text-xs rounded-full flex items-center space-x-1 ${
+                                      isDarkMode
+                                        ? "bg-purple-900/30 text-purple-300"
+                                        : "bg-purple-100 text-purple-800"
+                                    }`}
+                                  >
+                                    <span>
+                                      By {project.owner_name || "Another User"}
+                                    </span>
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            {project.description && (
+                              <p
+                                className={`text-sm mb-2 transition-colors duration-300 ${
+                                  isDarkMode ? "text-gray-300" : "text-gray-600"
+                                }`}
+                              >
+                                {project.description}
+                              </p>
+                            )}
+
                             <div
-                              className={`w-2 h-2 rounded-full bg-gradient-to-r ${
-                                isDarkMode
-                                  ? "from-purple-600 via-purple-700 to-violet-800"
-                                  : "from-purple-500 via-purple-600 to-violet-600"
-                              }`}
-                            ></div>
-                            <h3
-                              className={`text-lg font-medium truncate transition-colors duration-300 ${
-                                isDarkMode ? "text-white" : "text-gray-900"
+                              className={`flex flex-wrap items-center text-sm space-x-4 transition-colors duration-300 ${
+                                isDarkMode ? "text-gray-400" : "text-gray-500"
                               }`}
                             >
-                              {project.project_name}
-                            </h3>
-                            <div className="flex items-center space-x-2">
-                              {project.is_public && (
-                                <span className="px-2 py-1 text-xs bg-green-100 text-green-800 rounded-full flex items-center space-x-1">
-                                  <Globe className="w-3 h-3" />
-                                  <span>Public</span>
-                                </span>
-                              )}
-                              {/* Show if it's someone else's project */}
-                              {!project.is_own_project && (
-                                <span
-                                  className={`px-2 py-1 text-xs rounded-full flex items-center space-x-1 ${
-                                    isDarkMode
-                                      ? "bg-purple-900/30 text-purple-300"
-                                      : "bg-purple-100 text-purple-800"
-                                  }`}
-                                >
-                                  <span>
-                                    By {project.owner_name || "Another User"}
+                              <span className="flex items-center">
+                                <Calendar className="w-4 h-4 mr-1" />
+                                {formatDate(project.created_at)}
+                              </span>
+
+                              {project.languages &&
+                                project.languages.length > 0 && (
+                                  <span className="flex items-center">
+                                    <Languages className="w-4 h-4 mr-1" />
+                                    <span
+                                      className={`text-xs px-2 py-1 rounded-full transition-colors duration-300 ${
+                                        isDarkMode
+                                          ? "bg-purple-900/20 text-purple-300 border border-purple-700"
+                                          : "bg-purple-50 text-purple-700 border border-purple-200"
+                                      }`}
+                                    >
+                                      {/* Display source language with arrow */}
+                                      {project.source_language && (
+                                        <>
+                                          <span className="font-medium">
+                                            {project.source_language}
+                                          </span>
+                                          <span className="mx-1 opacity-70">
+                                            →
+                                          </span>
+                                        </>
+                                      )}
+                                      {/* Display target languages */}
+                                      {project.languages.length > 2
+                                        ? `${project.languages.slice(0, 2).join(", ")}...`
+                                        : project.languages.join(", ")}
+                                    </span>
                                   </span>
-                                </span>
-                              )}
+                                )}
                             </div>
                           </div>
 
-                          {project.description && (
-                            <p
-                              className={`text-sm mb-2 transition-colors duration-300 ${
-                                isDarkMode ? "text-gray-300" : "text-gray-600"
-                              }`}
-                            >
-                              {project.description}
-                            </p>
-                          )}
-
-                          <div
-                            className={`flex flex-wrap items-center text-sm space-x-4 transition-colors duration-300 ${
-                              isDarkMode ? "text-gray-400" : "text-gray-500"
-                            }`}
-                          >
-                            <span className="flex items-center">
-                              <Calendar className="w-4 h-4 mr-1" />
-                              {formatDate(project.created_at)}
-                            </span>
-
-                            {project.languages &&
-                              project.languages.length > 0 && (
-                                <span className="flex items-center">
-                                  <Languages className="w-4 h-4 mr-1" />
-                                  <span
-                                    className={`text-xs px-2 py-1 rounded-full transition-colors duration-300 ${
-                                      isDarkMode
-                                        ? "bg-purple-900/20 text-purple-300 border border-purple-700"
-                                        : "bg-purple-50 text-purple-700 border border-purple-200"
-                                    }`}
-                                  >
-                                    {/* Display source language with arrow */}
-                                    {project.source_language && (
-                                      <>
-                                        <span className="font-medium">
-                                          {project.source_language}
-                                        </span>
-                                        <span className="mx-1 opacity-70">
-                                          →
-                                        </span>
-                                      </>
-                                    )}
-                                    {/* Display target languages */}
-                                    {project.languages.length > 2
-                                      ? `${project.languages.slice(0, 2).join(", ")}...`
-                                      : project.languages.join(", ")}
-                                  </span>
-                                </span>
-                              )}
+                          {/* Action Buttons - Only show delete for own projects */}
+                          <div className="flex items-center space-x-2">
+                            {project.is_own_project && user && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDelete(project.project_id);
+                                }}
+                                className={`p-2 text-red-600 rounded-lg transition-colors duration-300 ${
+                                  isDarkMode
+                                    ? "hover:bg-red-900/20"
+                                    : "hover:bg-red-50"
+                                }`}
+                                title="Delete Project"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
+                            {/* Show read-only indicator for other users' projects */}
+                            {!project.is_own_project && (
+                              <div
+                                className={`px-2 py-1 text-xs rounded transition-colors duration-300 ${
+                                  isDarkMode
+                                    ? "text-gray-400 bg-gray-700"
+                                    : "text-gray-500 bg-gray-100"
+                                }`}
+                              ></div>
+                            )}
                           </div>
-                        </div>
-
-                        {/* Action Buttons - Only show delete for own projects */}
-                        <div className="flex items-center space-x-2">
-                          {project.is_own_project && user && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDelete(project.project_id);
-                              }}
-                              className={`p-2 text-red-600 rounded-lg transition-colors duration-300 ${
-                                isDarkMode
-                                  ? "hover:bg-red-900/20"
-                                  : "hover:bg-red-50"
-                              }`}
-                              title="Delete Project"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          )}
-                          {/* Show read-only indicator for other users' projects */}
-                          {!project.is_own_project && (
-                            <div
-                              className={`px-2 py-1 text-xs rounded transition-colors duration-300 ${
-                                isDarkMode
-                                  ? "text-gray-400 bg-gray-700"
-                                  : "text-gray-500 bg-gray-100"
-                              }`}
-                            ></div>
-                          )}
                         </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

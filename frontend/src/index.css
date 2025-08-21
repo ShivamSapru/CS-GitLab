@@ -1,3 +1,16 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Force notifications to appear above everything */
+.notification-overlay {
+    position: fixed !important;
+    top: 1rem !important;
+    right: 1rem !important;
+    z-index: 2147483647 !important;
+    pointer-events: none !important;
+}
+
+.notification-overlay > * {
+    pointer-events: auto !important;
+}

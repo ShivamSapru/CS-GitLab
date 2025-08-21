@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 
 const ChromeExtensionPage = ({ isDarkMode = false }) => {
-  const [activeSection, setActiveSection] = useState("install");
+  const [activeSection, setActiveSection] = useState("features");
 
   const features = [
     { icon: Globe, title: "100+ Languages", color: "bg-blue-500" },
@@ -31,70 +31,6 @@ const ChromeExtensionPage = ({ isDarkMode = false }) => {
   ];
 
   const sections = {
-    install: {
-      title: "Quick Install",
-      icon: Download,
-      content: (
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="text-center">
-              <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold mx-auto mb-2">
-                1
-              </div>
-              <h4
-                className={`font-medium mb-1 ${isDarkMode ? "text-white" : "text-gray-900"}`}
-              >
-                Download
-              </h4>
-              <p
-                className={`text-sm ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}
-              >
-                Get the .zip file
-              </p>
-            </div>
-            <div className="text-center">
-              <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold mx-auto mb-2">
-                2
-              </div>
-              <h4
-                className={`font-medium mb-1 ${isDarkMode ? "text-white" : "text-gray-900"}`}
-              >
-                Extract
-              </h4>
-              <p
-                className={`text-sm ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}
-              >
-                Unzip to folder
-              </p>
-            </div>
-            <div className="text-center">
-              <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold mx-auto mb-2">
-                3
-              </div>
-              <h4
-                className={`font-medium mb-1 ${isDarkMode ? "text-white" : "text-gray-900"}`}
-              >
-                Install
-              </h4>
-              <p
-                className={`text-sm ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}
-              >
-                Load in Chrome
-              </p>
-            </div>
-          </div>
-          <div
-            className={`rounded-lg p-4 text-sm ${isDarkMode ? "bg-gray-700" : "bg-gray-50"}`}
-          >
-            <p className={`${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
-              <strong>Chrome Setup:</strong> Go to chrome://extensions/ → Enable
-              "Developer mode" → Click "Load unpacked" → Select folder
-            </p>
-          </div>
-        </div>
-      ),
-    },
-
     features: {
       title: "Features",
       icon: Settings,
@@ -360,9 +296,9 @@ const ChromeExtensionPage = ({ isDarkMode = false }) => {
     },
   };
 
-  const handleDownload = () => {
+  const handleAddToChrome = () => {
     window.open(
-      "https://sentinelsstorage.blob.core.windows.net/chrome-extension/chrome-extension.zip",
+      "https://chromewebstore.google.com/detail/doegfbeepchjlhiegggbmjbmijegkgll?utm_source=item-share-cb",
       "_blank",
     );
   };
@@ -423,11 +359,11 @@ const ChromeExtensionPage = ({ isDarkMode = false }) => {
 
             {/* Download Button */}
             <button
-              onClick={handleDownload}
+              onClick={handleAddToChrome}
               className="inline-flex items-center space-x-3 bg-white bg-opacity-20 text-white px-8 py-4 rounded-full text-lg font-semibold hover:bg-opacity-30 transform hover:-translate-y-1 hover:shadow-xl transition-all duration-200 backdrop-blur-sm"
             >
               <Download className="w-5 h-5" />
-              <span>Download Extension</span>
+              <span>Add to Chrome</span>
               <span className="text-sm opacity-90"></span>
             </button>
           </div>
@@ -491,11 +427,11 @@ const ChromeExtensionPage = ({ isDarkMode = false }) => {
             </div>
           </div>
           <a
-            href="mailto:contact.sentinels@outlook.com"
+            href="mailto:creators.sentinels@outlook.com"
             className="inline-flex items-center space-x-2 text-green-500 hover:text-green-600 transition-colors duration-300"
           >
             <Mail className="w-4 h-4" />
-            <span>contact.sentinels@outlook.com</span>
+            <span>creators.sentinels@outlook.com</span>
           </a>
         </div>
       </div>

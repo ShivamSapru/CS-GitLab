@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { X, CheckCircle, AlertCircle, AlertTriangle, Info } from "lucide-react";
 import NotificationService from "../services/notificationService";
 
@@ -65,7 +66,7 @@ const NotificationItem = ({ notification, onClose, isDarkMode }) => {
       <div
         className={`min-w-80 max-w-md w-full shadow-lg rounded-lg border ${getBackgroundColor()} ${
           notification.clickable ? "cursor-pointer hover:shadow-xl" : ""
-        }`}
+        } backdrop-blur-sm`} // Added backdrop-blur-sm for better visibility
         onClick={notification.clickable ? handleClick : undefined}
       >
         <div className="p-4">
@@ -136,6 +137,12 @@ const NotificationDisplay = ({ isDarkMode }) => {
 
   useEffect(() => {
     const unsubscribe = NotificationService.subscribe((notification) => {
+      // Handle clear all notifications
+      if (notification.type === "clear_all") {
+        setNotifications([]);
+        return;
+      }
+
       setNotifications((prev) => {
         // Remove existing notification with same ID if exists
         const filtered = prev.filter((n) => n.id !== notification.id);
@@ -163,17 +170,29 @@ const NotificationDisplay = ({ isDarkMode }) => {
     return null;
   }
 
-  return (
-    <div className="fixed top-4 right-4 z-50 space-y-2">
+  // Render using portal to document.body to bypass any z-index stacking issues
+  return createPortal(
+    <div
+      className="notification-overlay space-y-2"
+      style={{
+        position: "fixed",
+        top: "1rem",
+        right: "1rem",
+        zIndex: 2147483647,
+        pointerEvents: "none",
+      }}
+    >
       {notifications.map((notification) => (
-        <NotificationItem
-          key={notification.id}
-          notification={notification}
-          onClose={removeNotification}
-          isDarkMode={isDarkMode}
-        />
+        <div key={notification.id} style={{ pointerEvents: "auto" }}>
+          <NotificationItem
+            notification={notification}
+            onClose={removeNotification}
+            isDarkMode={isDarkMode}
+          />
+        </div>
       ))}
-    </div>
+    </div>,
+    document.body,
   );
 };
 

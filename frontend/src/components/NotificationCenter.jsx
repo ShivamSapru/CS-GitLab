@@ -15,7 +15,17 @@ const NotificationCenter = ({ isDarkMode }) => {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
-  const dropdownRef = useRef(null);
+  const [isAnimating, setIsAnimating] = useState(false);
+
+  // Animation control - same as hamburger menu
+  useEffect(() => {
+    if (isOpen) {
+      setIsAnimating(true);
+    } else {
+      const timer = setTimeout(() => setIsAnimating(false), 300);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen]);
 
   // Fetch notifications when component mounts or opens
   useEffect(() => {
@@ -23,18 +33,6 @@ const NotificationCenter = ({ isDarkMode }) => {
       fetchNotifications();
     }
   }, [isOpen]);
-
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setIsOpen(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
 
   // Initial load of notifications
   useEffect(() => {
@@ -101,194 +99,215 @@ const NotificationCenter = ({ isDarkMode }) => {
     return `${Math.floor(diffMinutes / 1440)}d ago`;
   };
 
+  const toggleDropdown = () => {
+    setIsOpen(!isOpen);
+  };
+
   return (
-    <div className="relative" ref={dropdownRef}>
-      {/* Bell Icon Button */}
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className={`relative p-2 rounded-lg transition-colors ${
-          isDarkMode
-            ? "text-gray-300 hover:text-white hover:bg-gray-700"
-            : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-        }`}
-        title="Notifications"
-      >
-        <Bell className="w-5 h-5" />
-
-        {/* Unread Count Badge */}
-        {unreadCount > 0 && (
-          <div className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
-            {unreadCount > 99 ? "99+" : unreadCount}
-          </div>
-        )}
-      </button>
-
-      {/* Dropdown */}
+    <>
+      {/* Backdrop - only visible when dropdown is open */}
       {isOpen && (
         <div
-          className={`absolute right-0 mt-2 w-80 max-h-96 rounded-lg shadow-xl border overflow-hidden z-50 ${
+          className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 transition-opacity duration-300"
+          onClick={() => setIsOpen(false)}
+        />
+      )}
+
+      {/* Notification Center - positioned EXACTLY like hamburger menu */}
+      <div
+        className={`fixed top-20 right-4 sm:top-4 sm:right-4 z-50 transition-all duration-300 ease-out ${
+          isOpen || isAnimating ? "opacity-100" : "opacity-100"
+        }`}
+      >
+        {/* Bell Button */}
+        <button
+          onClick={toggleDropdown}
+          className={`relative w-12 h-12 rounded-2xl backdrop-blur-md border transition-all duration-300 ${
             isDarkMode
-              ? "bg-gray-800 border-gray-700"
-              : "bg-white border-gray-200"
+              ? "bg-gray-900/80 border-white/10 hover:bg-gray-800/90 text-white"
+              : "bg-white/80 border-black/10 hover:bg-white/90 text-gray-900"
+          } ${isOpen ? "scale-110" : "hover:scale-105"} shadow-xl`}
+        >
+          <div className="relative w-full h-full flex items-center justify-center">
+            <Bell className="w-5 h-5" />
+
+            {/* Unread Count Badge */}
+            {unreadCount > 0 && (
+              <div className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+                {unreadCount > 99 ? "99+" : unreadCount}
+              </div>
+            )}
+          </div>
+        </button>
+
+        {/* Dropdown Panel - positioned like hamburger menu */}
+        <div
+          className={`absolute top-16 right-0 min-w-80 max-w-sm transform transition-all duration-300 ease-out ${
+            isOpen
+              ? "translate-y-0 opacity-100 scale-100"
+              : "translate-y-4 opacity-0 scale-95 pointer-events-none"
           }`}
         >
-          {/* Header */}
           <div
-            className={`px-4 py-3 border-b flex items-center justify-between ${
-              isDarkMode ? "border-gray-700" : "border-gray-200"
+            className={`rounded-3xl backdrop-blur-md border shadow-2xl overflow-hidden ${
+              isDarkMode
+                ? "bg-gray-900/90 border-white/10"
+                : "bg-white/90 border-black/10"
             }`}
           >
-            <h3
-              className={`font-semibold ${
-                isDarkMode ? "text-white" : "text-gray-900"
+            {/* Header */}
+            <div
+              className={`px-6 py-4 border-b ${
+                isDarkMode ? "border-white/10" : "border-black/10"
               }`}
             >
-              Notifications
-            </h3>
-
-            <div className="flex items-center space-x-2">
-              {unreadCount > 0 && (
-                <button
-                  onClick={markAsRead}
-                  className={`text-xs px-2 py-1 rounded transition-colors ${
-                    isDarkMode
-                      ? "text-blue-400 hover:text-blue-300 hover:bg-gray-700"
-                      : "text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+              <div className="flex items-center justify-between">
+                <span
+                  className={`font-bold text-sm ${
+                    isDarkMode ? "text-white" : "text-gray-900"
                   }`}
                 >
-                  Mark all read
-                </button>
-              )}
-
-              <button
-                onClick={() => setIsOpen(false)}
-                className={`p-1 rounded transition-colors ${
-                  isDarkMode
-                    ? "text-gray-400 hover:text-gray-200 hover:bg-gray-700"
-                    : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"
-                }`}
-              >
-                <X className="w-4 h-4" />
-              </button>
+                  Notifications
+                </span>
+                <div className="flex items-center space-x-2">
+                  {unreadCount > 0 && (
+                    <button
+                      onClick={markAsRead}
+                      className={`text-xs px-2 py-1 rounded transition-colors ${
+                        isDarkMode
+                          ? "text-blue-400 hover:text-blue-300 hover:bg-gray-700"
+                          : "text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                      }`}
+                    >
+                      Mark all read
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
-          </div>
 
-          {/* Content */}
-          <div className="max-h-80 overflow-y-auto">
-            {loading ? (
-              <div className="flex items-center justify-center py-8">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
-              </div>
-            ) : notifications.length === 0 ? (
-              <div
-                className={`text-center py-8 px-4 ${
-                  isDarkMode ? "text-gray-400" : "text-gray-500"
-                }`}
-              >
-                <Bell className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                <p>No notifications yet</p>
-              </div>
-            ) : (
-              <div className="divide-y divide-gray-200 dark:divide-gray-700">
-                {notifications.map((notification) => (
-                  <div
+            {/* Content */}
+            <div className="p-2 max-h-80 overflow-y-auto">
+              {loading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
+                </div>
+              ) : notifications.length === 0 ? (
+                <div
+                  className={`text-center py-8 px-4 ${
+                    isDarkMode ? "text-gray-400" : "text-gray-500"
+                  }`}
+                >
+                  <Bell className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                  <p>No notifications yet</p>
+                </div>
+              ) : (
+                notifications.map((notification, index) => (
+                  <button
                     key={notification.id}
                     onClick={() => handleNotificationClick(notification)}
-                    className={`p-4 transition-colors relative ${
-                      notification.clickable ? "cursor-pointer" : ""
-                    } ${
+                    className={`w-full text-left px-4 py-3 rounded-2xl font-medium transition-all duration-200 mb-1 group relative overflow-hidden ${
                       !notification.isRead
                         ? isDarkMode
-                          ? "bg-gray-700 hover:bg-gray-600"
-                          : "bg-blue-50 hover:bg-blue-100"
+                          ? "bg-blue-600/80 text-white shadow-lg"
+                          : "bg-blue-600/90 text-white shadow-lg"
                         : isDarkMode
-                          ? "hover:bg-gray-700"
-                          : "hover:bg-gray-50"
+                          ? "text-gray-300 hover:text-white hover:bg-white/10"
+                          : "text-gray-600 hover:text-gray-900 hover:bg-black/5"
                     }`}
+                    style={{
+                      animationDelay: `${index * 50}ms`,
+                      animation: isOpen
+                        ? "slideInLeft 0.3s ease-out forwards"
+                        : "none",
+                    }}
                   >
-                    {/* Unread indicator */}
+                    {/* Background effect for unread items */}
                     {!notification.isRead && (
-                      <div className="absolute left-2 top-1/2 transform -translate-y-1/2 w-2 h-2 bg-blue-500 rounded-full"></div>
+                      <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 to-purple-500/20 opacity-50" />
                     )}
 
+                    {/* Hover effect */}
                     <div
-                      className={`flex items-start space-x-3 ${!notification.isRead ? "ml-4" : ""}`}
-                    >
+                      className={`absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ${
+                        isDarkMode ? "bg-white/5" : "bg-black/5"
+                      }`}
+                    />
+
+                    <div className="relative flex items-start space-x-3">
                       <div className="flex-shrink-0 mt-0.5">
                         {getIcon(notification.type)}
                       </div>
 
                       <div className="flex-1 min-w-0">
-                        <p
-                          className={`text-sm font-medium ${
-                            isDarkMode ? "text-white" : "text-gray-900"
-                          }`}
-                        >
-                          {notification.title}
-                        </p>
-
-                        <p
-                          className={`text-sm mt-1 ${
-                            isDarkMode ? "text-gray-300" : "text-gray-600"
-                          }`}
-                        >
-                          {notification.message}
-                        </p>
-
-                        <div className="flex items-center justify-between mt-2">
-                          <span
-                            className={`text-xs ${
-                              isDarkMode ? "text-gray-400" : "text-gray-500"
-                            }`}
-                          >
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm font-medium truncate">
+                            {notification.title}
+                          </p>
+                          <span className="text-xs opacity-60 ml-2">
                             <Clock className="w-3 h-3 inline mr-1" />
                             {formatTime(notification.timestamp)}
                           </span>
+                        </div>
 
-                          {notification.action && (
-                            <span
-                              className={`text-xs font-medium ${
-                                notification.type === "success"
-                                  ? "text-green-600"
-                                  : notification.type === "error"
-                                    ? "text-red-600"
-                                    : "text-blue-600"
-                              }`}
-                            >
+                        <p className="text-xs mt-1 opacity-80 line-clamp-2">
+                          {notification.message}
+                        </p>
+
+                        {notification.action && (
+                          <div className="flex items-center justify-between mt-2">
+                            <span className="text-xs font-medium opacity-90">
                               {notification.action.label} →
                             </span>
-                          )}
-                        </div>
+                            {!notification.isRead && (
+                              <span className="w-2 h-2 rounded-full bg-current opacity-60" />
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
-                  </div>
-                ))}
+                  </button>
+                ))
+              )}
+            </div>
+
+            {/* Footer */}
+            {notifications.length > 0 && (
+              <div
+                className={`px-6 py-4 border-t ${
+                  isDarkMode ? "border-white/10" : "border-black/10"
+                }`}
+              >
+                <button
+                  onClick={fetchNotifications}
+                  className={`text-xs transition-colors ${
+                    isDarkMode
+                      ? "text-gray-400 hover:text-gray-200"
+                      : "text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  Refresh
+                </button>
               </div>
             )}
           </div>
-
-          {/* Footer */}
-          {notifications.length > 0 && (
-            <div
-              className={`px-4 py-2 border-t text-center ${
-                isDarkMode ? "border-gray-700" : "border-gray-200"
-              }`}
-            >
-              <button
-                onClick={fetchNotifications}
-                className={`text-xs transition-colors ${
-                  isDarkMode
-                    ? "text-gray-400 hover:text-gray-200"
-                    : "text-gray-500 hover:text-gray-700"
-                }`}
-              >
-                Refresh
-              </button>
-            </div>
-          )}
         </div>
-      )}
-    </div>
+      </div>
+
+      {/* CSS Animations */}
+      <style>{`
+        @keyframes slideInLeft {
+          from {
+            opacity: 0;
+            transform: translateX(-20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(0);
+          }
+        }
+      `}</style>
+    </>
   );
 };
 

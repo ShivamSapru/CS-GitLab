@@ -19,6 +19,13 @@ import {
   Redo,
   ChevronDown,
   ChevronUp,
+  Mic,
+  Mic2,
+  Radio,
+  Volume2,
+  Headphones,
+  Music,
+  Square,
 } from "lucide-react";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:8000";
@@ -674,6 +681,9 @@ const TranscriptionApp = ({
   const editTextareaRef = useRef(null);
   const videoRef = useRef(null);
 
+  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+  const containerRef = useRef(null);
+
   const [hasRestoredState, setHasRestoredState] = useState(false);
 
   // Save state to sessionStorage
@@ -776,6 +786,26 @@ const TranscriptionApp = ({
   // Fetch available locales on component mount
   useEffect(() => {
     fetchLocales();
+  }, []);
+
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      if (containerRef.current) {
+        const rect = containerRef.current.getBoundingClientRect();
+        setMousePosition({
+          x: (e.clientX - rect.left - rect.width / 2) / rect.width,
+          y: (e.clientY - rect.top - rect.height / 2) / rect.height,
+        });
+      }
+    };
+
+    const container = containerRef.current;
+    if (container) {
+      container.addEventListener("mousemove", handleMouseMove);
+      return () => {
+        container.removeEventListener("mousemove", handleMouseMove);
+      };
+    }
   }, []);
 
   const checkTranscriptionStatus = async (projectId) => {
@@ -1385,10 +1415,7 @@ const TranscriptionApp = ({
               originalBlock: block,
             });
           } catch (parseError) {
-            console.error(
-              `Failed to parse block ${blockIndex}:`,
-              parseError,
-            );
+            console.error(`Failed to parse block ${blockIndex}:`, parseError);
           }
         } else {
           console.log(`No time match found in line: "${timeLine}"`);
@@ -1723,892 +1750,1000 @@ const TranscriptionApp = ({
     saveTranscriptionState();
   }, [saveTranscriptionState]);
 
+  const renderTranscriptionBackground = () => {
+    return (
+      <div className="absolute inset-0 overflow-hidden">
+        {/* Base gradient */}
+        <div
+          className={`absolute inset-0 bg-gradient-to-br ${
+            isDarkMode
+              ? "from-amber-950 via-orange-900 to-slate-950"
+              : "from-amber-50 via-orange-50 to-slate-100"
+          }`}
+        />
+
+        {/* Audio waveforms */}
+        <div className="absolute inset-0 flex items-center justify-center opacity-20">
+          <div className="flex items-end space-x-1">
+            {[...Array(50)].map((_, i) => (
+              <div
+                key={i}
+                className={`w-1 ${isDarkMode ? "bg-amber-400" : "bg-amber-600"} rounded-full`}
+                style={{
+                  height: `${20 + Math.sin(i * 0.5 + Date.now() * 0.003) * 40}px`,
+                  animation: `wave ${1 + (i % 5) * 0.2}s ease-in-out infinite`,
+                  animationDelay: `${i * 0.05}s`,
+                }}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* Floating microphone icons */}
+        <div className="absolute inset-0">
+          {[Mic, Mic2, Radio, Volume2, Headphones, Music, Play, Square].map(
+            (IconComponent, i) => (
+              <div
+                key={i}
+                className={`absolute ${isDarkMode ? "text-amber-400/15" : "text-amber-600/10"}`}
+                style={{
+                  left: `${15 + ((i * 12) % 70)}%`,
+                  top: `${20 + ((i * 15) % 60)}%`,
+                  transform: `translate(${mousePosition.x * (5 + i)}px, ${mousePosition.y * (4 + i * 0.8)}px)`,
+                  animation: `float ${3 + i * 0.4}s ease-in-out infinite alternate`,
+                }}
+              >
+                <IconComponent size={20 + (i % 4) * 6} />
+              </div>
+            ),
+          )}
+        </div>
+
+        {/* Sound waves */}
+        <svg className="absolute inset-0 w-full h-full opacity-10">
+          <defs>
+            <radialGradient id="soundGradient" cx="50%" cy="50%" r="50%">
+              <stop
+                offset="0%"
+                stopColor={isDarkMode ? "#fbbf24" : "#f59e0b"}
+                stopOpacity="0.3"
+              />
+              <stop
+                offset="100%"
+                stopColor={isDarkMode ? "#f59e0b" : "#d97706"}
+                stopOpacity="0.1"
+              />
+            </radialGradient>
+          </defs>
+          {[...Array(5)].map((_, i) => (
+            <circle
+              key={i}
+              cx="50%"
+              cy="50%"
+              r={50 + i * 30}
+              stroke="url(#soundGradient)"
+              strokeWidth="2"
+              fill="none"
+              className="animate-ping"
+              style={{
+                animationDelay: `${i * 0.5}s`,
+                animationDuration: "3s",
+              }}
+            />
+          ))}
+        </svg>
+
+        <style jsx>{`
+          @keyframes wave {
+            0%,
+            100% {
+              transform: scaleY(1);
+            }
+            50% {
+              transform: scaleY(0.3);
+            }
+          }
+          @keyframes float {
+            from {
+              transform: translateY(0px);
+            }
+            to {
+              transform: translateY(-10px);
+            }
+          }
+        `}</style>
+      </div>
+    );
+  };
+
   return (
     <div
-      className={`max-w-4xl mx-auto p-6 min-h-screen transition-colors duration-300 ${
+      ref={containerRef}
+      className={`relative w-full min-h-screen transition-colors duration-300 ${
         isDarkMode ? "bg-gray-900" : "bg-gray-50"
       }`}
     >
-      <div
-        className={`rounded-xl shadow-lg overflow-hidden transition-colors duration-300 ${
-          isDarkMode ? "bg-gray-800" : "bg-white"
-        }`}
-      >
-        {/* Header */}
+      {/* Add the animated background */}
+      {renderTranscriptionBackground()}
+
+      {/* Centered content container */}
+      <div className="relative z-10 max-w-4xl mx-auto p-6">
         <div
-          className={`p-6 border-b transition-colors duration-300 ${
-            isDarkMode
-              ? "bg-gray-800 border-gray-700"
-              : "bg-white border-gray-200"
+          className={`relative z-10 rounded-xl shadow-lg overflow-hidden transition-colors duration-300 backdrop-blur-sm ${
+            isDarkMode ? "bg-gray-800/90" : "bg-white/90"
           }`}
         >
-          <h1
-            className={`text-2xl font-bold mb-4 sm:mb-0 transition-colors duration-300 ${
-              isDarkMode ? "text-white" : "text-gray-900"
-            }`}
-          >
-            <span className="flex items-center">
-              <div
-                className={`w-1 h-8 rounded-full mr-3 bg-gradient-to-b ${
-                  isDarkMode
-                    ? accentColors?.dark ||
-                      "from-yellow-600 via-orange-600 to-red-700"
-                    : accentColors?.light ||
-                      "from-yellow-500 via-orange-500 to-red-500"
-                }`}
-              ></div>
-              AI Transcription
-            </span>
-          </h1>
-        </div>
-
-        {/* Navigation Tabs */}
-        <div
-          className={`flex border-b transition-colors duration-300 ${
-            isDarkMode ? "border-gray-700" : "border-gray-200"
-          }`}
-        >
-          <button
-            onClick={() => setActiveTab("upload")}
-            className={`px-6 py-3 font-medium transition-colors duration-300 ${
-              activeTab === "upload"
-                ? `border-b-2 border-orange-500 text-orange-600`
-                : isDarkMode
-                  ? `text-gray-300 hover:text-orange-400`
-                  : `text-gray-600 hover:text-orange-600`
-            }`}
-          >
-            <div className="flex items-center space-x-2">
-              <div
-                className={`w-2 h-2 rounded-full mr-1 ${
-                  activeTab === "upload"
-                    ? `bg-gradient-to-r ${
-                        isDarkMode
-                          ? accentColors?.dark ||
-                            "from-yellow-600 via-orange-600 to-red-700"
-                          : accentColors?.light ||
-                            "from-yellow-500 via-orange-500 to-red-500"
-                      }`
-                    : "bg-transparent"
-                }`}
-              ></div>
-              <Upload className="w-4 h-4" />
-              <span>Upload & Configure</span>
-            </div>
-          </button>
-          <button
-            onClick={() => setActiveTab("result")}
-            className={`px-6 py-3 font-medium transition-colors duration-300 ${
-              activeTab === "result"
-                ? `border-b-2 border-orange-500 text-orange-600`
-                : isDarkMode
-                  ? `text-gray-300 hover:text-orange-400`
-                  : `text-gray-600 hover:text-orange-600`
-            } ${!transcriptionResult ? "opacity-50 cursor-not-allowed" : ""}`}
-          >
-            <div className="flex items-center space-x-2">
-              <div
-                className={`w-2 h-2 rounded-full mr-1 ${
-                  activeTab === "result"
-                    ? `bg-gradient-to-r ${
-                        isDarkMode
-                          ? accentColors?.dark ||
-                            "from-yellow-600 via-orange-600 to-red-700"
-                          : accentColors?.light ||
-                            "from-yellow-500 via-orange-500 to-red-500"
-                      }`
-                    : "bg-transparent"
-                }`}
-              ></div>
-              <FileText className="w-4 h-4" />
-              <span>Results</span>
-            </div>
-          </button>
-        </div>
-
-        {/* Notification Display */}
-        {notifications.length > 0 && (
-          <div className="fixed top-4 right-4 z-50 space-y-2">
-            {notifications.map((notification) => (
-              <div
-                key={notification.id}
-                className={`p-3 rounded-lg shadow-lg max-w-sm animate-slide-in ${
-                  notification.type === "success"
-                    ? "bg-green-500 text-white"
-                    : notification.type === "error"
-                      ? "bg-red-500 text-white"
-                      : notification.type === "warning"
-                        ? "bg-yellow-500 text-black"
-                        : "bg-blue-500 text-white"
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-sm">{notification.message}</span>
-                  <button
-                    onClick={() =>
-                      setNotifications((prev) =>
-                        prev.filter((n) => n.id !== notification.id),
-                      )
-                    }
-                    className="ml-2 text-sm opacity-70 hover:opacity-100"
-                  >
-                    ×
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Progress Indicator for Processing */}
-        {isTranscribing && (
+          {/* Header */}
           <div
-            className={`border-l-4 border-blue-400 p-4 m-6 transition-colors duration-300 ${
-              isDarkMode ? "bg-blue-900/20" : "bg-blue-50"
+            className={`p-6 border-b transition-colors duration-300 ${
+              isDarkMode
+                ? "bg-gray-800 border-gray-700"
+                : "bg-white border-gray-200"
             }`}
           >
-            <div className="flex items-center">
-              <Loader2 className="h-5 w-5 text-blue-400 animate-spin mr-3" />
-              <div>
-                <p
-                  className={`font-medium transition-colors duration-300 ${
-                    isDarkMode ? "text-blue-300" : "text-blue-700"
-                  }`}
-                >
-                  Processing transcription...
-                </p>
-                <p
-                  className={`text-sm mt-1 transition-colors duration-300 ${
-                    isDarkMode ? "text-blue-400" : "text-blue-600"
-                  }`}
-                >
-                  {transcriptionStage || "Initializing transcription job..."}
-                </p>
-                <div className="mt-2 flex items-center text-xs text-blue-500">
-                  <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
-                  Real-time updates active
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Error Display */}
-        {error && (
-          <div
-            className={`border-l-4 border-red-400 p-4 m-6 transition-colors duration-300 ${
-              isDarkMode ? "bg-red-900/20" : "bg-red-50"
-            }`}
-          >
-            <div className="flex">
-              <AlertCircle className="h-5 w-5 text-red-400" />
-              <div className="ml-3">
-                <p
-                  className={`text-sm transition-colors duration-300 ${
-                    isDarkMode ? "text-red-300" : "text-red-700"
-                  }`}
-                >
-                  {error}
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Upload & Configure Tab */}
-        {activeTab === "upload" && (
-          <div className="p-6">
-            <div className="space-y-6">
-              {/* File Upload */}
-              <div>
-                <label
-                  className={`block text-sm font-medium mb-2 transition-colors duration-300 ${
-                    isDarkMode ? "text-gray-200" : "text-gray-700"
-                  }`}
-                >
-                  Select Audio/Video File
-                </label>
+            <h1
+              className={`text-2xl font-bold mb-4 sm:mb-0 transition-colors duration-300 ${
+                isDarkMode ? "text-white" : "text-gray-900"
+              }`}
+            >
+              <span className="flex items-center">
                 <div
-                  className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors duration-300 ${
+                  className={`w-1 h-8 rounded-full mr-3 bg-gradient-to-b ${
                     isDarkMode
-                      ? `border-gray-600 hover:border-orange-500 bg-gray-800`
-                      : `border-gray-300 hover:border-orange-400 bg-white`
+                      ? accentColors?.dark ||
+                        "from-yellow-600 via-orange-600 to-red-700"
+                      : accentColors?.light ||
+                        "from-yellow-500 via-orange-500 to-red-500"
                   }`}
-                >
-                  <input
-                    type="file"
-                    accept="audio/*,video/*"
-                    onChange={handleFileUpload}
-                    className="hidden"
-                    id="file-upload"
-                  />
-                  <label htmlFor="file-upload" className="cursor-pointer">
-                    <Upload
-                      className={`mx-auto h-12 w-12 mb-4 transition-colors duration-300 ${
-                        isDarkMode ? "text-gray-500" : "text-gray-400"
-                      }`}
-                    />
-                    <p
-                      className={`transition-colors duration-300 ${
-                        isDarkMode ? "text-gray-300" : "text-gray-600"
-                      }`}
-                    >
-                      Click to upload or drag and drop
-                    </p>
-                    <p
-                      className={`text-sm mt-1 transition-colors duration-300 ${
-                        isDarkMode ? "text-gray-400" : "text-gray-500"
-                      }`}
-                    >
-                      Supports audio and video files
-                    </p>
-                  </label>
-                </div>
-                {file && (
-                  <div
-                    className={`mt-4 p-4 rounded-lg border transition-colors duration-300 ${
-                      isDarkMode
-                        ? "bg-green-900/20 border-green-800"
-                        : "bg-green-50 border-green-200"
-                    }`}
-                  >
-                    <div className="flex items-center">
-                      <Check className="h-5 w-5 text-green-500 mr-2" />
-                      <div>
-                        <p
-                          className={`font-medium transition-colors duration-300 ${
-                            isDarkMode ? "text-green-300" : "text-green-800"
-                          }`}
-                        >
-                          {file.name}
-                        </p>
-                        <p
-                          className={`text-sm transition-colors duration-300 ${
-                            isDarkMode ? "text-green-400" : "text-green-600"
-                          }`}
-                        >
-                          {formatFileSize(file.size)}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
+                ></div>
+                AI Transcription
+              </span>
+            </h1>
+          </div>
 
-              {/* Configuration Options */}
-              <div className="space-y-6">
-                {/* Basic Settings */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Output Format */}
-                  <div>
-                    <label
-                      className={`block text-sm font-medium mb-2 transition-colors duration-300 ${
-                        isDarkMode ? "text-gray-200" : "text-gray-700"
-                      }`}
-                    >
-                      Output Format
-                    </label>
-                    <select
-                      value={outputFormat}
-                      onChange={(e) => setOutputFormat(e.target.value)}
-                      className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-colors duration-300 ${
-                        isDarkMode
-                          ? "border-gray-600 bg-gray-700 text-gray-200"
-                          : "border-gray-300 bg-white text-gray-900"
-                      }`}
-                    >
-                      <option value="vtt">VTT</option>
-                      <option value="srt">SRT</option>
-                    </select>
-                  </div>
-
-                  {/* Profanity Filter */}
-                  <div>
-                    <label
-                      className={`block text-sm font-medium mb-2 transition-colors duration-300 ${
-                        isDarkMode ? "text-gray-200" : "text-gray-700"
-                      }`}
-                    >
-                      Content Filtering
-                    </label>
-                    <div className="flex items-center pt-2">
-                      <input
-                        type="checkbox"
-                        id="censor-profanity"
-                        checked={censorProfanity}
-                        onChange={(e) => setCensorProfanity(e.target.checked)}
-                        className="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded"
-                      />
-                      <label
-                        htmlFor="censor-profanity"
-                        className={`ml-2 transition-colors duration-300 ${
-                          isDarkMode ? "text-gray-300" : "text-gray-700"
-                        }`}
-                      >
-                        Censor profanity
-                      </label>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Advanced Settings Toggle */}
-                <div>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setShowAdvancedSettings(!showAdvancedSettings)
-                    }
-                    className="flex items-center space-x-2 font-medium transition-colors duration-300 text-orange-600 hover:text-orange-800"
-                  >
-                    <Settings className="w-4 h-4" />
-                    <span>Advanced</span>
-                    {showAdvancedSettings ? (
-                      <ChevronUp className="w-4 h-4" />
-                    ) : (
-                      <ChevronDown className="w-4 h-4" />
-                    )}
-                  </button>
-
-                  {/* Advanced Settings Panel */}
-                  {showAdvancedSettings && (
-                    <div
-                      className={`mt-4 p-4 rounded-lg border transition-colors duration-300 ${
-                        isDarkMode
-                          ? "bg-gray-700 border-gray-600"
-                          : "bg-gray-50 border-gray-200"
-                      }`}
-                    >
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {/* Language Selection */}
-                        <div>
-                          <label
-                            className={`block text-sm font-medium mb-2 transition-colors duration-300 ${
-                              isDarkMode ? "text-gray-200" : "text-gray-700"
-                            }`}
-                          >
-                            Language
-                          </label>
-                          <select
-                            value={selectedLocale}
-                            onChange={(e) => setSelectedLocale(e.target.value)}
-                            className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-colors duration-300 ${
-                              isDarkMode
-                                ? "border-gray-600 bg-gray-700 text-gray-200"
-                                : "border-gray-300 bg-white text-gray-900"
-                            }`}
-                          >
-                            {Object.entries(locales).map(
-                              ([locale, language]) => (
-                                <option key={locale} value={locale}>
-                                  {language}
-                                </option>
-                              ),
-                            )}
-                          </select>
-                          <p
-                            className={`text-xs mt-1 transition-colors duration-300 ${
-                              isDarkMode ? "text-gray-400" : "text-gray-500"
-                            }`}
-                          >
-                            Auto-detection is used if not specified
-                          </p>
-                        </div>
-
-                        {/* Max Speakers */}
-                        <div>
-                          <label
-                            className={`block text-sm font-medium mb-2 transition-colors duration-300 ${
-                              isDarkMode ? "text-gray-200" : "text-gray-700"
-                            }`}
-                          >
-                            Maximum Speakers
-                          </label>
-                          <select
-                            value={maxSpeakers}
-                            onChange={(e) =>
-                              setMaxSpeakers(parseInt(e.target.value))
-                            }
-                            className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-colors duration-300 ${
-                              isDarkMode
-                                ? "border-gray-600 bg-gray-700 text-gray-200"
-                                : "border-gray-300 bg-white text-gray-900"
-                            }`}
-                          >
-                            {[
-                              2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
-                              16,
-                            ].map((num) => (
-                              <option key={num} value={num}>
-                                {num} {num === 1 ? "Speaker" : "Speakers"}
-                              </option>
-                            ))}
-                          </select>
-                          <p
-                            className={`text-xs mt-1 transition-colors duration-300 ${
-                              isDarkMode ? "text-gray-400" : "text-gray-500"
-                            }`}
-                          >
-                            For speaker identification and diarization
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Transcribe Button */}
-              <div className="pt-4">
-                <button
-                  onClick={handleTranscribe}
-                  disabled={!file || isTranscribing}
-                  className={`w-full py-3 px-6 rounded-lg font-medium transition-colors duration-300 flex items-center justify-center space-x-2 ${
-                    !file || isTranscribing
-                      ? isDarkMode
-                        ? "bg-gray-600 text-gray-400 cursor-not-allowed"
-                        : "bg-gray-300 text-gray-500 cursor-not-allowed"
-                      : `bg-gradient-to-r ${
+          {/* Navigation Tabs */}
+          <div
+            className={`flex border-b transition-colors duration-300 ${
+              isDarkMode ? "border-gray-700" : "border-gray-200"
+            }`}
+          >
+            <button
+              onClick={() => setActiveTab("upload")}
+              className={`px-6 py-3 font-medium transition-colors duration-300 ${
+                activeTab === "upload"
+                  ? `border-b-2 border-orange-500 text-orange-600`
+                  : isDarkMode
+                    ? `text-gray-300 hover:text-orange-400`
+                    : `text-gray-600 hover:text-orange-600`
+              }`}
+            >
+              <div className="flex items-center space-x-2">
+                <div
+                  className={`w-2 h-2 rounded-full mr-1 ${
+                    activeTab === "upload"
+                      ? `bg-gradient-to-r ${
                           isDarkMode
                             ? accentColors?.dark ||
                               "from-yellow-600 via-orange-600 to-red-700"
                             : accentColors?.light ||
                               "from-yellow-500 via-orange-500 to-red-500"
-                        } text-white hover:opacity-90`
+                        }`
+                      : "bg-transparent"
                   }`}
-                >
-                  {isTranscribing ? (
-                    <>
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                      <span>{isPolling ? "Processing..." : "Starting..."}</span>
-                    </>
-                  ) : (
-                    <>
-                      <FileText className="w-5 h-5" />
-                      <span>Start Transcription</span>
-                    </>
-                  )}
-                </button>
+                ></div>
+                <Upload className="w-4 h-4" />
+                <span>Upload & Configure</span>
               </div>
-            </div>
-          </div>
-        )}
-
-        {/* Results Tab */}
-        {activeTab === "result" && (
-          <div className="p-6">
-            {transcriptionResult ? (
-              <div className="space-y-6">
-                {/* Status Message */}
+            </button>
+            <button
+              onClick={() => setActiveTab("result")}
+              className={`px-6 py-3 font-medium transition-colors duration-300 ${
+                activeTab === "result"
+                  ? `border-b-2 border-orange-500 text-orange-600`
+                  : isDarkMode
+                    ? `text-gray-300 hover:text-orange-400`
+                    : `text-gray-600 hover:text-orange-600`
+              } ${!transcriptionResult ? "opacity-50 cursor-not-allowed" : ""}`}
+            >
+              <div className="flex items-center space-x-2">
                 <div
-                  className={`border-l-4 ${
-                    transcriptionResult.status === "Completed"
-                      ? "border-green-400"
-                      : transcriptionResult.status === "Failed"
-                        ? "border-red-400"
-                        : "border-blue-400"
-                  } p-4 transition-colors duration-300 ${
-                    isDarkMode
-                      ? transcriptionResult.status === "Completed"
-                        ? "bg-green-900/20"
-                        : transcriptionResult.status === "Failed"
-                          ? "bg-red-900/20"
-                          : "bg-blue-900/20"
-                      : transcriptionResult.status === "Completed"
-                        ? "bg-green-50"
-                        : transcriptionResult.status === "Failed"
-                          ? "bg-red-50"
-                          : "bg-blue-50"
+                  className={`w-2 h-2 rounded-full mr-1 ${
+                    activeTab === "result"
+                      ? `bg-gradient-to-r ${
+                          isDarkMode
+                            ? accentColors?.dark ||
+                              "from-yellow-600 via-orange-600 to-red-700"
+                            : accentColors?.light ||
+                              "from-yellow-500 via-orange-500 to-red-500"
+                        }`
+                      : "bg-transparent"
+                  }`}
+                ></div>
+                <FileText className="w-4 h-4" />
+                <span>Results</span>
+              </div>
+            </button>
+          </div>
+
+          {/* Notification Display */}
+          {notifications.length > 0 && (
+            <div className="fixed top-4 right-4 z-50 space-y-2">
+              {notifications.map((notification) => (
+                <div
+                  key={notification.id}
+                  className={`p-3 rounded-lg shadow-lg max-w-sm animate-slide-in ${
+                    notification.type === "success"
+                      ? "bg-green-500 text-white"
+                      : notification.type === "error"
+                        ? "bg-red-500 text-white"
+                        : notification.type === "warning"
+                          ? "bg-yellow-500 text-black"
+                          : "bg-blue-500 text-white"
                   }`}
                 >
-                  <div className="flex">
-                    {transcriptionResult.status === "Completed" ? (
-                      <Check className="h-5 w-5 text-green-400" />
-                    ) : transcriptionResult.status === "Failed" ? (
-                      <AlertCircle className="h-5 w-5 text-red-400" />
-                    ) : (
-                      <Loader2 className="h-5 w-5 text-blue-400 animate-spin" />
-                    )}
-                    <div className="ml-3">
-                      <p
-                        className={`text-sm mt-1 transition-colors duration-300 ${
-                          isDarkMode
-                            ? transcriptionResult.status === "Completed"
-                              ? "text-green-300"
-                              : transcriptionResult.status === "Failed"
-                                ? "text-red-300"
-                                : "text-blue-300"
-                            : transcriptionResult.status === "Completed"
-                              ? "text-green-700"
-                              : transcriptionResult.status === "Failed"
-                                ? "text-red-700"
-                                : "text-blue-700"
-                        }`}
-                      >
-                        {transcriptionResult.status === "Completed"
-                          ? "Transcription completed successfully!"
-                          : transcriptionResult.status === "Failed"
-                            ? "Transcription failed"
-                            : "Transcription is being processed..."}
-                      </p>
-                    </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">{notification.message}</span>
+                    <button
+                      onClick={() =>
+                        setNotifications((prev) =>
+                          prev.filter((n) => n.id !== notification.id),
+                        )
+                      }
+                      className="ml-2 text-sm opacity-70 hover:opacity-100"
+                    >
+                      ×
+                    </button>
                   </div>
                 </div>
+              ))}
+            </div>
+          )}
 
-                {/* File Information */}
-                <div
-                  className={`rounded-lg p-6 transition-colors duration-300 ${
-                    isDarkMode ? "bg-gray-700" : "bg-gray-50"
-                  }`}
-                >
-                  <h3
-                    className={`text-lg font-semibold mb-4 transition-colors duration-300 ${
-                      isDarkMode ? "text-white" : "text-gray-900"
+          {/* Progress Indicator for Processing */}
+          {isTranscribing && (
+            <div
+              className={`border-l-4 border-blue-400 p-4 m-6 transition-colors duration-300 ${
+                isDarkMode ? "bg-blue-900/20" : "bg-blue-50"
+              }`}
+            >
+              <div className="flex items-center">
+                <div>
+                  <p
+                    className={`font-medium transition-colors duration-300 ${
+                      isDarkMode ? "text-blue-300" : "text-blue-700"
                     }`}
                   >
-                    Transcription Details
-                  </h3>
-                  <div className="space-y-4">
-                    <div>
-                      <span
-                        className={`text-sm font-medium transition-colors duration-300 ${
+                    Processing transcription...
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Error Display */}
+          {error && (
+            <div
+              className={`border-l-4 border-red-400 p-4 m-6 transition-colors duration-300 ${
+                isDarkMode ? "bg-red-900/20" : "bg-red-50"
+              }`}
+            >
+              <div className="flex">
+                <AlertCircle className="h-5 w-5 text-red-400" />
+                <div className="ml-3">
+                  <p
+                    className={`text-sm transition-colors duration-300 ${
+                      isDarkMode ? "text-red-300" : "text-red-700"
+                    }`}
+                  >
+                    {error}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Upload & Configure Tab */}
+          {activeTab === "upload" && (
+            <div className="p-6">
+              <div className="space-y-6">
+                {/* File Upload */}
+                <div>
+                  <label
+                    className={`block text-sm font-medium mb-2 transition-colors duration-300 ${
+                      isDarkMode ? "text-gray-200" : "text-gray-700"
+                    }`}
+                  >
+                    Select Audio/Video File
+                  </label>
+                  <div
+                    className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors duration-300 ${
+                      isDarkMode
+                        ? `border-gray-600 hover:border-orange-500 bg-gray-800`
+                        : `border-gray-300 hover:border-orange-400 bg-white`
+                    }`}
+                  >
+                    <input
+                      type="file"
+                      accept="audio/*,video/*"
+                      onChange={handleFileUpload}
+                      className="hidden"
+                      id="file-upload"
+                    />
+                    <label htmlFor="file-upload" className="cursor-pointer">
+                      <Upload
+                        className={`mx-auto h-12 w-12 mb-4 transition-colors duration-300 ${
+                          isDarkMode ? "text-gray-500" : "text-gray-400"
+                        }`}
+                      />
+                      <p
+                        className={`transition-colors duration-300 ${
+                          isDarkMode ? "text-gray-300" : "text-gray-600"
+                        }`}
+                      >
+                        Click to upload or drag and drop
+                      </p>
+                      <p
+                        className={`text-sm mt-1 transition-colors duration-300 ${
                           isDarkMode ? "text-gray-400" : "text-gray-500"
                         }`}
                       >
-                        Original File:
-                      </span>
-                      <p
-                        className={`transition-colors duration-300 ${
-                          isDarkMode ? "text-gray-200" : "text-gray-900"
-                        }`}
-                      >
-                        {file?.name}
+                        Supports audio and video files
                       </p>
+                    </label>
+                  </div>
+                  {file && (
+                    <div
+                      className={`mt-4 p-4 rounded-lg border transition-colors duration-300 ${
+                        isDarkMode
+                          ? "bg-green-900/20 border-green-800"
+                          : "bg-green-50 border-green-200"
+                      }`}
+                    >
+                      <div className="flex items-center">
+                        <Check className="h-5 w-5 text-green-500 mr-2" />
+                        <div>
+                          <p
+                            className={`font-medium transition-colors duration-300 ${
+                              isDarkMode ? "text-green-300" : "text-green-800"
+                            }`}
+                          >
+                            {file.name}
+                          </p>
+                          <p
+                            className={`text-sm transition-colors duration-300 ${
+                              isDarkMode ? "text-green-400" : "text-green-600"
+                            }`}
+                          >
+                            {formatFileSize(file.size)}
+                          </p>
+                        </div>
+                      </div>
                     </div>
-                    <div></div>
+                  )}
+                </div>
+
+                {/* Configuration Options */}
+                <div className="space-y-6">
+                  {/* Basic Settings */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Output Format */}
                     <div>
-                      <span
-                        className={`text-sm font-medium transition-colors duration-300 ${
-                          isDarkMode ? "text-gray-400" : "text-gray-500"
+                      <label
+                        className={`block text-sm font-medium mb-2 transition-colors duration-300 ${
+                          isDarkMode ? "text-gray-200" : "text-gray-700"
                         }`}
                       >
-                        Language:
-                      </span>
-                      <p
-                        className={`transition-colors duration-300 ${
-                          isDarkMode ? "text-gray-200" : "text-gray-900"
+                        Output Format
+                      </label>
+                      <select
+                        value={outputFormat}
+                        onChange={(e) => setOutputFormat(e.target.value)}
+                        className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-colors duration-300 ${
+                          isDarkMode
+                            ? "border-gray-600 bg-gray-700 text-gray-200"
+                            : "border-gray-300 bg-white text-gray-900"
                         }`}
                       >
-                        {locales[selectedLocale]} ({selectedLocale})
-                      </p>
+                        <option value="vtt">VTT</option>
+                        <option value="srt">SRT</option>
+                      </select>
                     </div>
+
+                    {/* Profanity Filter */}
                     <div>
-                      <span
-                        className={`text-sm font-medium transition-colors duration-300 ${
-                          isDarkMode ? "text-gray-400" : "text-gray-500"
+                      <label
+                        className={`block text-sm font-medium mb-2 transition-colors duration-300 ${
+                          isDarkMode ? "text-gray-200" : "text-gray-700"
                         }`}
                       >
-                        Format:
-                      </span>
-                      <p
-                        className={`transition-colors duration-300 ${
-                          isDarkMode ? "text-gray-200" : "text-gray-900"
-                        }`}
-                      >
-                        {outputFormat.toUpperCase()}
-                      </p>
+                        Content Filtering
+                      </label>
+                      <div className="flex items-center pt-2">
+                        <input
+                          type="checkbox"
+                          id="censor-profanity"
+                          checked={censorProfanity}
+                          onChange={(e) => setCensorProfanity(e.target.checked)}
+                          className="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded"
+                        />
+                        <label
+                          htmlFor="censor-profanity"
+                          className={`ml-2 transition-colors duration-300 ${
+                            isDarkMode ? "text-gray-300" : "text-gray-700"
+                          }`}
+                        >
+                          Censor profanity
+                        </label>
+                      </div>
                     </div>
                   </div>
-                </div>
-                {/* Action Buttons - Only show when completed */}
-                {transcriptionResult.status === "Completed" && (
-                  <>
-                    {/* Primary Action Row */}
-                    <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4">
-                      <button
-                        onClick={handleDownload}
-                        className="flex-1 bg-green-500 text-white py-3 px-6 rounded-lg hover:bg-green-600 font-medium transition-colors duration-300 flex items-center justify-center space-x-2"
-                      >
-                        <Download className="w-5 h-5" />
-                        <span>Download Transcription</span>
-                      </button>
 
-                      <div className="flex-1 flex space-x-2">
-                        <button
-                          onClick={handlePreview}
-                          disabled={loadingPreview}
-                          className={`flex-1 py-3 px-6 rounded-lg font-medium transition-colors duration-300 flex items-center justify-center space-x-2 ${
-                            loadingPreview
-                              ? isDarkMode
-                                ? "bg-gray-600 text-gray-400"
-                                : "bg-gray-400 text-gray-600"
-                              : `bg-gradient-to-r ${
-                                  isDarkMode
-                                    ? accentColors?.dark ||
-                                      "from-yellow-600 via-orange-600 to-red-700"
-                                    : accentColors?.light ||
-                                      "from-yellow-500 via-orange-500 to-red-500"
-                                } text-white hover:opacity-90`
-                          }`}
-                        >
-                          {loadingPreview ? (
-                            <>
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                              <span>Loading...</span>
-                            </>
-                          ) : (
-                            <>
-                              <Eye className="w-4 h-4" />
-                              <span>Load Preview</span>
-                            </>
-                          )}
-                        </button>
-                      </div>
+                  {/* Advanced Settings Toggle */}
+                  <div>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setShowAdvancedSettings(!showAdvancedSettings)
+                      }
+                      className="flex items-center space-x-2 font-medium transition-colors duration-300 text-orange-600 hover:text-orange-800"
+                    >
+                      <Settings className="w-4 h-4" />
+                      <span>Advanced</span>
+                      {showAdvancedSettings ? (
+                        <ChevronUp className="w-4 h-4" />
+                      ) : (
+                        <ChevronDown className="w-4 h-4" />
+                      )}
+                    </button>
 
-                      <button
-                        onClick={async () => {
-                          // Step 1: Check if we have fresh content
-                          const hasFreshContent =
-                            previewContent && previewContent.trim().length > 0;
-                          const hasOldPatterns =
-                            previewContent &&
-                            [
-                              "So here like I'v",
-                              "recordings, yeah, initially",
-                              "speech recognition partners",
-                            ].some((pattern) =>
-                              previewContent.includes(pattern),
-                            );
-
-                          // Step 2: Refresh content if needed
-                          if (!hasFreshContent || hasOldPatterns) {
-                            try {
-                              // Show loading state (optional - you can add a loading state here)
-                              await handlePreview();
-
-                              // Wait for content to be processed
-                              await new Promise((resolve) =>
-                                setTimeout(resolve, 1500),
-                              );
-
-                              console.log();
-                            } catch (error) {
-                              console.error(
-                                "Failed to refresh content:",
-                                error,
-                              );
-                              alert(
-                                "Failed to refresh transcription content. Please try again.",
-                              );
-                              return;
-                            }
-                          } else {
-                            console.log();
-                          }
-
-                          // Step 3: Proceed with translation using the enhanced function
-                          await handleTranslateTranscription();
-                        }}
-                        disabled={!transcriptionResult?.transcribed_filename}
-                        className="flex-1 bg-purple-500 text-white py-3 px-6 rounded-lg hover:bg-purple-600 font-medium transition-colors duration-300 flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        <svg
-                          className="w-5 h-5"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
-                          />
-                        </svg>
-                        <span>Translate Transcription</span>
-                      </button>
-                    </div>
-
-                    {/* Preview Section */}
-                    {showPreview && (
+                    {/* Advanced Settings Panel */}
+                    {showAdvancedSettings && (
                       <div
-                        ref={previewRef}
-                        className={`rounded-lg border shadow-sm transition-colors duration-300 ${
+                        className={`mt-4 p-4 rounded-lg border transition-colors duration-300 ${
                           isDarkMode
-                            ? "bg-gray-800 border-gray-600"
-                            : "bg-white border-gray-200"
+                            ? "bg-gray-700 border-gray-600"
+                            : "bg-gray-50 border-gray-200"
                         }`}
                       >
-                        <div
-                          className={`px-4 py-3 border-b rounded-t-lg transition-colors duration-300 ${
-                            isDarkMode
-                              ? "bg-gray-700 border-gray-600"
-                              : "bg-gray-50 border-gray-200"
-                          }`}
-                        >
-                          <div className="flex items-center justify-between">
-                            <h4
-                              className={`font-medium flex items-center transition-colors duration-300 ${
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          {/* Language Selection */}
+                          <div>
+                            <label
+                              className={`block text-sm font-medium mb-2 transition-colors duration-300 ${
                                 isDarkMode ? "text-gray-200" : "text-gray-700"
                               }`}
                             >
-                              <span
-                                className={`w-3 h-3 rounded-full mr-2 bg-gradient-to-r ${
-                                  isDarkMode
-                                    ? accentColors?.dark ||
-                                      "from-yellow-600 via-orange-600 to-red-700"
-                                    : accentColors?.light ||
-                                      "from-yellow-500 via-orange-500 to-red-500"
-                                }`}
-                              ></span>
-                              Transcribed Content ({selectedLocale}) -{" "}
-                              {outputFormat.toUpperCase()}
-                            </h4>
-                            <div className="flex items-center space-x-2">
-                              <button
-                                onClick={closePreview}
-                                className={`p-1 rounded transition-colors duration-300 ${
-                                  isDarkMode
-                                    ? "text-gray-500 hover:text-gray-300 hover:bg-gray-700"
-                                    : "text-gray-400 hover:text-gray-600 hover:bg-gray-50"
+                              Language
+                            </label>
+                            <select
+                              value={selectedLocale}
+                              onChange={(e) =>
+                                setSelectedLocale(e.target.value)
+                              }
+                              className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-colors duration-300 ${
+                                isDarkMode
+                                  ? "border-gray-600 bg-gray-700 text-gray-200"
+                                  : "border-gray-300 bg-white text-gray-900"
+                              }`}
+                            >
+                              {Object.entries(locales).map(
+                                ([locale, language]) => (
+                                  <option key={locale} value={locale}>
+                                    {language}
+                                  </option>
+                                ),
+                              )}
+                            </select>
+                            <p
+                              className={`text-xs mt-1 transition-colors duration-300 ${
+                                isDarkMode ? "text-gray-400" : "text-gray-500"
+                              }`}
+                            >
+                              Auto-detection is used if not specified
+                            </p>
+                          </div>
+
+                          {/* Max Speakers */}
+                          <div>
+                            <label
+                              className={`block text-sm font-medium mb-2 transition-colors duration-300 ${
+                                isDarkMode ? "text-gray-200" : "text-gray-700"
+                              }`}
+                            >
+                              Maximum Speakers
+                            </label>
+                            <select
+                              value={maxSpeakers}
+                              onChange={(e) =>
+                                setMaxSpeakers(parseInt(e.target.value))
+                              }
+                              className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-colors duration-300 ${
+                                isDarkMode
+                                  ? "border-gray-600 bg-gray-700 text-gray-200"
+                                  : "border-gray-300 bg-white text-gray-900"
+                              }`}
+                            >
+                              {[
+                                2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
+                                16,
+                              ].map((num) => (
+                                <option key={num} value={num}>
+                                  {num} {num === 1 ? "Speaker" : "Speakers"}
+                                </option>
+                              ))}
+                            </select>
+                            <p
+                              className={`text-xs mt-1 transition-colors duration-300 ${
+                                isDarkMode ? "text-gray-400" : "text-gray-500"
+                              }`}
+                            >
+                              For speaker identification and diarization
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Transcribe Button */}
+                <div className="pt-4">
+                  <button
+                    onClick={handleTranscribe}
+                    disabled={!file || isTranscribing}
+                    className={`w-full py-3 px-6 rounded-lg font-medium transition-colors duration-300 flex items-center justify-center space-x-2 ${
+                      !file || isTranscribing
+                        ? isDarkMode
+                          ? "bg-gray-600 text-gray-400 cursor-not-allowed"
+                          : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                        : `bg-gradient-to-r ${
+                            isDarkMode
+                              ? accentColors?.dark ||
+                                "from-yellow-600 via-orange-600 to-red-700"
+                              : accentColors?.light ||
+                                "from-yellow-500 via-orange-500 to-red-500"
+                          } text-white hover:opacity-90`
+                    }`}
+                  >
+                    {isTranscribing ? (
+                      <>
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        <span>
+                          {isPolling ? "Processing..." : "Starting..."}
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <FileText className="w-5 h-5" />
+                        <span>Start Transcription</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Results Tab */}
+          {activeTab === "result" && (
+            <div className="p-6">
+              {transcriptionResult ? (
+                <div className="space-y-6">
+                  {/* Status Message */}
+                  <div
+                    className={`border-l-4 ${
+                      transcriptionResult.status === "Completed"
+                        ? "border-green-400"
+                        : transcriptionResult.status === "Failed"
+                          ? "border-red-400"
+                          : "border-blue-400"
+                    } p-4 transition-colors duration-300 ${
+                      isDarkMode
+                        ? transcriptionResult.status === "Completed"
+                          ? "bg-green-900/20"
+                          : transcriptionResult.status === "Failed"
+                            ? "bg-red-900/20"
+                            : "bg-blue-900/20"
+                        : transcriptionResult.status === "Completed"
+                          ? "bg-green-50"
+                          : transcriptionResult.status === "Failed"
+                            ? "bg-red-50"
+                            : "bg-blue-50"
+                    }`}
+                  >
+                    <div className="flex">
+                      {transcriptionResult.status === "Completed" ? (
+                        <Check className="h-5 w-5 text-green-400" />
+                      ) : transcriptionResult.status === "Failed" ? (
+                        <AlertCircle className="h-5 w-5 text-red-400" />
+                      ) : (
+                        <Loader2 className="h-5 w-5 text-blue-400 animate-spin" />
+                      )}
+                      <div className="ml-3">
+                        <p
+                          className={`text-sm mt-1 transition-colors duration-300 ${
+                            isDarkMode
+                              ? transcriptionResult.status === "Completed"
+                                ? "text-green-300"
+                                : transcriptionResult.status === "Failed"
+                                  ? "text-red-300"
+                                  : "text-blue-300"
+                              : transcriptionResult.status === "Completed"
+                                ? "text-green-700"
+                                : transcriptionResult.status === "Failed"
+                                  ? "text-red-700"
+                                  : "text-blue-700"
+                          }`}
+                        >
+                          {transcriptionResult.status === "Completed"
+                            ? "Transcription completed successfully!"
+                            : transcriptionResult.status === "Failed"
+                              ? "Transcription failed"
+                              : "Transcription is being processed..."}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* File Information */}
+                  <div
+                    className={`rounded-lg p-6 transition-colors duration-300 ${
+                      isDarkMode ? "bg-gray-700" : "bg-gray-50"
+                    }`}
+                  >
+                    <h3
+                      className={`text-lg font-semibold mb-4 transition-colors duration-300 ${
+                        isDarkMode ? "text-white" : "text-gray-900"
+                      }`}
+                    >
+                      Transcription Details
+                    </h3>
+                    <div className="space-y-4">
+                      <div>
+                        <span
+                          className={`text-sm font-medium transition-colors duration-300 ${
+                            isDarkMode ? "text-gray-400" : "text-gray-500"
+                          }`}
+                        >
+                          Original File:
+                        </span>
+                        <p
+                          className={`transition-colors duration-300 ${
+                            isDarkMode ? "text-gray-200" : "text-gray-900"
+                          }`}
+                        >
+                          {file?.name}
+                        </p>
+                      </div>
+                      <div></div>
+                      <div>
+                        <span
+                          className={`text-sm font-medium transition-colors duration-300 ${
+                            isDarkMode ? "text-gray-400" : "text-gray-500"
+                          }`}
+                        >
+                          Language:
+                        </span>
+                        <p
+                          className={`transition-colors duration-300 ${
+                            isDarkMode ? "text-gray-200" : "text-gray-900"
+                          }`}
+                        >
+                          {locales[selectedLocale]} ({selectedLocale})
+                        </p>
+                      </div>
+                      <div>
+                        <span
+                          className={`text-sm font-medium transition-colors duration-300 ${
+                            isDarkMode ? "text-gray-400" : "text-gray-500"
+                          }`}
+                        >
+                          Format:
+                        </span>
+                        <p
+                          className={`transition-colors duration-300 ${
+                            isDarkMode ? "text-gray-200" : "text-gray-900"
+                          }`}
+                        >
+                          {outputFormat.toUpperCase()}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  {/* Action Buttons - Only show when completed */}
+                  {transcriptionResult.status === "Completed" && (
+                    <>
+                      {/* Primary Action Row */}
+                      <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4">
+                        <button
+                          onClick={handleDownload}
+                          className="flex-1 bg-green-500 text-white py-3 px-6 rounded-lg hover:bg-green-600 font-medium transition-colors duration-300 flex items-center justify-center space-x-2"
+                        >
+                          <Download className="w-5 h-5" />
+                          <span>Download Transcription</span>
+                        </button>
+
+                        <div className="flex-1 flex space-x-2">
+                          <button
+                            onClick={handlePreview}
+                            disabled={loadingPreview}
+                            className={`flex-1 py-3 px-6 rounded-lg font-medium transition-colors duration-300 flex items-center justify-center space-x-2 ${
+                              loadingPreview
+                                ? isDarkMode
+                                  ? "bg-gray-600 text-gray-400"
+                                  : "bg-gray-400 text-gray-600"
+                                : `bg-gradient-to-r ${
+                                    isDarkMode
+                                      ? accentColors?.dark ||
+                                        "from-yellow-600 via-orange-600 to-red-700"
+                                      : accentColors?.light ||
+                                        "from-yellow-500 via-orange-500 to-red-500"
+                                  } text-white hover:opacity-90`
+                            }`}
+                          >
+                            {loadingPreview ? (
+                              <>
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                <span>Loading...</span>
+                              </>
+                            ) : (
+                              <>
+                                <Eye className="w-4 h-4" />
+                                <span>Load Preview</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+
+                        <button
+                          onClick={async () => {
+                            // Step 1: Check if we have fresh content
+                            const hasFreshContent =
+                              previewContent &&
+                              previewContent.trim().length > 0;
+                            const hasOldPatterns =
+                              previewContent &&
+                              [
+                                "So here like I'v",
+                                "recordings, yeah, initially",
+                                "speech recognition partners",
+                              ].some((pattern) =>
+                                previewContent.includes(pattern),
+                              );
+
+                            // Step 2: Refresh content if needed
+                            if (!hasFreshContent || hasOldPatterns) {
+                              try {
+                                // Show loading state (optional - you can add a loading state here)
+                                await handlePreview();
+
+                                // Wait for content to be processed
+                                await new Promise((resolve) =>
+                                  setTimeout(resolve, 1500),
+                                );
+
+                                console.log();
+                              } catch (error) {
+                                console.error(
+                                  "❌ Failed to refresh content:",
+                                  error,
+                                );
+                                alert(
+                                  "Failed to refresh transcription content. Please try again.",
+                                );
+                                return;
+                              }
+                            } else {
+                              console.log();
+                            }
+
+                            // Step 3: Proceed with translation using the enhanced function
+                            await handleTranslateTranscription();
+                          }}
+                          disabled={!transcriptionResult?.transcribed_filename}
+                          className="flex-1 bg-purple-500 text-white py-3 px-6 rounded-lg hover:bg-purple-600 font-medium transition-colors duration-300 flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <svg
+                            className="w-5 h-5"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
+                            />
+                          </svg>
+                          <span>Translate Transcription</span>
+                        </button>
+                      </div>
+
+                      {/* Preview Section */}
+                      {showPreview && (
+                        <div
+                          ref={previewRef}
+                          className={`rounded-lg border shadow-sm transition-colors duration-300 ${
+                            isDarkMode
+                              ? "bg-gray-800 border-gray-600"
+                              : "bg-white border-gray-200"
+                          }`}
+                        >
+                          <div
+                            className={`px-4 py-3 border-b rounded-t-lg transition-colors duration-300 ${
+                              isDarkMode
+                                ? "bg-gray-700 border-gray-600"
+                                : "bg-gray-50 border-gray-200"
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <h4
+                                className={`font-medium flex items-center transition-colors duration-300 ${
+                                  isDarkMode ? "text-gray-200" : "text-gray-700"
                                 }`}
                               >
-                                <X className="w-4 h-4" />
+                                <span
+                                  className={`w-3 h-3 rounded-full mr-2 bg-gradient-to-r ${
+                                    isDarkMode
+                                      ? accentColors?.dark ||
+                                        "from-yellow-600 via-orange-600 to-red-700"
+                                      : accentColors?.light ||
+                                        "from-yellow-500 via-orange-500 to-red-500"
+                                  }`}
+                                ></span>
+                                Transcribed Content ({selectedLocale}) -{" "}
+                                {outputFormat.toUpperCase()}
+                              </h4>
+                              <div className="flex items-center space-x-2">
+                                <button
+                                  onClick={closePreview}
+                                  className={`p-1 rounded transition-colors duration-300 ${
+                                    isDarkMode
+                                      ? "text-gray-500 hover:text-gray-300 hover:bg-gray-700"
+                                      : "text-gray-400 hover:text-gray-600 hover:bg-gray-50"
+                                  }`}
+                                >
+                                  <X className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="p-4">
+                            {/* Video Preview Player */}
+                            {showVideoPreview && videoUrl && (
+                              <VideoPreviewPlayer
+                                videoUrl={videoUrl}
+                                videoRef={videoRef}
+                                parsedSubtitles={parsedSubtitles}
+                                convertedVttContent={convertedVttContent}
+                                previewContent={previewContent}
+                                selectedLocale={selectedLocale}
+                                isDarkMode={isDarkMode}
+                                currentSubtitleIndex={currentSubtitleIndex}
+                                setCurrentSubtitleIndex={
+                                  setCurrentSubtitleIndex
+                                }
+                                accentColors={accentColors}
+                                file={file}
+                                showVideoPreview={showVideoPreview}
+                                setVideoUrl={setVideoUrl}
+                                setShowVideoPreview={setShowVideoPreview}
+                                setError={setError}
+                              />
+                            )}
+
+                            {/* Content Display */}
+                            <div className="max-h-96 overflow-auto">
+                              <pre
+                                className={`text-sm whitespace-pre-wrap font-mono leading-relaxed transition-colors duration-300 ${
+                                  isDarkMode ? "text-gray-300" : "text-gray-700"
+                                }`}
+                              >
+                                {previewContent}
+                              </pre>
+                            </div>
+                          </div>
+
+                          {/* Preview Action Buttons */}
+                          <div
+                            className={`px-4 py-3 border-t rounded-b-lg transition-colors duration-300 ${
+                              isDarkMode
+                                ? "bg-gray-700 border-gray-600"
+                                : "bg-gray-50 border-gray-200"
+                            }`}
+                          >
+                            <div className="flex justify-end">
+                              <button
+                                onClick={handleDownload}
+                                className="flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors duration-300 bg-green-500 text-white hover:bg-green-600"
+                              >
+                                <Download className="w-4 h-4" />
+                                <span>Download Original</span>
                               </button>
                             </div>
                           </div>
                         </div>
+                      )}
 
-                        <div className="p-4">
-                          {/* Video Preview Player */}
-                          {showVideoPreview && videoUrl && (
-                            <VideoPreviewPlayer
-                              videoUrl={videoUrl}
-                              videoRef={videoRef}
-                              parsedSubtitles={parsedSubtitles}
-                              convertedVttContent={convertedVttContent}
-                              previewContent={previewContent}
-                              selectedLocale={selectedLocale}
-                              isDarkMode={isDarkMode}
-                              currentSubtitleIndex={currentSubtitleIndex}
-                              setCurrentSubtitleIndex={setCurrentSubtitleIndex}
-                              accentColors={accentColors}
-                              file={file}
-                              showVideoPreview={showVideoPreview}
-                              setVideoUrl={setVideoUrl}
-                              setShowVideoPreview={setShowVideoPreview}
-                              setError={setError}
-                            />
-                          )}
-
-                          {/* Content Display */}
-                          <div className="max-h-96 overflow-auto">
-                            <pre
-                              className={`text-sm whitespace-pre-wrap font-mono leading-relaxed transition-colors duration-300 ${
-                                isDarkMode ? "text-gray-300" : "text-gray-700"
-                              }`}
-                            >
-                              {previewContent}
-                            </pre>
-                          </div>
-                        </div>
-
-                        {/* Preview Action Buttons */}
-                        <div
-                          className={`px-4 py-3 border-t rounded-b-lg transition-colors duration-300 ${
+                      {/* New Transcription Button */}
+                      <div className="pt-4 border-t border-gray-200 dark:border-gray-600">
+                        <button
+                          onClick={resetForm}
+                          className={`w-full py-2 px-4 rounded-lg font-medium transition-colors duration-300 ${
                             isDarkMode
-                              ? "bg-gray-700 border-gray-600"
-                              : "bg-gray-50 border-gray-200"
+                              ? "bg-gray-700 text-gray-200 hover:bg-gray-600 border border-gray-600"
+                              : "bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300"
                           }`}
                         >
-                          <div className="flex justify-end">
-                            <button
-                              onClick={handleDownload}
-                              className="flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors duration-300 bg-green-500 text-white hover:bg-green-600"
-                            >
-                              <Download className="w-4 h-4" />
-                              <span>Download Original</span>
-                            </button>
+                          <div className="flex items-center justify-center space-x-2">
+                            <Upload className="w-4 h-4" />
+                            <span>New Transcription</span>
                           </div>
-                        </div>
+                        </button>
                       </div>
-                    )}
-
-                    {/* New Transcription Button */}
-                    <div className="pt-4 border-t border-gray-200 dark:border-gray-600">
-                      <button
-                        onClick={resetForm}
-                        className={`w-full py-2 px-4 rounded-lg font-medium transition-colors duration-300 ${
-                          isDarkMode
-                            ? "bg-gray-700 text-gray-200 hover:bg-gray-600 border border-gray-600"
-                            : "bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300"
-                        }`}
-                      >
-                        <div className="flex items-center justify-center space-x-2">
-                          <Upload className="w-4 h-4" />
-                          <span>New Transcription</span>
-                        </div>
-                      </button>
-                    </div>
-                  </>
-                )}
-              </div>
-            ) : (
-              // No transcription result state
-              <div
-                className={`text-center py-12 transition-colors duration-300 ${
-                  isDarkMode ? "text-gray-400" : "text-gray-500"
-                }`}
-              >
-                <FileText className="w-16 h-16 mx-auto mb-4 opacity-50" />
-                <h3 className="text-lg font-medium mb-2">
-                  No transcription results
-                </h3>
-                <p className="text-sm">
-                  Upload a video file to get started with transcription
-                </p>
-                <button
-                  onClick={() => setActiveTab("upload")}
-                  className={`mt-4 px-6 py-2 rounded-lg font-medium transition-colors duration-300 ${
-                    isDarkMode
-                      ? "bg-gray-700 text-gray-200 hover:bg-gray-600"
-                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    </>
+                  )}
+                </div>
+              ) : (
+                // No transcription result state
+                <div
+                  className={`text-center py-12 transition-colors duration-300 ${
+                    isDarkMode ? "text-gray-400" : "text-gray-500"
                   }`}
                 >
-                  Go to Upload
-                </button>
-              </div>
+                  <FileText className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                  <h3 className="text-lg font-medium mb-2">
+                    No transcription results
+                  </h3>
+                  <p className="text-sm">
+                    Upload a video file to get started with transcription
+                  </p>
+                  <button
+                    onClick={() => setActiveTab("upload")}
+                    className={`mt-4 px-6 py-2 rounded-lg font-medium transition-colors duration-300 ${
+                      isDarkMode
+                        ? "bg-gray-700 text-gray-200 hover:bg-gray-600"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    }`}
+                  >
+                    Go to Upload
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Footer with Reset Option */}
+        {transcriptionResult && (
+          <div className="mt-6 text-center">
+            <button
+              onClick={resetForm}
+              className={`px-4 py-2 text-sm rounded-lg transition-colors duration-300 ${
+                isDarkMode
+                  ? "text-gray-400 hover:text-gray-200 hover:bg-gray-800"
+                  : "text-gray-600 hover:text-gray-800 hover:bg-gray-100"
+              }`}
+            >
+              Start New Transcription
+            </button>
+            {/* Navigation Warning Modal */}
+            {showNavigationWarning && (
+              <NavigationWarningModal
+                isOpen={showNavigationWarning}
+                onClose={handleNavigationWarningClose}
+                onConfirm={handleNavigationConfirm}
+                isDarkMode={isDarkMode}
+                transcriptionProgress={
+                  transcriptionStage || "Processing your transcription..."
+                }
+              />
             )}
           </div>
         )}
       </div>
-
-      {/* Footer with Reset Option */}
-      {transcriptionResult && (
-        <div className="mt-6 text-center">
-          <button
-            onClick={resetForm}
-            className={`px-4 py-2 text-sm rounded-lg transition-colors duration-300 ${
-              isDarkMode
-                ? "text-gray-400 hover:text-gray-200 hover:bg-gray-800"
-                : "text-gray-600 hover:text-gray-800 hover:bg-gray-100"
-            }`}
-          >
-            Start New Transcription
-          </button>
-          {/* Navigation Warning Modal */}
-          {showNavigationWarning && (
-            <NavigationWarningModal
-              isOpen={showNavigationWarning}
-              onClose={handleNavigationWarningClose}
-              onConfirm={handleNavigationConfirm}
-              isDarkMode={isDarkMode}
-              transcriptionProgress={
-                transcriptionStage || "Processing your transcription..."
-              }
-            />
-          )}
-        </div>
-      )}
     </div>
   );
 };

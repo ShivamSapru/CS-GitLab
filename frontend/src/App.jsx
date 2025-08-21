@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Globe, Menu, User } from "lucide-react";
+import { Sun, Moon, Globe, Menu, User, X } from "lucide-react";
 import axios from "axios";
 import { Routes, Route, useLocation, useNavigate } from "react-router-dom";
 
@@ -18,6 +18,233 @@ import TranscriptionTranslationHub from "./components/TranscriptionTranslationHu
 import NotificationDisplay from "./components/NotificationDisplay";
 import notificationService from "./services/notificationService";
 import NotificationCenter from "./components/NotificationCenter";
+
+const ModernHamburgerMenu = ({
+  isMenuOpen,
+  setIsMenuOpen,
+  templates,
+  currentTemplate,
+  handleNavigation,
+  user,
+  isDarkMode,
+}) => {
+  const [isAnimating, setIsAnimating] = useState(false);
+
+  useEffect(() => {
+    if (isMenuOpen) {
+      setIsAnimating(true);
+    } else {
+      const timer = setTimeout(() => setIsAnimating(false), 300);
+      return () => clearTimeout(timer);
+    }
+  }, [isMenuOpen]);
+
+  const toggleMenu = () => {
+    setIsMenuOpen(!isMenuOpen);
+  };
+
+  return (
+    <>
+      {/* Backdrop - only visible when menu is open */}
+      {isMenuOpen && (
+        <div
+          className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 transition-opacity duration-300"
+          onClick={() => setIsMenuOpen(false)}
+        />
+      )}
+
+      {/* Modern Compact Menu */}
+      <div
+        className={`fixed top-20 left-4 sm:top-4 sm:left-4 z-50 transition-all duration-300 ease-out ${
+          isMenuOpen || isAnimating ? "opacity-100" : "opacity-100"
+        }`}
+      >
+        {/* Menu Button */}
+        <button
+          onClick={toggleMenu}
+          className={`relative w-12 h-12 rounded-2xl backdrop-blur-md border transition-all duration-300 ${
+            isDarkMode
+              ? "bg-gray-900/80 border-white/10 hover:bg-gray-800/90 text-white"
+              : "bg-white/80 border-black/10 hover:bg-white/90 text-gray-900"
+          } ${isMenuOpen ? "scale-110" : "hover:scale-105"} shadow-xl`}
+        >
+          <div className="relative w-full h-full flex items-center justify-center">
+            <Menu
+              className={`w-5 h-5 transition-all duration-300 ${
+                isMenuOpen ? "rotate-90 opacity-0" : "rotate-0 opacity-100"
+              }`}
+            />
+            <X
+              className={`w-5 h-5 absolute transition-all duration-300 ${
+                isMenuOpen ? "rotate-0 opacity-100" : "rotate-90 opacity-0"
+              }`}
+            />
+          </div>
+        </button>
+
+        {/* Menu Panel */}
+        <div
+          className={`absolute top-16 left-0 min-w-80 max-w-sm transform transition-all duration-300 ease-out ${
+            isMenuOpen
+              ? "translate-y-0 opacity-100 scale-100"
+              : "translate-y-4 opacity-0 scale-95 pointer-events-none"
+          }`}
+        >
+          <div
+            className={`rounded-3xl backdrop-blur-md border shadow-2xl overflow-hidden ${
+              isDarkMode
+                ? "bg-gray-900/90 border-white/10"
+                : "bg-white/90 border-black/10"
+            }`}
+          >
+            {/* Menu Header */}
+            <div
+              className={`px-6 py-4 border-b ${
+                isDarkMode ? "border-white/10" : "border-black/10"
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <img
+                    src={isDarkMode ? "/logo.png" : "/logo.png"}
+                    alt="SubtitleTranslator Logo"
+                    className="w-12 h-12 object-contain rounded-lg"
+                  />
+                  <span
+                    className={`font-bold text-sm ${
+                      isDarkMode ? "text-white" : "text-gray-900"
+                    }`}
+                  >
+                    SubLingo
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Menu Items */}
+            <div className="p-2">
+              {templates.map((template, index) => {
+                const isActive = currentTemplate === template.id;
+                const requiresAuth = template.requiresAuth && !user;
+
+                return (
+                  <button
+                    key={template.id}
+                    onClick={() => handleNavigation(template.id)}
+                    className={`w-full text-left px-4 py-3 rounded-2xl font-medium transition-all duration-200 mb-1 group relative overflow-hidden ${
+                      isActive
+                        ? isDarkMode
+                          ? "bg-blue-600/80 text-white shadow-lg"
+                          : "bg-blue-600/90 text-white shadow-lg"
+                        : isDarkMode
+                          ? "text-gray-300 hover:text-white hover:bg-white/10"
+                          : "text-gray-600 hover:text-gray-900 hover:bg-black/5"
+                    }`}
+                    style={{
+                      animationDelay: `${index * 50}ms`,
+                      animation: isMenuOpen
+                        ? "slideInLeft 0.3s ease-out forwards"
+                        : "none",
+                    }}
+                  >
+                    {/* Background effect for active item */}
+                    {isActive && (
+                      <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 to-purple-500/20 opacity-50" />
+                    )}
+
+                    {/* Hover effect */}
+                    <div
+                      className={`absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ${
+                        isDarkMode ? "bg-white/5" : "bg-black/5"
+                      }`}
+                    />
+
+                    <div className="relative flex items-center justify-between">
+                      <span className="flex items-center space-x-3">
+                        {/* Icon placeholder - you can add specific icons for each template */}
+                        <div
+                          className={`w-2 h-2 rounded-full transition-all duration-200 ${
+                            isActive
+                              ? "bg-white"
+                              : isDarkMode
+                                ? "bg-gray-500 group-hover:bg-gray-300"
+                                : "bg-gray-400 group-hover:bg-gray-600"
+                          }`}
+                        />
+                        <span>{template.name}</span>
+                      </span>
+
+                      {requiresAuth && (
+                        <span
+                          className={`text-xs px-2 py-1 rounded-full ${
+                            isDarkMode
+                              ? "bg-orange-500/20 text-orange-300 border border-orange-500/30"
+                              : "bg-orange-500/20 text-orange-600 border border-orange-500/30"
+                          }`}
+                        >
+                          Login required
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Menu Footer */}
+            {user && (
+              <div
+                className={`px-6 py-4 border-t ${
+                  isDarkMode ? "border-white/10" : "border-black/10"
+                }`}
+              >
+                <div className="flex items-center space-x-3">
+                  <div
+                    className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                      isDarkMode ? "bg-blue-600/20" : "bg-blue-600/20"
+                    }`}
+                  >
+                    <User className="w-4 h-4 text-blue-500" />
+                  </div>
+                  <div>
+                    <p
+                      className={`text-sm font-medium ${
+                        isDarkMode ? "text-white" : "text-gray-900"
+                      }`}
+                    >
+                      Welcome back!
+                    </p>
+                    <p
+                      className={`text-xs ${
+                        isDarkMode ? "text-gray-400" : "text-gray-500"
+                      }`}
+                    >
+                      {user.email || "User"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* CSS Animations */}
+      <style jsx>{`
+        @keyframes slideInLeft {
+          from {
+            opacity: 0;
+            transform: translateX(-20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(0);
+          }
+        }
+      `}</style>
+    </>
+  );
+};
 
 const SubtitleTranslatorApp = () => {
   const [isDarkMode, setIsDarkMode] = useState(true);
@@ -350,29 +577,28 @@ const SubtitleTranslatorApp = () => {
     >
       {/* Header */}
       <header
-        className={`shadow-sm border-b transition-colors duration-300 relative ${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}
+        className={`sticky top-0 border-b transition-all duration-300 relative backdrop-blur-sm z-30 ${
+          isDarkMode
+            ? "bg-gray-800/80 border-gray-700/30"
+            : "bg-white/80 border-gray-200/30"
+        }`}
       >
-        <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8">
-          <div className="flex justify-between items-center py-3 sm:py-4">
-            <div className="flex items-center space-x-2 sm:space-x-3">
-              <button
-                onClick={toggleMenu}
-                className={`p-2 rounded-lg transition-colors ${isDarkMode ? "text-gray-300 hover:text-white hover:bg-gray-700" : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"}`}
-              >
-                <Menu className="w-5 h-5" />
-              </button>
+        <div className="max-w-7xl mx-auto px-1 sm:px-2 lg:px-4">
+          <div className="flex justify-between items-center py-1">
+            <div className="flex items-center space-x-2 sm:space-x-3 -ml-2">
               <button
                 onClick={() => navigate("/dashboard")}
-                className="flex items-center space-x-3 hover:opacity-80 transition-opacity duration-200"
+                className="flex items-center space-x-0 hover:opacity-80 transition-opacity duration-200"
               >
-                {/* Replace the Globe icon div with an img tag for your PNG logo */}
                 <img
-                  src="/logo.png"
+                  src={isDarkMode ? "/logo.png" : "/logo.png"}
                   alt="SubtitleTranslator Logo"
-                  className="w-8 h-8 sm:w-10 sm:h-10 object-contain rounded-lg"
+                  className="w-16 h-16 sm:w-20 sm:h-20 object-contain rounded-lg"
                 />
                 <h1
-                  className={`text-lg sm:text-xl lg:text-2xl font-bold ${isDarkMode ? "text-white" : "text-gray-900"}`}
+                  className={`text-lg sm:text-xl lg:text-2xl font-bold ${
+                    isDarkMode ? "text-white" : "text-gray-900"
+                  }`}
                 >
                   SubLingo
                 </h1>
@@ -380,31 +606,18 @@ const SubtitleTranslatorApp = () => {
             </div>
 
             <div className="flex items-center space-x-2">
-              <NotificationCenter isDarkMode={isDarkMode} />
               <button
                 onClick={toggleDarkMode}
-                className={`p-2 rounded-lg ${isDarkMode ? "bg-gray-700 text-yellow-400 hover:bg-gray-600" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
+                className={`p-2 rounded-lg ${
+                  isDarkMode
+                    ? "bg-gray-700 text-yellow-400 hover:bg-gray-600"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}
               >
                 {isDarkMode ? (
-                  <svg
-                    className="w-4 h-4 sm:w-5 sm:h-5"
-                    fill="currentColor"
-                    viewBox="0 0 20 20"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
+                  <Sun className="w-4 h-4 sm:w-5 sm:h-5" />
                 ) : (
-                  <svg
-                    className="w-4 h-4 sm:w-5 sm:h-5"
-                    fill="currentColor"
-                    viewBox="0 0 20 20"
-                  >
-                    <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
-                  </svg>
+                  <Moon className="w-4 h-4 sm:w-5 sm:h-5" />
                 )}
               </button>
 
@@ -422,44 +635,19 @@ const SubtitleTranslatorApp = () => {
             </div>
           </div>
         </div>
-
-        {isMenuOpen && (
-          <>
-            <div
-              className="fixed inset-0 bg-black bg-opacity-50 z-40"
-              onClick={() => setIsMenuOpen(false)}
-            ></div>
-            <div
-              className={`absolute top-full left-0 right-0 z-50 shadow-lg border-t ${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}
-            >
-              <div className="max-w-7xl mx-auto px-3 py-4">
-                <div className="space-y-2">
-                  {templates.map((t) => (
-                    <button
-                      key={t.id}
-                      onClick={() => handleNavigation(t.id)}
-                      className={`w-full text-left px-4 py-3 rounded-lg font-medium flex items-center justify-between ${
-                        currentTemplate === t.id
-                          ? "bg-blue-500 text-white"
-                          : isDarkMode
-                            ? "text-gray-300 hover:text-white hover:bg-gray-700"
-                            : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-                      }`}
-                    >
-                      <span>{t.name}</span>
-                      {t.requiresAuth && !user && (
-                        <span className="text-xs opacity-75">
-                          Login required
-                        </span>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </>
-        )}
       </header>
+
+      <ModernHamburgerMenu
+        isMenuOpen={isMenuOpen}
+        setIsMenuOpen={setIsMenuOpen}
+        templates={templates}
+        currentTemplate={currentTemplate}
+        handleNavigation={handleNavigation}
+        user={user}
+        isDarkMode={isDarkMode}
+      />
+
+      <NotificationCenter isDarkMode={isDarkMode} />
 
       {/* Modals */}
       {showLoginModal && !showSignupModal && (
@@ -501,7 +689,6 @@ const SubtitleTranslatorApp = () => {
           isDarkMode={isDarkMode}
         />
       )}
-      <NotificationDisplay isDarkMode={isDarkMode} />
 
       {/* Routes */}
       <Routes>
@@ -583,6 +770,7 @@ const SubtitleTranslatorApp = () => {
           }
         />
       </Routes>
+      <NotificationDisplay isDarkMode={isDarkMode} />
     </div>
   );
 };

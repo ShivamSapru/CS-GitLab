@@ -339,6 +339,9 @@ const StaticSubtitleUpload = ({
   const previewSectionRef = useRef(null);
   const editTextareaRef = useRef(null);
 
+  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+  const containerRef = useRef(null);
+
   const [translationData, setTranslationData] = useState({
     sourceLanguage: "",
     originalFilePath: "",
@@ -416,6 +419,26 @@ const StaticSubtitleUpload = ({
       setBackendConnected(true);
     }
   }, [initialTranscriptionData]);
+
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      if (containerRef.current) {
+        const rect = containerRef.current.getBoundingClientRect();
+        setMousePosition({
+          x: (e.clientX - rect.left - rect.width / 2) / rect.width,
+          y: (e.clientY - rect.top - rect.height / 2) / rect.height,
+        });
+      }
+    };
+
+    const container = containerRef.current;
+    if (container) {
+      container.addEventListener("mousemove", handleMouseMove);
+      return () => {
+        container.removeEventListener("mousemove", handleMouseMove);
+      };
+    }
+  }, []);
 
   const handleDrag = (e) => {
     e.preventDefault();
@@ -1119,937 +1142,1102 @@ const StaticSubtitleUpload = ({
     }
   };
 
+  const renderStaticTranslationBackground = () => {
+    return (
+      <div className="absolute inset-0 overflow-hidden">
+        {/* Base gradient */}
+        <div
+          className={`absolute inset-0 bg-gradient-to-br ${
+            isDarkMode
+              ? "from-indigo-950 via-slate-900 to-blue-950"
+              : "from-blue-50 via-indigo-50 to-slate-100"
+          }`}
+        />
+
+        <div className="absolute inset-0">
+          {[
+            "EN",
+            "FR",
+            "JP",
+            "DE",
+            "ES",
+            "IT",
+            "PT",
+            "RU",
+            "ZH",
+            "AR",
+            "KO",
+            "HI",
+            "TH",
+            "VI",
+            "NL",
+            "SV",
+            "NO",
+            "DA",
+            "FI",
+            "PL",
+            "TR",
+            "HE",
+            "FA",
+            "UR",
+            "BN",
+            "TA",
+            "TE",
+            "ML",
+            "KN",
+            "GU",
+          ].map((lang, i) => (
+            <div
+              key={lang}
+              className={`absolute font-bold ${isDarkMode ? "text-blue-400/30" : "text-blue-600/20"} transition-all duration-1000`}
+              style={{
+                left: `${2 + ((i * 5) % 96)}%`,
+                top: `${2 + ((i * 7) % 96)}%`,
+                fontSize: `${1.2 + (i % 4) * 0.3}rem`,
+                transform: `translate(${mousePosition.x * (8 + i * 1.5)}px, ${mousePosition.y * (6 + i * 1.2)}px)`,
+                animation: `float ${2.5 + i * 0.3}s ease-in-out infinite alternate`,
+                opacity: 0.4 + (i % 3) * 0.2,
+              }}
+            >
+              {lang}
+            </div>
+          ))}
+        </div>
+
+        {/* Connecting lines */}
+        <svg
+          className="absolute inset-0 w-full h-full opacity-20"
+          style={{ zIndex: 1 }}
+        >
+          <defs>
+            <linearGradient
+              id="lineGradient"
+              x1="0%"
+              y1="0%"
+              x2="100%"
+              y2="100%"
+            >
+              <stop
+                offset="0%"
+                stopColor={isDarkMode ? "#60a5fa" : "#3b82f6"}
+                stopOpacity="0.3"
+              />
+              <stop
+                offset="100%"
+                stopColor={isDarkMode ? "#a855f7" : "#8b5cf6"}
+                stopOpacity="0.1"
+              />
+            </linearGradient>
+          </defs>
+          {[...Array(8)].map((_, i) => (
+            <path
+              key={i}
+              d={`M ${100 + i * 120} ${150 + i * 80} Q ${300 + i * 100} ${200 + i * 60} ${500 + i * 80} ${180 + i * 90}`}
+              stroke="url(#lineGradient)"
+              strokeWidth="2"
+              fill="none"
+              className="animate-pulse"
+              style={{ animationDelay: `${i * 0.5}s` }}
+            />
+          ))}
+        </svg>
+
+        {/* Wave patterns */}
+        <div className="absolute inset-0 opacity-10">
+          <div
+            className={`absolute w-full h-32 ${isDarkMode ? "bg-gradient-to-r from-blue-600 via-purple-500 to-indigo-600" : "bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400"}`}
+            style={{
+              top: "30%",
+              clipPath: "polygon(0 0, 100% 0, 100% 70%, 0 100%)",
+              transform: `translateX(${mousePosition.x * 20}px)`,
+            }}
+          />
+          <div
+            className={`absolute w-full h-24 ${isDarkMode ? "bg-gradient-to-r from-purple-600 via-pink-500 to-blue-600" : "bg-gradient-to-r from-purple-400 via-pink-400 to-blue-400"}`}
+            style={{
+              top: "60%",
+              clipPath: "polygon(0 30%, 100% 0, 100% 100%, 0 70%)",
+              transform: `translateX(${mousePosition.x * -15}px)`,
+            }}
+          />
+        </div>
+
+        {/* Subtitle overlay effect */}
+        <div className="absolute inset-0 flex items-center justify-center opacity-5">
+          <div className="text-center space-y-4">
+            <div
+              className={`text-lg ${isDarkMode ? "text-white" : "text-gray-800"} font-light`}
+            >
+              שלום, מה שלומך היום?
+            </div>
+            <div
+              className={`text-lg ${isDarkMode ? "text-white" : "text-gray-800"} font-light`}
+            >
+              Bonjour, comment allez-vous aujourd'hui ?
+            </div>
+            <div
+              className={`text-lg ${isDarkMode ? "text-white" : "text-gray-800"} font-light`}
+            >
+              こんにちは、今日はいかがですか？
+            </div>
+            <div
+              className={`text-lg ${isDarkMode ? "text-white" : "text-gray-800"} font-light`}
+            >
+              سلام تاسې نن څنګه یاست؟
+            </div>
+          </div>
+        </div>
+
+        <style jsx>{`
+          @keyframes float {
+            from {
+              transform: translateY(0px);
+            }
+            to {
+              transform: translateY(-10px);
+            }
+          }
+        `}</style>
+      </div>
+    );
+  };
+
   return (
     <div
-      className={`max-w-4xl mx-auto p-6 min-h-screen transition-colors duration-300 ${
+      ref={containerRef}
+      className={`relative w-full min-h-screen transition-colors duration-300 ${
         isDarkMode ? "bg-gray-900" : "bg-gray-50"
       }`}
     >
-      <div
-        className={`rounded-xl shadow-lg p-8 transition-colors duration-300 ${
-          isDarkMode ? "bg-gray-800" : "bg-white"
-        }`}
-      >
-        <h2
-          className={`text-2xl font-bold mb-6 transition-colors duration-300 ${
-            isDarkMode ? "text-white" : "text-gray-900"
+      {renderStaticTranslationBackground()}
+
+      <div className="relative z-10 max-w-4xl mx-auto p-6">
+        <div
+          className={`relative z-10 rounded-xl shadow-lg p-8 transition-colors duration-300 backdrop-blur-sm ${
+            isDarkMode ? "bg-gray-800/90" : "bg-white/90"
           }`}
         >
-          Subtitle Translation
-        </h2>
-
-        {/* Backend Connection Status */}
-        {!backendConnected && (
-          <div
-            className={`mb-6 p-4 rounded-lg border transition-colors duration-300 ${
-              isDarkMode
-                ? "bg-red-900/20 border-red-800"
-                : "bg-red-50 border-red-200"
+          <h2
+            className={`text-2xl font-bold mb-6 transition-colors duration-300 ${
+              isDarkMode ? "text-white" : "text-gray-900"
             }`}
           >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <div className="w-3 h-3 rounded-full mr-3 bg-red-500"></div>
-                <span
-                  className={`font-medium transition-colors duration-300 ${
-                    isDarkMode ? "text-red-300" : "text-red-800"
-                  }`}
-                >
-                  Azure Translation Service: Disconnected
-                </span>
-              </div>
-              <button
-                onClick={retryConnection}
-                disabled={loadingLanguages}
-                className={`px-4 py-2 rounded-lg text-sm text-white transition-colors duration-300 ${
-                  loadingLanguages
-                    ? isDarkMode
-                      ? "bg-gray-600"
-                      : "bg-gray-300"
-                    : "bg-blue-500 hover:bg-blue-600"
-                }`}
-              >
-                {loadingLanguages ? "Connecting..." : "Retry Connection"}
-              </button>
-            </div>
-          </div>
-        )}
+            Subtitle Translation
+          </h2>
 
-        {/* Error Display */}
-        {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-            <div className="flex items-start">
-              <AlertCircle className="w-5 h-5 text-red-500 mr-2 mt-0.5 flex-shrink-0" />
-              <div className="text-red-800">
-                <div className="font-medium mb-1">Translation Error</div>
-                <div className="text-sm">{error}</div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Setup instructions when backend is not connected */}
-        {!backendConnected && !loadingLanguages && (
-          <div className="mb-6 p-6 bg-blue-50 border border-blue-200 rounded-lg">
-            <h3 className="text-lg font-medium text-blue-800 mb-2">
-              Setup Required
-            </h3>
-            <p className="text-blue-700 mb-4">
-              This feature requires Azure Translator service. Please ensure:
-            </p>
-            <ol className="list-decimal list-inside text-blue-700 space-y-2 mb-4">
-              <li>Your FastAPI server is running on port 8000</li>
-              <li>
-                Azure Translator credentials are configured in your .env file:
-                <ul className="list-disc list-inside ml-4 mt-1 space-y-1">
-                  <li>
-                    <code className="bg-blue-100 px-2 py-1 rounded text-xs">
-                      AZURE_TRANSLATOR_ENDPOINT
-                    </code>
-                  </li>
-                  <li>
-                    <code className="bg-blue-100 px-2 py-1 rounded text-xs">
-                      AZURE_SUBSCRIPTION_KEY
-                    </code>
-                  </li>
-                  <li>
-                    <code className="bg-blue-100 px-2 py-1 rounded text-xs">
-                      AZURE_REGION
-                    </code>
-                  </li>
-                </ul>
-              </li>
-              <li>Click "Retry Connection" above once configured</li>
-            </ol>
-          </div>
-        )}
-
-        {/* File Upload Area */}
-        <div
-          className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors duration-300 ${
-            !backendConnected
-              ? isDarkMode
-                ? "border-gray-600 bg-gray-700 cursor-not-allowed"
-                : "border-gray-200 bg-gray-50 cursor-not-allowed"
-              : fromTranscription
-                ? isDarkMode
-                  ? "border-green-600 bg-green-900/20"
-                  : "border-green-300 bg-green-50"
-                : dragActive
-                  ? isDarkMode
-                    ? "border-blue-400 bg-blue-900/20"
-                    : "border-blue-500 bg-blue-50"
-                  : isDarkMode
-                    ? "border-gray-600 hover:border-gray-500 bg-gray-800"
-                    : "border-gray-300 hover:border-gray-400 bg-white"
-          }`}
-          onDragEnter={
-            backendConnected && !fromTranscription ? handleDrag : undefined
-          }
-          onDragLeave={
-            backendConnected && !fromTranscription ? handleDrag : undefined
-          }
-          onDragOver={
-            backendConnected && !fromTranscription ? handleDrag : undefined
-          }
-          onDrop={
-            backendConnected && !fromTranscription ? handleDrop : undefined
-          }
-        >
-          {fromTranscription ? (
-            <>
-              <svg
-                className="w-12 h-12 mx-auto mb-4 text-green-500"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-              <p
-                className={`text-lg mb-2 px-4 font-medium transition-colors duration-300 ${
-                  isDarkMode ? "text-green-300" : "text-green-700"
-                }`}
-              >
-                Transcription Ready for Translation
-              </p>
-              <p
-                className={`text-sm mb-2 transition-colors duration-300 ${
-                  isDarkMode ? "text-green-400" : "text-green-600"
-                }`}
-              >
-                {transcriptionFile?.filename} (
-                {transcriptionFile?.format?.toUpperCase()})
-              </p>
-              <p
-                className={`text-xs mb-4 transition-colors duration-300 ${
-                  isDarkMode ? "text-green-500" : "text-green-500"
-                }`}
-              >
-                From: {transcriptionFile?.originalFilename}
-              </p>
-              <div className="flex justify-center space-x-4">
-                <button
-                  onClick={() => {
-                    setFromTranscription(false);
-                    setUploadedFile(null);
-                    setTranscriptionFile(null);
-                  }}
-                  className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors duration-300"
-                >
-                  Upload Different File
-                </button>
-                {onBackToTranscription && (
-                  <button
-                    onClick={onBackToTranscription}
-                    className={`px-4 py-2 border rounded-lg transition-colors duration-300 ${
-                      isDarkMode
-                        ? "border-gray-600 text-gray-300 hover:bg-gray-700"
-                        : "border-gray-300 text-gray-700 hover:bg-gray-50"
+          {/* Backend Connection Status */}
+          {!backendConnected && (
+            <div
+              className={`mb-6 p-4 rounded-lg border transition-colors duration-300 ${
+                isDarkMode
+                  ? "bg-red-900/20 border-red-800"
+                  : "bg-red-50 border-red-200"
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <div className="w-3 h-3 rounded-full mr-3 bg-red-500"></div>
+                  <span
+                    className={`font-medium transition-colors duration-300 ${
+                      isDarkMode ? "text-red-300" : "text-red-800"
                     }`}
                   >
-                    Back to Transcription
-                  </button>
-                )}
-              </div>
-            </>
-          ) : (
-            <>
-              <Upload
-                className={`w-12 h-12 mx-auto mb-4 transition-colors duration-300 ${
-                  backendConnected
-                    ? isDarkMode
-                      ? "text-gray-400"
-                      : "text-gray-400"
-                    : isDarkMode
-                      ? "text-gray-600"
-                      : "text-gray-300"
-                }`}
-              />
-              <p
-                className={`text-lg mb-2 px-4 transition-colors duration-300 ${
-                  backendConnected
-                    ? isDarkMode
-                      ? "text-gray-300"
-                      : "text-gray-600"
-                    : isDarkMode
-                      ? "text-gray-500"
-                      : "text-gray-400"
-                }`}
-              >
-                {uploadedFile ? (
-                  <span
-                    className="break-all max-w-full inline-block"
-                    title={uploadedFile.name}
-                  >
-                    {uploadedFile.name}
+                    Azure Translation Service: Disconnected
                   </span>
-                ) : (
-                  "Drop your subtitle files here"
-                )}
-              </p>
-              <p
-                className={`text-sm mb-4 transition-colors duration-300 ${
-                  backendConnected
-                    ? isDarkMode
-                      ? "text-gray-400"
-                      : "text-gray-400"
-                    : isDarkMode
-                      ? "text-gray-600"
-                      : "text-gray-300"
-                }`}
-              >
-                Supports SRT, VTT formats • Powered by Azure Translator
-              </p>
-              <button
-                onClick={() =>
-                  backendConnected && fileInputRef.current?.click()
-                }
-                disabled={!backendConnected}
-                className={`px-6 py-2 rounded-lg transition-colors duration-300 ${
-                  backendConnected
-                    ? "bg-blue-500 text-white hover:bg-blue-600"
-                    : isDarkMode
-                      ? "bg-gray-600 text-gray-400 cursor-not-allowed"
-                      : "bg-gray-300 text-gray-500 cursor-not-allowed"
-                }`}
-              >
-                Browse Files
-              </button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                className="hidden"
-                accept=".srt,.vtt"
-                onChange={handleFileInput}
-                disabled={!backendConnected}
-              />
-            </>
-          )}
-        </div>
-
-        {/* Language Selection */}
-        {uploadedFile && backendConnected && (
-          <div className="mt-8 space-y-6">
-            <div>
-              <div className="flex justify-between items-center mb-4">
-                <h3
-                  className={`text-lg font-semibold transition-colors duration-300 ${
-                    isDarkMode ? "text-white" : "text-gray-900"
-                  }`}
-                >
-                  Select Target Languages
-                </h3>
-                <span
-                  className={`text-sm transition-colors duration-300 ${
-                    isDarkMode ? "text-gray-400" : "text-gray-500"
-                  }`}
-                >
-                  {targetLanguages.length}/{MAX_SELECTED_LANGUAGES} selected
-                </span>
-              </div>
-              {loadingLanguages ? (
-                <p
-                  className={`transition-colors duration-300 ${
-                    isDarkMode ? "text-gray-400" : "text-gray-500"
-                  }`}
-                >
-                  Loading languages...
-                </p>
-              ) : (
-                <MultiSelectDropdown
-                  languages={languages}
-                  selectedLanguages={targetLanguages}
-                  onSelectionChange={setTargetLanguages}
-                  disabled={loadingLanguages || !backendConnected}
-                  searchTerm={searchTerm}
-                  onSearchChange={setSearchTerm}
-                  maxLanguages={MAX_SELECTED_LANGUAGES}
-                  isDarkMode={isDarkMode}
-                />
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Translation Progress */}
-        {isTranslating && (
-          <div className="mt-8">
-            <div className="flex justify-between items-center mb-2">
-              <span
-                className={`text-sm transition-colors duration-300 ${
-                  isDarkMode ? "text-gray-300" : "text-gray-600"
-                }`}
-              >
-                {currentTranslatingLanguage || "Processing..."}
-              </span>
-              <span className="text-sm text-gray-600">
-                {Math.round(translationProgress)}%
-              </span>
-            </div>
-            <div
-              className={`w-full rounded-full h-2 transition-colors duration-300 ${
-                isDarkMode ? "bg-gray-700" : "bg-gray-200"
-              }`}
-            >
-              <div
-                className="bg-blue-500 h-2 rounded-full transition-all duration-300"
-                style={{ width: `${translationProgress}%` }}
-              ></div>
-            </div>
-          </div>
-        )}
-
-        {/* Action Buttons */}
-        <div className="mt-8 flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4">
-          {uploadedFile && (
-            <button
-              onClick={resetComponent}
-              className={`px-6 py-2 border rounded-lg w-full sm:w-auto transition-colors duration-300 ${
-                isDarkMode
-                  ? "border-gray-600 text-gray-300 hover:bg-gray-700"
-                  : "border-gray-300 text-gray-700 hover:bg-gray-50"
-              }`}
-            >
-              Reset
-            </button>
-          )}
-
-          {uploadedFile && backendConnected && (
-            <div className="flex items-center space-x-6">
-              <div className="flex items-center space-x-3">
-                <span
-                  className={`text-sm transition-colors duration-300 ${
-                    isDarkMode ? "text-gray-300" : "text-gray-700"
-                  }`}
-                >
-                  Censor profanity
-                </span>
-                <ToggleSwitch
-                  enabled={censorProfanity}
-                  onChange={setCensorProfanity}
-                  disabled={isTranslating || loadingLanguages}
-                  isDarkMode={isDarkMode}
-                />
-              </div>
-
-              {!isTranslating && translatedFiles.length === 0 && (
+                </div>
                 <button
-                  onClick={startTranslation}
-                  disabled={
-                    targetLanguages.length === 0 ||
-                    loadingLanguages ||
-                    !backendConnected
-                  }
-                  className={`px-6 py-2 text-white rounded-lg w-full sm:w-auto transition-colors duration-300 ${
-                    targetLanguages.length === 0 ||
-                    loadingLanguages ||
-                    !backendConnected
+                  onClick={retryConnection}
+                  disabled={loadingLanguages}
+                  className={`px-4 py-2 rounded-lg text-sm text-white transition-colors duration-300 ${
+                    loadingLanguages
                       ? isDarkMode
-                        ? "bg-gray-600 cursor-not-allowed"
-                        : "bg-gray-300 cursor-not-allowed"
+                        ? "bg-gray-600"
+                        : "bg-gray-300"
                       : "bg-blue-500 hover:bg-blue-600"
                   }`}
                 >
-                  Start Translation
+                  {loadingLanguages ? "Connecting..." : "Retry Connection"}
                 </button>
-              )}
+              </div>
             </div>
           )}
-        </div>
 
-        {/* Download Results */}
-        {translatedFiles.length > 0 && (
+          {/* Error Display */}
+          {error && (
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+              <div className="flex items-start">
+                <AlertCircle className="w-5 h-5 text-red-500 mr-2 mt-0.5 flex-shrink-0" />
+                <div className="text-red-800">
+                  <div className="font-medium mb-1">Translation Error</div>
+                  <div className="text-sm">{error}</div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Setup instructions when backend is not connected */}
+          {!backendConnected && !loadingLanguages && (
+            <div className="mb-6 p-6 bg-blue-50 border border-blue-200 rounded-lg">
+              <h3 className="text-lg font-medium text-blue-800 mb-2">
+                Setup Required
+              </h3>
+              <p className="text-blue-700 mb-4">
+                This feature requires Azure Translator service. Please ensure:
+              </p>
+              <ol className="list-decimal list-inside text-blue-700 space-y-2 mb-4">
+                <li>Your FastAPI server is running on port 8000</li>
+                <li>
+                  Azure Translator credentials are configured in your .env file:
+                  <ul className="list-disc list-inside ml-4 mt-1 space-y-1">
+                    <li>
+                      <code className="bg-blue-100 px-2 py-1 rounded text-xs">
+                        AZURE_TRANSLATOR_ENDPOINT
+                      </code>
+                    </li>
+                    <li>
+                      <code className="bg-blue-100 px-2 py-1 rounded text-xs">
+                        AZURE_SUBSCRIPTION_KEY
+                      </code>
+                    </li>
+                    <li>
+                      <code className="bg-blue-100 px-2 py-1 rounded text-xs">
+                        AZURE_REGION
+                      </code>
+                    </li>
+                  </ul>
+                </li>
+                <li>Click "Retry Connection" above once configured</li>
+              </ol>
+            </div>
+          )}
+
+          {/* File Upload Area */}
           <div
-            className={`mt-8 p-4 rounded-lg transition-colors duration-300 ${
-              isDarkMode ? "bg-green-900/20" : "bg-green-50"
+            className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors duration-300 ${
+              !backendConnected
+                ? isDarkMode
+                  ? "border-gray-600 bg-gray-700 cursor-not-allowed"
+                  : "border-gray-200 bg-gray-50 cursor-not-allowed"
+                : fromTranscription
+                  ? isDarkMode
+                    ? "border-green-600 bg-green-900/20"
+                    : "border-green-300 bg-green-50"
+                  : dragActive
+                    ? isDarkMode
+                      ? "border-blue-400 bg-blue-900/20"
+                      : "border-blue-500 bg-blue-50"
+                    : isDarkMode
+                      ? "border-gray-600 hover:border-gray-500 bg-gray-800"
+                      : "border-gray-300 hover:border-gray-400 bg-white"
             }`}
+            onDragEnter={
+              backendConnected && !fromTranscription ? handleDrag : undefined
+            }
+            onDragLeave={
+              backendConnected && !fromTranscription ? handleDrag : undefined
+            }
+            onDragOver={
+              backendConnected && !fromTranscription ? handleDrag : undefined
+            }
+            onDrop={
+              backendConnected && !fromTranscription ? handleDrop : undefined
+            }
           >
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center">
-                <Check className="w-5 h-5 text-green-500 mr-2" />
-                <span
-                  className={`font-medium transition-colors duration-300 ${
-                    isDarkMode ? "text-green-300" : "text-green-800"
+            {fromTranscription ? (
+              <>
+                <svg
+                  className="w-12 h-12 mx-auto mb-4 text-green-500"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+                <p
+                  className={`text-lg mb-2 px-4 font-medium transition-colors duration-300 ${
+                    isDarkMode ? "text-green-300" : "text-green-700"
                   }`}
                 >
-                  Translation Complete! ({translatedFiles.length} file
-                  {translatedFiles.length > 1 ? "s" : ""} ready)
-                </span>
-              </div>
-
-              <div className="flex items-center space-x-2">
-                {!hasAutoSaved && !projectSaved && (
+                  Transcription Ready for Translation
+                </p>
+                <p
+                  className={`text-sm mb-2 transition-colors duration-300 ${
+                    isDarkMode ? "text-green-400" : "text-green-600"
+                  }`}
+                >
+                  {transcriptionFile?.filename} (
+                  {transcriptionFile?.format?.toUpperCase()})
+                </p>
+                <p
+                  className={`text-xs mb-4 transition-colors duration-300 ${
+                    isDarkMode ? "text-green-500" : "text-green-500"
+                  }`}
+                >
+                  From: {transcriptionFile?.originalFilename}
+                </p>
+                <div className="flex justify-center space-x-4">
                   <button
-                    onClick={() => setShowSaveProjectModal(true)}
-                    disabled={isSavingProject}
-                    className="flex items-center space-x-2 px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-sm"
+                    onClick={() => {
+                      setFromTranscription(false);
+                      setUploadedFile(null);
+                      setTranscriptionFile(null);
+                    }}
+                    className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors duration-300"
                   >
-                    <FolderPlus className="w-4 h-4" />
-                    <span>Save as Project</span>
+                    Upload Different File
                   </button>
-                )}
-                {translatedFiles.length > 1 && (
-                  <button
-                    onClick={downloadAllAsZip}
-                    disabled={isDownloadingZip}
-                    className="flex items-center space-x-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-sm"
-                  >
-                    <Archive className="w-4 h-4" />
-                    <span>
-                      {isDownloadingZip
-                        ? "Creating ZIP..."
-                        : "Download All as ZIP"}
+                  {onBackToTranscription && (
+                    <button
+                      onClick={onBackToTranscription}
+                      className={`px-4 py-2 border rounded-lg transition-colors duration-300 ${
+                        isDarkMode
+                          ? "border-gray-600 text-gray-300 hover:bg-gray-700"
+                          : "border-gray-300 text-gray-700 hover:bg-gray-50"
+                      }`}
+                    >
+                      Back to Transcription
+                    </button>
+                  )}
+                </div>
+              </>
+            ) : (
+              <>
+                <Upload
+                  className={`w-12 h-12 mx-auto mb-4 transition-colors duration-300 ${
+                    backendConnected
+                      ? isDarkMode
+                        ? "text-gray-400"
+                        : "text-gray-400"
+                      : isDarkMode
+                        ? "text-gray-600"
+                        : "text-gray-300"
+                  }`}
+                />
+                <p
+                  className={`text-lg mb-2 px-4 transition-colors duration-300 ${
+                    backendConnected
+                      ? isDarkMode
+                        ? "text-gray-300"
+                        : "text-gray-600"
+                      : isDarkMode
+                        ? "text-gray-500"
+                        : "text-gray-400"
+                  }`}
+                >
+                  {uploadedFile ? (
+                    <span
+                      className="break-all max-w-full inline-block"
+                      title={uploadedFile.name}
+                    >
+                      {uploadedFile.name}
                     </span>
-                  </button>
+                  ) : (
+                    "Drop your subtitle files here"
+                  )}
+                </p>
+                <p
+                  className={`text-sm mb-4 transition-colors duration-300 ${
+                    backendConnected
+                      ? isDarkMode
+                        ? "text-gray-400"
+                        : "text-gray-400"
+                      : isDarkMode
+                        ? "text-gray-600"
+                        : "text-gray-300"
+                  }`}
+                >
+                  Supports SRT, VTT formats • Powered by Azure Translator
+                </p>
+                <button
+                  onClick={() =>
+                    backendConnected && fileInputRef.current?.click()
+                  }
+                  disabled={!backendConnected}
+                  className={`px-6 py-2 rounded-lg transition-colors duration-300 ${
+                    backendConnected
+                      ? "bg-blue-500 text-white hover:bg-blue-600"
+                      : isDarkMode
+                        ? "bg-gray-600 text-gray-400 cursor-not-allowed"
+                        : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                  }`}
+                >
+                  Browse Files
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  className="hidden"
+                  accept=".srt,.vtt"
+                  onChange={handleFileInput}
+                  disabled={!backendConnected}
+                />
+              </>
+            )}
+          </div>
+
+          {/* Language Selection */}
+          {uploadedFile && backendConnected && (
+            <div className="mt-8 space-y-6">
+              <div>
+                <div className="flex justify-between items-center mb-4">
+                  <h3
+                    className={`text-lg font-semibold transition-colors duration-300 ${
+                      isDarkMode ? "text-white" : "text-gray-900"
+                    }`}
+                  >
+                    Select Target Languages
+                  </h3>
+                  <span
+                    className={`text-sm transition-colors duration-300 ${
+                      isDarkMode ? "text-gray-400" : "text-gray-500"
+                    }`}
+                  >
+                    {targetLanguages.length}/{MAX_SELECTED_LANGUAGES} selected
+                  </span>
+                </div>
+                {loadingLanguages ? (
+                  <p
+                    className={`transition-colors duration-300 ${
+                      isDarkMode ? "text-gray-400" : "text-gray-500"
+                    }`}
+                  >
+                    Loading languages...
+                  </p>
+                ) : (
+                  <MultiSelectDropdown
+                    languages={languages}
+                    selectedLanguages={targetLanguages}
+                    onSelectionChange={setTargetLanguages}
+                    disabled={loadingLanguages || !backendConnected}
+                    searchTerm={searchTerm}
+                    onSearchChange={setSearchTerm}
+                    maxLanguages={MAX_SELECTED_LANGUAGES}
+                    isDarkMode={isDarkMode}
+                  />
                 )}
               </div>
             </div>
-            <div className="space-y-2">
-              {translatedFiles.map((file) => (
+          )}
+
+          {/* Translation Progress */}
+          {isTranslating && (
+            <div className="mt-8">
+              <div className="flex justify-between items-center mb-2">
+                <span
+                  className={`text-sm transition-colors duration-300 ${
+                    isDarkMode ? "text-gray-300" : "text-gray-600"
+                  }`}
+                >
+                  {currentTranslatingLanguage || "Processing..."}
+                </span>
+                <span className="text-sm text-gray-600">
+                  {Math.round(translationProgress)}%
+                </span>
+              </div>
+              <div
+                className={`w-full rounded-full h-2 transition-colors duration-300 ${
+                  isDarkMode ? "bg-gray-700" : "bg-gray-200"
+                }`}
+              >
                 <div
-                  key={file.language}
-                  className={`flex items-center justify-between p-3 rounded-lg border transition-colors duration-300 ${
+                  className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+                  style={{ width: `${translationProgress}%` }}
+                ></div>
+              </div>
+            </div>
+          )}
+
+          {/* Action Buttons */}
+          <div className="mt-8 flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4">
+            {uploadedFile && (
+              <button
+                onClick={resetComponent}
+                className={`px-6 py-2 border rounded-lg w-full sm:w-auto transition-colors duration-300 ${
+                  isDarkMode
+                    ? "border-gray-600 text-gray-300 hover:bg-gray-700"
+                    : "border-gray-300 text-gray-700 hover:bg-gray-50"
+                }`}
+              >
+                Reset
+              </button>
+            )}
+
+            {uploadedFile && backendConnected && (
+              <div className="flex items-center space-x-6">
+                <div className="flex items-center space-x-3">
+                  <span
+                    className={`text-sm transition-colors duration-300 ${
+                      isDarkMode ? "text-gray-300" : "text-gray-700"
+                    }`}
+                  >
+                    Censor profanity
+                  </span>
+                  <ToggleSwitch
+                    enabled={censorProfanity}
+                    onChange={setCensorProfanity}
+                    disabled={isTranslating || loadingLanguages}
+                    isDarkMode={isDarkMode}
+                  />
+                </div>
+
+                {!isTranslating && translatedFiles.length === 0 && (
+                  <button
+                    onClick={startTranslation}
+                    disabled={
+                      targetLanguages.length === 0 ||
+                      loadingLanguages ||
+                      !backendConnected
+                    }
+                    className={`px-6 py-2 text-white rounded-lg w-full sm:w-auto transition-colors duration-300 ${
+                      targetLanguages.length === 0 ||
+                      loadingLanguages ||
+                      !backendConnected
+                        ? isDarkMode
+                          ? "bg-gray-600 cursor-not-allowed"
+                          : "bg-gray-300 cursor-not-allowed"
+                        : "bg-blue-500 hover:bg-blue-600"
+                    }`}
+                  >
+                    Start Translation
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Download Results */}
+          {translatedFiles.length > 0 && (
+            <div
+              className={`mt-8 p-4 rounded-lg transition-colors duration-300 ${
+                isDarkMode ? "bg-green-900/20" : "bg-green-50"
+              }`}
+            >
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center">
+                  <Check className="w-5 h-5 text-green-500 mr-2" />
+                  <span
+                    className={`font-medium transition-colors duration-300 ${
+                      isDarkMode ? "text-green-300" : "text-green-800"
+                    }`}
+                  >
+                    Translation Complete! ({translatedFiles.length} file
+                    {translatedFiles.length > 1 ? "s" : ""} ready)
+                  </span>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  {!hasAutoSaved && !projectSaved && (
+                    <button
+                      onClick={() => setShowSaveProjectModal(true)}
+                      disabled={isSavingProject}
+                      className="flex items-center space-x-2 px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-sm"
+                    >
+                      <FolderPlus className="w-4 h-4" />
+                      <span>Save as Project</span>
+                    </button>
+                  )}
+                  {translatedFiles.length > 1 && (
+                    <button
+                      onClick={downloadAllAsZip}
+                      disabled={isDownloadingZip}
+                      className="flex items-center space-x-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-sm"
+                    >
+                      <Archive className="w-4 h-4" />
+                      <span>
+                        {isDownloadingZip
+                          ? "Creating ZIP..."
+                          : "Download All as ZIP"}
+                      </span>
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div className="space-y-2">
+                {translatedFiles.map((file) => (
+                  <div
+                    key={file.language}
+                    className={`flex items-center justify-between p-3 rounded-lg border transition-colors duration-300 ${
+                      isDarkMode
+                        ? "bg-gray-800 border-gray-600"
+                        : "bg-white border-gray-200"
+                    }`}
+                  >
+                    <div className="flex-1 min-w-0 pr-4">
+                      <div
+                        className={`font-medium truncate transition-colors duration-300 ${
+                          isDarkMode ? "text-gray-200" : "text-gray-700"
+                        }`}
+                        title={file.filename}
+                      >
+                        {file.filename}
+                      </div>
+                      <div
+                        className={`text-sm transition-colors duration-300 ${
+                          isDarkMode ? "text-gray-400" : "text-gray-500"
+                        }`}
+                      >
+                        Translated to {file.languageName}
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2 flex-shrink-0">
+                      <button
+                        onClick={() =>
+                          previewFile(file.filename, file.languageName)
+                        }
+                        disabled={loadingPreview}
+                        title="Preview"
+                        className={`flex items-center space-x-1 px-3 py-1 rounded border transition-colors duration-300 disabled:opacity-50 ${
+                          isDarkMode
+                            ? "text-green-400 border-green-600 hover:text-green-300 hover:bg-green-900/20"
+                            : "text-green-600 border-green-300 hover:text-green-800 hover:bg-green-50"
+                        }`}
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => downloadFile(file.filename)}
+                        title="Download"
+                        className={`flex items-center space-x-1 transition-colors duration-300 ${
+                          isDarkMode
+                            ? "text-blue-400 hover:text-blue-300"
+                            : "text-blue-500 hover:text-blue-700"
+                        }`}
+                      >
+                        <Download className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Project Save Success Message */}
+          {projectSaveSuccess && (
+            <div
+              className={`mt-4 p-4 border rounded-lg transition-colors duration-300 ${
+                isDarkMode
+                  ? "bg-green-900/20 border-green-800"
+                  : "bg-green-50 border-green-200"
+              }`}
+            >
+              <div className="flex items-start space-x-3">
+                <CheckCircle className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
+                <div className="flex-1">
+                  <h4
+                    className={`font-medium transition-colors duration-300 ${
+                      isDarkMode ? "text-green-300" : "text-green-800"
+                    }`}
+                  >
+                    Project Saved Successfully!
+                  </h4>
+                  <p
+                    className={`text-sm mt-1 transition-colors duration-300 ${
+                      isDarkMode ? "text-green-200" : "text-green-700"
+                    }`}
+                  >
+                    Project "{projectSaveSuccess.projectName}" has been saved to
+                    Azure Blob Storage with {projectSaveSuccess.fileCount} file
+                    {projectSaveSuccess.fileCount > 1 ? "s" : ""}.
+                  </p>
+                  <p
+                    className={`text-xs mt-1 transition-colors duration-300 ${
+                      isDarkMode ? "text-green-400" : "text-green-600"
+                    }`}
+                  >
+                    Project ID: {projectSaveSuccess.projectId}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setProjectSaveSuccess(null)}
+                  className={`transition-colors duration-300 ${
+                    isDarkMode
+                      ? "text-green-500 hover:text-green-300"
+                      : "text-green-400 hover:text-green-600"
+                  }`}
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Subtitle Preview Section */}
+          {showPreview && previewingFile && (
+            <div
+              ref={previewSectionRef}
+              className={`mt-8 p-4 rounded-lg border transition-colors duration-300 ${
+                isDarkMode
+                  ? "bg-gray-800 border-gray-600"
+                  : "bg-gray-50 border-gray-200"
+              }`}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex-1 min-w-0 pr-4">
+                  <h3
+                    className={`text-lg font-semibold transition-colors duration-300 ${
+                      isDarkMode ? "text-white" : "text-gray-900"
+                    }`}
+                  >
+                    Preview
+                  </h3>
+
+                  <p
+                    className={`text-sm truncate transition-colors duration-300 ${
+                      isDarkMode ? "text-gray-300" : "text-gray-600"
+                    }`}
+                    title={`${previewingFile.filename} - ${previewingFile.languageName}`}
+                  >
+                    {previewingFile.filename} - {previewingFile.languageName}
+                  </p>
+                </div>
+                <button
+                  onClick={closePreview}
+                  className={`flex-shrink-0 transition-colors duration-300 ${
+                    isDarkMode
+                      ? "text-gray-500 hover:text-gray-300"
+                      : "text-gray-400 hover:text-gray-600"
+                  }`}
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              {/* Side by side preview */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+                {/* Original File */}
+                <div
+                  className={`rounded-lg border transition-colors duration-300 ${
                     isDarkMode
                       ? "bg-gray-800 border-gray-600"
                       : "bg-white border-gray-200"
                   }`}
                 >
-                  <div className="flex-1 min-w-0 pr-4">
-                    <div
-                      className={`font-medium truncate transition-colors duration-300 ${
-                        isDarkMode ? "text-gray-200" : "text-gray-700"
-                      }`}
-                      title={file.filename}
-                    >
-                      {file.filename}
-                    </div>
-                    <div
-                      className={`text-sm transition-colors duration-300 ${
-                        isDarkMode ? "text-gray-400" : "text-gray-500"
-                      }`}
-                    >
-                      Translated to {file.languageName}
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-2 flex-shrink-0">
-                    <button
-                      onClick={() =>
-                        previewFile(file.filename, file.languageName)
-                      }
-                      disabled={loadingPreview}
-                      title="Preview"
-                      className={`flex items-center space-x-1 px-3 py-1 rounded border transition-colors duration-300 disabled:opacity-50 ${
-                        isDarkMode
-                          ? "text-green-400 border-green-600 hover:text-green-300 hover:bg-green-900/20"
-                          : "text-green-600 border-green-300 hover:text-green-800 hover:bg-green-50"
-                      }`}
-                    >
-                      <Eye className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => downloadFile(file.filename)}
-                      title="Download"
-                      className={`flex items-center space-x-1 transition-colors duration-300 ${
-                        isDarkMode
-                          ? "text-blue-400 hover:text-blue-300"
-                          : "text-blue-500 hover:text-blue-700"
-                      }`}
-                    >
-                      <Download className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Project Save Success Message */}
-        {projectSaveSuccess && (
-          <div
-            className={`mt-4 p-4 border rounded-lg transition-colors duration-300 ${
-              isDarkMode
-                ? "bg-green-900/20 border-green-800"
-                : "bg-green-50 border-green-200"
-            }`}
-          >
-            <div className="flex items-start space-x-3">
-              <CheckCircle className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
-              <div className="flex-1">
-                <h4
-                  className={`font-medium transition-colors duration-300 ${
-                    isDarkMode ? "text-green-300" : "text-green-800"
-                  }`}
-                >
-                  Project Saved Successfully!
-                </h4>
-                <p
-                  className={`text-sm mt-1 transition-colors duration-300 ${
-                    isDarkMode ? "text-green-200" : "text-green-700"
-                  }`}
-                >
-                  Project "{projectSaveSuccess.projectName}" has been saved to
-                  Azure Blob Storage with {projectSaveSuccess.fileCount} file
-                  {projectSaveSuccess.fileCount > 1 ? "s" : ""}.
-                </p>
-                <p
-                  className={`text-xs mt-1 transition-colors duration-300 ${
-                    isDarkMode ? "text-green-400" : "text-green-600"
-                  }`}
-                >
-                  Project ID: {projectSaveSuccess.projectId}
-                </p>
-              </div>
-              <button
-                onClick={() => setProjectSaveSuccess(null)}
-                className={`transition-colors duration-300 ${
-                  isDarkMode
-                    ? "text-green-500 hover:text-green-300"
-                    : "text-green-400 hover:text-green-600"
-                }`}
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Subtitle Preview Section */}
-        {showPreview && previewingFile && (
-          <div
-            ref={previewSectionRef}
-            className={`mt-8 p-4 rounded-lg border transition-colors duration-300 ${
-              isDarkMode
-                ? "bg-gray-800 border-gray-600"
-                : "bg-gray-50 border-gray-200"
-            }`}
-          >
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex-1 min-w-0 pr-4">
-                <h3
-                  className={`text-lg font-semibold transition-colors duration-300 ${
-                    isDarkMode ? "text-white" : "text-gray-900"
-                  }`}
-                >
-                  Preview
-                </h3>
-
-                <p
-                  className={`text-sm truncate transition-colors duration-300 ${
-                    isDarkMode ? "text-gray-300" : "text-gray-600"
-                  }`}
-                  title={`${previewingFile.filename} - ${previewingFile.languageName}`}
-                >
-                  {previewingFile.filename} - {previewingFile.languageName}
-                </p>
-              </div>
-              <button
-                onClick={closePreview}
-                className={`flex-shrink-0 transition-colors duration-300 ${
-                  isDarkMode
-                    ? "text-gray-500 hover:text-gray-300"
-                    : "text-gray-400 hover:text-gray-600"
-                }`}
-              >
-                <X className="w-6 h-6" />
-              </button>
-            </div>
-
-            {/* Side by side preview */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-              {/* Original File */}
-              <div
-                className={`rounded-lg border transition-colors duration-300 ${
-                  isDarkMode
-                    ? "bg-gray-800 border-gray-600"
-                    : "bg-white border-gray-200"
-                }`}
-              >
-                <div
-                  className={`px-4 py-2 border-b rounded-t-lg transition-colors duration-300 ${
-                    isDarkMode
-                      ? "bg-gray-700 border-gray-600"
-                      : "bg-gray-100 border-gray-200"
-                  }`}
-                >
-                  <h4
-                    className={`font-medium flex items-center transition-colors duration-300 ${
-                      isDarkMode ? "text-gray-200" : "text-gray-700"
+                  <div
+                    className={`px-4 py-2 border-b rounded-t-lg transition-colors duration-300 ${
+                      isDarkMode
+                        ? "bg-gray-700 border-gray-600"
+                        : "bg-gray-100 border-gray-200"
                     }`}
                   >
-                    <span className="w-3 h-3 bg-blue-500 rounded-full mr-2"></span>
-                    Original (Auto-detected)
-                  </h4>
-                </div>
-                <div className="p-4">
-                  {loadingOriginal ? (
-                    <div className="flex items-center justify-center h-64">
-                      <div
-                        className={`transition-colors duration-300 ${
-                          isDarkMode ? "text-gray-400" : "text-gray-500"
-                        }`}
-                      >
-                        Loading original content...
-                      </div>
-                    </div>
-                  ) : (
-                    <div
-                      ref={originalPreviewRef}
-                      onScroll={(e) =>
-                        handleScrollSync(
-                          e,
-                          isEditing ? editTextareaRef : translatedPreviewRef,
-                        )
-                      }
-                      className="max-h-96 overflow-auto"
-                    >
-                      <pre
-                        className={`text-sm whitespace-pre-wrap font-mono transition-colors duration-300 ${
-                          isDarkMode ? "text-gray-300" : "text-gray-700"
-                        }`}
-                      >
-                        {originalContent}
-                      </pre>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Translated File */}
-              <div
-                className={`rounded-lg border transition-colors duration-300 ${
-                  isDarkMode
-                    ? "bg-gray-800 border-gray-600"
-                    : "bg-white border-gray-200"
-                }`}
-              >
-                <div
-                  className={`px-4 py-2 border-b rounded-t-lg transition-colors duration-300 ${
-                    isDarkMode
-                      ? "bg-gray-700 border-gray-600"
-                      : "bg-gray-100 border-gray-200"
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
                     <h4
                       className={`font-medium flex items-center transition-colors duration-300 ${
                         isDarkMode ? "text-gray-200" : "text-gray-700"
                       }`}
                     >
-                      <span className="w-3 h-3 bg-green-500 rounded-full mr-2"></span>
-                      Translated ({previewingFile.languageName})
+                      <span className="w-3 h-3 bg-blue-500 rounded-full mr-2"></span>
+                      Original (Auto-detected)
                     </h4>
-                    <div className="flex items-center justify-end space-x-4">
-                      {isEditing && (
-                        <div className="flex items-center space-x-2">
-                          <button
-                            onClick={handleUndo}
-                            disabled={historyIndex <= 0}
-                            className={`flex items-center space-x-1 px-2 py-1 rounded text-xs transition-colors duration-300 ${
-                              historyIndex <= 0
-                                ? isDarkMode
-                                  ? "bg-gray-700 text-gray-600 cursor-not-allowed"
-                                  : "bg-gray-100 text-gray-400 cursor-not-allowed"
-                                : isDarkMode
-                                  ? "bg-gray-600 text-gray-200 hover:bg-gray-500"
-                                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                            }`}
-                            title="Undo (Ctrl+Z)"
-                          >
-                            <Undo className="w-3 h-3" />
-                          </button>
-                          <button
-                            onClick={handleRedo}
-                            disabled={historyIndex >= editHistory.length - 1}
-                            className={`flex items-center space-x-1 px-2 py-1 rounded text-xs transition-colors duration-300 ${
-                              historyIndex >= editHistory.length - 1 // ← CORRECT condition for redo button
-                                ? isDarkMode
-                                  ? "bg-gray-700 text-gray-600 cursor-not-allowed"
-                                  : "bg-gray-100 text-gray-400 cursor-not-allowed"
-                                : isDarkMode
-                                  ? "bg-gray-600 text-gray-200 hover:bg-gray-500"
-                                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                            }`}
-                            title="Redo (Ctrl+Shift+Z or Ctrl+Y)"
-                          >
-                            <Redo className="w-3 h-3" />
-                          </button>
+                  </div>
+                  <div className="p-4">
+                    {loadingOriginal ? (
+                      <div className="flex items-center justify-center h-64">
+                        <div
+                          className={`transition-colors duration-300 ${
+                            isDarkMode ? "text-gray-400" : "text-gray-500"
+                          }`}
+                        >
+                          Loading original content...
                         </div>
-                      )}
-
-                      <button
-                        onClick={isEditing ? cancelEditing : startEditing}
-                        disabled={loadingPreview}
-                        className={`text-sm flex items-center space-x-1 transition-colors duration-300 ${
-                          isDarkMode
-                            ? "text-blue-400 hover:text-blue-300"
-                            : "text-blue-600 hover:text-blue-800"
-                        }`}
+                      </div>
+                    ) : (
+                      <div
+                        ref={originalPreviewRef}
+                        onScroll={(e) =>
+                          handleScrollSync(
+                            e,
+                            isEditing ? editTextareaRef : translatedPreviewRef,
+                          )
+                        }
+                        className="max-h-96 overflow-auto"
                       >
-                        {isEditing ? (
-                          <Eye className="w-4 h-4" />
-                        ) : (
-                          <Edit className="w-4 h-4" />
-                        )}
-                        <span>{isEditing ? "View" : "Edit"}</span>
-                      </button>
-                    </div>
+                        <pre
+                          className={`text-sm whitespace-pre-wrap font-mono transition-colors duration-300 ${
+                            isDarkMode ? "text-gray-300" : "text-gray-700"
+                          }`}
+                        >
+                          {originalContent}
+                        </pre>
+                      </div>
+                    )}
                   </div>
                 </div>
-                <div className="p-4">
-                  {loadingPreview ? (
-                    <div className="flex items-center justify-center h-64">
-                      <div
-                        className={`transition-colors duration-300 ${
-                          isDarkMode ? "text-gray-400" : "text-gray-500"
+
+                {/* Translated File */}
+                <div
+                  className={`rounded-lg border transition-colors duration-300 ${
+                    isDarkMode
+                      ? "bg-gray-800 border-gray-600"
+                      : "bg-white border-gray-200"
+                  }`}
+                >
+                  <div
+                    className={`px-4 py-2 border-b rounded-t-lg transition-colors duration-300 ${
+                      isDarkMode
+                        ? "bg-gray-700 border-gray-600"
+                        : "bg-gray-100 border-gray-200"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <h4
+                        className={`font-medium flex items-center transition-colors duration-300 ${
+                          isDarkMode ? "text-gray-200" : "text-gray-700"
                         }`}
                       >
-                        Loading translated content...
+                        <span className="w-3 h-3 bg-green-500 rounded-full mr-2"></span>
+                        Translated ({previewingFile.languageName})
+                      </h4>
+                      <div className="flex items-center justify-end space-x-4">
+                        {isEditing && (
+                          <div className="flex items-center space-x-2">
+                            <button
+                              onClick={handleUndo}
+                              disabled={historyIndex <= 0}
+                              className={`flex items-center space-x-1 px-2 py-1 rounded text-xs transition-colors duration-300 ${
+                                historyIndex <= 0
+                                  ? isDarkMode
+                                    ? "bg-gray-700 text-gray-600 cursor-not-allowed"
+                                    : "bg-gray-100 text-gray-400 cursor-not-allowed"
+                                  : isDarkMode
+                                    ? "bg-gray-600 text-gray-200 hover:bg-gray-500"
+                                    : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                              }`}
+                              title="Undo (Ctrl+Z)"
+                            >
+                              <Undo className="w-3 h-3" />
+                            </button>
+                            <button
+                              onClick={handleRedo}
+                              disabled={historyIndex >= editHistory.length - 1}
+                              className={`flex items-center space-x-1 px-2 py-1 rounded text-xs transition-colors duration-300 ${
+                                historyIndex >= editHistory.length - 1 // ← CORRECT condition for redo button
+                                  ? isDarkMode
+                                    ? "bg-gray-700 text-gray-600 cursor-not-allowed"
+                                    : "bg-gray-100 text-gray-400 cursor-not-allowed"
+                                  : isDarkMode
+                                    ? "bg-gray-600 text-gray-200 hover:bg-gray-500"
+                                    : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                              }`}
+                              title="Redo (Ctrl+Shift+Z or Ctrl+Y)"
+                            >
+                              <Redo className="w-3 h-3" />
+                            </button>
+                          </div>
+                        )}
+
+                        <button
+                          onClick={isEditing ? cancelEditing : startEditing}
+                          disabled={loadingPreview}
+                          className={`text-sm flex items-center space-x-1 transition-colors duration-300 ${
+                            isDarkMode
+                              ? "text-blue-400 hover:text-blue-300"
+                              : "text-blue-600 hover:text-blue-800"
+                          }`}
+                        >
+                          {isEditing ? (
+                            <Eye className="w-4 h-4" />
+                          ) : (
+                            <Edit className="w-4 h-4" />
+                          )}
+                          <span>{isEditing ? "View" : "Edit"}</span>
+                        </button>
                       </div>
                     </div>
-                  ) : isEditing ? (
-                    <div className="space-y-2">
-                      <textarea
-                        ref={editTextareaRef}
-                        value={editedContent}
-                        onChange={(e) => handleTextChange(e.target.value)}
-                        onKeyDown={handleKeyDown}
+                  </div>
+                  <div className="p-4">
+                    {loadingPreview ? (
+                      <div className="flex items-center justify-center h-64">
+                        <div
+                          className={`transition-colors duration-300 ${
+                            isDarkMode ? "text-gray-400" : "text-gray-500"
+                          }`}
+                        >
+                          Loading translated content...
+                        </div>
+                      </div>
+                    ) : isEditing ? (
+                      <div className="space-y-2">
+                        <textarea
+                          ref={editTextareaRef}
+                          value={editedContent}
+                          onChange={(e) => handleTextChange(e.target.value)}
+                          onKeyDown={handleKeyDown}
+                          onScroll={(e) =>
+                            handleScrollSync(e, originalPreviewRef)
+                          }
+                          className={`w-full h-96 p-3 border rounded font-mono text-sm resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-300 ${
+                            isDarkMode
+                              ? "border-gray-600 bg-gray-800 text-gray-200 focus:border-blue-500"
+                              : "border-gray-300 bg-white text-gray-900 focus:border-blue-500"
+                          }`}
+                          placeholder="Edit your subtitle content here..."
+                        />
+                        <div
+                          className={`text-xs transition-colors duration-300 ${
+                            isDarkMode ? "text-gray-500" : "text-gray-400"
+                          }`}
+                        >
+                          Lines: {editedContent.split("\n").length} |
+                          Characters: {editedContent.length}
+                        </div>
+                      </div>
+                    ) : (
+                      <div
+                        ref={translatedPreviewRef}
                         onScroll={(e) =>
-                          handleScrollSync(e, originalPreviewRef)
+                          handleScrollSync(
+                            e,
+                            isEditing ? editTextareaRef : originalPreviewRef,
+                          )
                         }
-                        className={`w-full h-96 p-3 border rounded font-mono text-sm resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-300 ${
-                          isDarkMode
-                            ? "border-gray-600 bg-gray-800 text-gray-200 focus:border-blue-500"
-                            : "border-gray-300 bg-white text-gray-900 focus:border-blue-500"
-                        }`}
-                        placeholder="Edit your subtitle content here..."
-                      />
-                      <div
-                        className={`text-xs transition-colors duration-300 ${
-                          isDarkMode ? "text-gray-500" : "text-gray-400"
-                        }`}
+                        className="max-h-96 overflow-auto"
                       >
-                        Lines: {editedContent.split("\n").length} | Characters:{" "}
-                        {editedContent.length}
+                        <pre
+                          className={`text-sm whitespace-pre-wrap font-mono transition-colors duration-300 ${
+                            isDarkMode ? "text-gray-300" : "text-gray-700"
+                          }`}
+                        >
+                          {previewContent}
+                        </pre>
                       </div>
-                    </div>
-                  ) : (
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-2">
+                <div className="flex items-center space-x-2">
+                  {isEditing && (
                     <div
-                      ref={translatedPreviewRef}
-                      onScroll={(e) =>
-                        handleScrollSync(
-                          e,
-                          isEditing ? editTextareaRef : originalPreviewRef,
-                        )
-                      }
-                      className="max-h-96 overflow-auto"
+                      className={`text-sm px-3 py-1 rounded-full transition-colors duration-300 ${
+                        isDarkMode
+                          ? "text-orange-300 bg-orange-900/30"
+                          : "text-orange-600 bg-orange-50"
+                      }`}
                     >
-                      <pre
-                        className={`text-sm whitespace-pre-wrap font-mono transition-colors duration-300 ${
-                          isDarkMode ? "text-gray-300" : "text-gray-700"
-                        }`}
-                      >
-                        {previewContent}
-                      </pre>
+                      Editing Mode
                     </div>
                   )}
                 </div>
-              </div>
-            </div>
 
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-2">
-              <div className="flex items-center space-x-2">
-                {isEditing && (
-                  <div
-                    className={`text-sm px-3 py-1 rounded-full transition-colors duration-300 ${
-                      isDarkMode
-                        ? "text-orange-300 bg-orange-900/30"
-                        : "text-orange-600 bg-orange-50"
-                    }`}
-                  >
-                    Editing Mode
-                  </div>
-                )}
-              </div>
+                <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
+                  {isEditing && !hasAutoSaved && !projectSaved && (
+                    <button
+                      onClick={() => {
+                        setPreviewContent(editedContent);
+                        setEditedFiles((prev) => ({
+                          ...prev,
+                          [previewingFile.filename]: editedContent,
+                        }));
+                        setShowSaveProjectModal(true);
+                      }}
+                      disabled={isSaving}
+                      className={`flex items-center justify-center space-x-2 px-4 py-2 text-white rounded-lg transition-colors duration-300 ${
+                        isSaving
+                          ? isDarkMode
+                            ? "bg-gray-600"
+                            : "bg-gray-400"
+                          : "bg-green-500 hover:bg-green-600"
+                      }`}
+                    >
+                      <Save className="w-4 h-4" />
+                      <span>Save Project</span>
+                    </button>
+                  )}
 
-              <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
-                {isEditing && !hasAutoSaved && !projectSaved && (
                   <button
                     onClick={() => {
-                      setPreviewContent(editedContent);
-                      setEditedFiles((prev) => ({
-                        ...prev,
-                        [previewingFile.filename]: editedContent,
-                      }));
-                      setShowSaveProjectModal(true);
+                      // Always check for edited content first, then edited files, then original
+                      const contentToDownload =
+                        editedContent || editedFiles[previewingFile.filename];
+                      if (contentToDownload) {
+                        // Create and download the edited content
+                        const blob = new Blob([contentToDownload], {
+                          type: "text/plain",
+                        });
+                        const url = window.URL.createObjectURL(blob);
+                        const a = document.createElement("a");
+                        a.href = url;
+                        a.download = previewingFile.filename
+                          .replace(".srt", "_edited.srt")
+                          .replace(".vtt", "_edited.vtt");
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        window.URL.revokeObjectURL(url);
+                      } else {
+                        downloadFile(previewingFile.filename);
+                      }
                     }}
-                    disabled={isSaving}
-                    className={`flex items-center justify-center space-x-2 px-4 py-2 text-white rounded-lg transition-colors duration-300 ${
-                      isSaving
+                    disabled={
+                      isEditing &&
+                      !editedFiles[previewingFile.filename] &&
+                      !editedContent
+                    }
+                    className={`flex items-center justify-center space-x-2 px-4 py-2 rounded-lg transition-colors duration-300 ${
+                      isEditing &&
+                      !editedFiles[previewingFile.filename] &&
+                      !editedContent
                         ? isDarkMode
-                          ? "bg-gray-600"
-                          : "bg-gray-400"
-                        : "bg-green-500 hover:bg-green-600"
+                          ? "bg-gray-600 text-gray-400 cursor-not-allowed"
+                          : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                        : "bg-blue-500 text-white hover:bg-blue-600"
                     }`}
                   >
-                    <Save className="w-4 h-4" />
-                    <span>Save Project</span>
+                    <Download className="w-4 h-4" />
+                    <span>
+                      {editedContent || editedFiles[previewingFile.filename]
+                        ? "Download Edited"
+                        : "Download File"}
+                    </span>
                   </button>
-                )}
-
-                <button
-                  onClick={() => {
-                    // Always check for edited content first, then edited files, then original
-                    const contentToDownload =
-                      editedContent || editedFiles[previewingFile.filename];
-                    if (contentToDownload) {
-                      // Create and download the edited content
-                      const blob = new Blob([contentToDownload], {
-                        type: "text/plain",
-                      });
-                      const url = window.URL.createObjectURL(blob);
-                      const a = document.createElement("a");
-                      a.href = url;
-                      a.download = previewingFile.filename
-                        .replace(".srt", "_edited.srt")
-                        .replace(".vtt", "_edited.vtt");
-                      document.body.appendChild(a);
-                      a.click();
-                      document.body.removeChild(a);
-                      window.URL.revokeObjectURL(url);
-                    } else {
-                      downloadFile(previewingFile.filename);
-                    }
-                  }}
-                  disabled={
-                    isEditing &&
-                    !editedFiles[previewingFile.filename] &&
-                    !editedContent
-                  }
-                  className={`flex items-center justify-center space-x-2 px-4 py-2 rounded-lg transition-colors duration-300 ${
-                    isEditing &&
-                    !editedFiles[previewingFile.filename] &&
-                    !editedContent
-                      ? isDarkMode
-                        ? "bg-gray-600 text-gray-400 cursor-not-allowed"
-                        : "bg-gray-300 text-gray-500 cursor-not-allowed"
-                      : "bg-blue-500 text-white hover:bg-blue-600"
-                  }`}
-                >
-                  <Download className="w-4 h-4" />
-                  <span>
-                    {editedContent || editedFiles[previewingFile.filename]
-                      ? "Download Edited"
-                      : "Download File"}
-                  </span>
-                </button>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
+
+        <AutoSaveModal
+          isVisible={showAutoSaveModal}
+          onAutoSave={handleAutoSaveQuick}
+          onCustomize={handleCustomizeSave}
+          onCancel={handleDontSave}
+          originalFilename={uploadedFile?.name}
+          isDarkMode={isDarkMode}
+        />
+
+        <SaveProjectModal
+          isOpen={showSaveProjectModal}
+          onClose={() => {
+            setShowSaveProjectModal(false);
+            // Reset any errors when closing
+            setError(null);
+          }}
+          onSave={async (projectData) => {
+            // Merge modal data with translation data
+            const completeProjectData = {
+              ...projectData,
+              source_language: translationData.sourceLanguage || "auto",
+              original_file_path: translationData.originalFilePath || "",
+              translated_file_path: translationData.translatedFilePaths || [],
+            };
+
+            await saveAsProject(completeProjectData);
+          }}
+          translatedFiles={translatedFiles}
+          originalFilename={uploadedFile?.name || ""}
+          targetLanguages={targetLanguages}
+          languages={languages}
+          isSaving={isSavingProject}
+          editedFiles={editedFiles}
+          isDarkMode={isDarkMode}
+        />
       </div>
-
-      <AutoSaveModal
-        isVisible={showAutoSaveModal}
-        onAutoSave={handleAutoSaveQuick}
-        onCustomize={handleCustomizeSave}
-        onCancel={handleDontSave}
-        originalFilename={uploadedFile?.name}
-        isDarkMode={isDarkMode}
-      />
-
-      <SaveProjectModal
-        isOpen={showSaveProjectModal}
-        onClose={() => {
-          setShowSaveProjectModal(false);
-          // Reset any errors when closing
-          setError(null);
-        }}
-        onSave={async (projectData) => {
-          // Merge modal data with translation data
-          const completeProjectData = {
-            ...projectData,
-            source_language: translationData.sourceLanguage || "auto",
-            original_file_path: translationData.originalFilePath || "",
-            translated_file_path: translationData.translatedFilePaths || [],
-          };
-
-          await saveAsProject(completeProjectData);
-        }}
-        translatedFiles={translatedFiles}
-        originalFilename={uploadedFile?.name || ""}
-        targetLanguages={targetLanguages}
-        languages={languages}
-        isSaving={isSavingProject}
-        editedFiles={editedFiles}
-        isDarkMode={isDarkMode}
-      />
     </div>
   );
 };
