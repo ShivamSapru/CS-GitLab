@@ -71,6 +71,8 @@ async def test_api_health_check():
         print(f"Health check passed: {result}")
 
 ## Step 1: Test /api/translate
+@pytest.mark.translation
+@pytest.mark.skip(reason="Translation disabled in CI - makes real Azure API calls with mock credentials")
 @pytest.mark.asyncio
 async def test_end_to_end_translation():
     """Test the translation endpoint with a sample VTT subtitle file"""
