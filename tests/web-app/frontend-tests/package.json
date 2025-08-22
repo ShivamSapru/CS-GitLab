@@ -1,7 +1,6 @@
 {
   "name": "web-app-frontend-tests",
   "version": "1.0.0",
-  "type": "module",
   "scripts": {
     "test": "jest",
     "test:watch": "jest --watch",
