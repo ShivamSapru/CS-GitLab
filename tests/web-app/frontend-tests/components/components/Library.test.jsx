@@ -3,7 +3,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { jest } from '@jest/globals';
 
 // Mock Library component
-const mockLibrary = ({ isDarkMode, user, onShowLogin }) => {
+const MockLibrary = ({ isDarkMode, user, onShowLogin }) => {
   const [projects, setProjects] = React.useState([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState('');
@@ -299,7 +299,7 @@ describe('Library Component', () => {
 
   describe('Rendering - Unauthenticated', () => {
     test('should render login required message when user is not logged in', () => {
-      render(<mockLibrary {...defaultProps} />);
+      render(<MockLibrary {...defaultProps} />);
       
       expect(screen.getByTestId('library-component')).toBeInTheDocument();
       expect(screen.getByText('Translation Library')).toBeInTheDocument();
@@ -308,7 +308,7 @@ describe('Library Component', () => {
     });
 
     test('should call onShowLogin when login button is clicked', () => {
-      render(<mockLibrary {...defaultProps} />);
+      render(<MockLibrary {...defaultProps} />);
       
       fireEvent.click(screen.getByTestId('login-button'));
       expect(mockOnShowLogin).toHaveBeenCalledTimes(1);
@@ -317,7 +317,7 @@ describe('Library Component', () => {
 
   describe('Rendering - Authenticated', () => {
     test('should render library with controls when user is logged in', async () => {
-      render(<mockLibrary {...defaultProps} user={mockUser} />);
+      render(<MockLibrary {...defaultProps} user={mockUser} />);
       
       await waitFor(() => {
         expect(screen.getByTestId('library-controls')).toBeInTheDocument();
@@ -329,14 +329,14 @@ describe('Library Component', () => {
     });
 
     test('should show loading message initially', () => {
-      render(<mockLibrary {...defaultProps} user={mockUser} />);
+      render(<MockLibrary {...defaultProps} user={mockUser} />);
       
       expect(screen.getByTestId('loading-message')).toBeInTheDocument();
       expect(screen.getByText('Loading your projects...')).toBeInTheDocument();
     });
 
     test('should render projects after loading', async () => {
-      render(<mockLibrary {...defaultProps} user={mockUser} />);
+      render(<MockLibrary {...defaultProps} user={mockUser} />);
       
       await waitFor(() => {
         expect(screen.getByTestId('projects-grid')).toBeInTheDocument();
@@ -348,7 +348,7 @@ describe('Library Component', () => {
     });
 
     test('should display project summary', async () => {
-      render(<mockLibrary {...defaultProps} user={mockUser} />);
+      render(<MockLibrary {...defaultProps} user={mockUser} />);
       
       await waitFor(() => {
         expect(screen.getByTestId('projects-summary')).toBeInTheDocument();
@@ -360,7 +360,7 @@ describe('Library Component', () => {
 
   describe('Project Display', () => {
     test('should display correct project information', async () => {
-      render(<mockLibrary {...defaultProps} user={mockUser} />);
+      render(<MockLibrary {...defaultProps} user={mockUser} />);
       
       await waitFor(() => {
         expect(screen.getByTestId('project-name-1')).toHaveTextContent('Movie Subtitles Spanish');
@@ -373,7 +373,7 @@ describe('Library Component', () => {
     });
 
     test('should format file sizes correctly', async () => {
-      render(<mockLibrary {...defaultProps} user={mockUser} />);
+      render(<MockLibrary {...defaultProps} user={mockUser} />);
       
       await waitFor(() => {
         expect(screen.getByTestId('project-size-1')).toHaveTextContent('15 KB');
@@ -384,7 +384,7 @@ describe('Library Component', () => {
     });
 
     test('should format dates correctly', async () => {
-      render(<mockLibrary {...defaultProps} user={mockUser} />);
+      render(<MockLibrary {...defaultProps} user={mockUser} />);
       
       await waitFor(() => {
         const dateElement = screen.getByTestId('project-date-1');
@@ -393,7 +393,7 @@ describe('Library Component', () => {
     });
 
     test('should show download button only for completed projects', async () => {
-      render(<mockLibrary {...defaultProps} user={mockUser} />);
+      render(<MockLibrary {...defaultProps} user={mockUser} />);
       
       await waitFor(() => {
         expect(screen.getByTestId('download-button-1')).toBeInTheDocument(); // completed
@@ -403,7 +403,7 @@ describe('Library Component', () => {
     });
 
     test('should show delete button for all projects', async () => {
-      render(<mockLibrary {...defaultProps} user={mockUser} />);
+      render(<MockLibrary {...defaultProps} user={mockUser} />);
       
       await waitFor(() => {
         expect(screen.getByTestId('delete-button-1')).toBeInTheDocument();
@@ -415,7 +415,7 @@ describe('Library Component', () => {
 
   describe('Search Functionality', () => {
     test('should filter projects by search term', async () => {
-      render(<mockLibrary {...defaultProps} user={mockUser} />);
+      render(<MockLibrary {...defaultProps} user={mockUser} />);
       
       await waitFor(() => {
         expect(screen.getByTestId('projects-grid')).toBeInTheDocument();
@@ -432,7 +432,7 @@ describe('Library Component', () => {
     });
 
     test('should show no results when search has no matches', async () => {
-      render(<mockLibrary {...defaultProps} user={mockUser} />);
+      render(<MockLibrary {...defaultProps} user={mockUser} />);
       
       await waitFor(() => {
         expect(screen.getByTestId('projects-grid')).toBeInTheDocument();
@@ -450,7 +450,7 @@ describe('Library Component', () => {
 
   describe('Filter Functionality', () => {
     test('should filter by project type', async () => {
-      render(<mockLibrary {...defaultProps} user={mockUser} />);
+      render(<MockLibrary {...defaultProps} user={mockUser} />);
       
       await waitFor(() => {
         expect(screen.getByTestId('projects-grid')).toBeInTheDocument();
@@ -467,7 +467,7 @@ describe('Library Component', () => {
     });
 
     test('should filter by transcription type', async () => {
-      render(<mockLibrary {...defaultProps} user={mockUser} />);
+      render(<MockLibrary {...defaultProps} user={mockUser} />);
       
       await waitFor(() => {
         expect(screen.getByTestId('projects-grid')).toBeInTheDocument();
@@ -486,7 +486,7 @@ describe('Library Component', () => {
 
   describe('Sort Functionality', () => {
     test('should sort projects by name', async () => {
-      render(<mockLibrary {...defaultProps} user={mockUser} />);
+      render(<MockLibrary {...defaultProps} user={mockUser} />);
       
       await waitFor(() => {
         expect(screen.getByTestId('projects-grid')).toBeInTheDocument();
@@ -501,7 +501,7 @@ describe('Library Component', () => {
     });
 
     test('should sort projects by type', async () => {
-      render(<mockLibrary {...defaultProps} user={mockUser} />);
+      render(<MockLibrary {...defaultProps} user={mockUser} />);
       
       await waitFor(() => {
         expect(screen.getByTestId('projects-grid')).toBeInTheDocument();
@@ -518,7 +518,7 @@ describe('Library Component', () => {
 
   describe('Project Actions', () => {
     test('should handle project download', async () => {
-      render(<mockLibrary {...defaultProps} user={mockUser} />);
+      render(<MockLibrary {...defaultProps} user={mockUser} />);
       
       await waitFor(() => {
         expect(screen.getByTestId('download-button-1')).toBeInTheDocument();
@@ -538,7 +538,7 @@ describe('Library Component', () => {
     });
 
     test('should handle project deletion', async () => {
-      render(<mockLibrary {...defaultProps} user={mockUser} />);
+      render(<MockLibrary {...defaultProps} user={mockUser} />);
       
       await waitFor(() => {
         expect(screen.getByTestId('delete-button-1')).toBeInTheDocument();
@@ -559,7 +559,7 @@ describe('Library Component', () => {
       // Mock empty projects response
       const emptyUser = { ...mockUser };
       
-      render(<mockLibrary {...defaultProps} user={emptyUser} />);
+      render(<MockLibrary {...defaultProps} user={emptyUser} />);
       
       // This would require modifying the mock to return empty projects
       // For now, we test the structure exists
@@ -571,13 +571,13 @@ describe('Library Component', () => {
 
   describe('Styling and Themes', () => {
     test('should apply dark mode styling', async () => {
-      render(<mockLibrary {...defaultProps} user={mockUser} isDarkMode={true} />);
+      render(<MockLibrary {...defaultProps} user={mockUser} isDarkMode={true} />);
       
       expect(screen.getByTestId('library-component')).toHaveClass('dark-mode');
     });
 
     test('should apply light mode styling', async () => {
-      render(<mockLibrary {...defaultProps} user={mockUser} isDarkMode={false} />);
+      render(<MockLibrary {...defaultProps} user={mockUser} isDarkMode={false} />);
       
       expect(screen.getByTestId('library-component')).toHaveClass('light-mode');
     });
@@ -587,7 +587,7 @@ describe('Library Component', () => {
     test('should display error messages when they occur', async () => {
       // This would require mocking a failed API response
       // The component structure supports error display
-      render(<mockLibrary {...defaultProps} user={mockUser} />);
+      render(<MockLibrary {...defaultProps} user={mockUser} />);
       
       await waitFor(() => {
         expect(screen.getByTestId('library-controls')).toBeInTheDocument();
