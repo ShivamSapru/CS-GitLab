@@ -64,7 +64,7 @@ const MockSignupModal = ({
         <div data-testid="modal-content" onClick={(e) => e.stopPropagation()}>
           <button data-testid="close-button" onClick={onClose}>×</button>
           
-          <h2>Sign Up</h2>
+          <h2 data-testid="signup-title">Sign Up</h2>
           
           <form data-testid="signup-form" onSubmit={handleSubmit}>
             {error && (
@@ -116,7 +116,7 @@ const MockSignupModal = ({
               data-testid="signup-button"
               type="submit"
             >
-              Sign Up
+              Create Account
             </button>
           </form>
 
@@ -162,7 +162,7 @@ describe('SignupModal Component', () => {
       render(<MockSignupModal {...defaultProps} />);
       
       expect(screen.getByTestId('signup-modal')).toBeInTheDocument();
-      expect(screen.getByText('Sign Up')).toBeInTheDocument();
+      expect(screen.getByTestId('signup-title')).toHaveTextContent('Sign Up');
       expect(screen.getByTestId('signup-form')).toBeInTheDocument();
     });
 
