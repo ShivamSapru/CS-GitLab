@@ -3,7 +3,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { jest } from '@jest/globals';
 
 // Mock SignupModal component
-const mockSignupModal = ({ 
+const MockSignupModal = ({ 
   onClose, 
   onSignupSuccess, 
   onShowLogin, 
@@ -237,7 +237,7 @@ describe('SignupModal Component', () => {
 
   describe('Rendering', () => {
     test('should render signup modal with correct elements', () => {
-      render(<mockSignupModal {...defaultProps} />);
+      render(<MockSignupModal {...defaultProps} />);
       
       expect(screen.getByTestId('signup-modal')).toBeInTheDocument();
       expect(screen.getByText('Create Your SubLingo Account')).toBeInTheDocument();
@@ -245,7 +245,7 @@ describe('SignupModal Component', () => {
     });
 
     test('should render all form inputs', () => {
-      render(<mockSignupModal {...defaultProps} />);
+      render(<MockSignupModal {...defaultProps} />);
       
       expect(screen.getByTestId('firstname-input')).toBeInTheDocument();
       expect(screen.getByTestId('lastname-input')).toBeInTheDocument();
@@ -255,13 +255,13 @@ describe('SignupModal Component', () => {
     });
 
     test('should apply dark mode styling', () => {
-      render(<mockSignupModal {...defaultProps} isDarkMode={true} />);
+      render(<MockSignupModal {...defaultProps} isDarkMode={true} />);
       
       expect(screen.getByTestId('signup-modal')).toHaveClass('dark-mode');
     });
 
     test('should render OAuth and login sections', () => {
-      render(<mockSignupModal {...defaultProps} />);
+      render(<MockSignupModal {...defaultProps} />);
       
       expect(screen.getByTestId('oauth-section')).toBeInTheDocument();
       expect(screen.getByTestId('google-signup-button')).toBeInTheDocument();
@@ -272,7 +272,7 @@ describe('SignupModal Component', () => {
 
   describe('Form Interactions', () => {
     test('should update form fields when typed', () => {
-      render(<mockSignupModal {...defaultProps} />);
+      render(<MockSignupModal {...defaultProps} />);
       
       const firstNameInput = screen.getByTestId('firstname-input');
       const lastNameInput = screen.getByTestId('lastname-input');
@@ -288,7 +288,7 @@ describe('SignupModal Component', () => {
     });
 
     test('should clear field errors when user types', () => {
-      render(<mockSignupModal {...defaultProps} />);
+      render(<MockSignupModal {...defaultProps} />);
       
       const signupButton = screen.getByTestId('signup-button');
       fireEvent.click(signupButton);
@@ -306,7 +306,7 @@ describe('SignupModal Component', () => {
 
   describe('Form Validation', () => {
     test('should show validation errors for empty required fields', async () => {
-      render(<mockSignupModal {...defaultProps} />);
+      render(<MockSignupModal {...defaultProps} />);
       
       const signupButton = screen.getByTestId('signup-button');
       fireEvent.click(signupButton);
@@ -320,7 +320,7 @@ describe('SignupModal Component', () => {
     });
 
     test('should validate password length', async () => {
-      render(<mockSignupModal {...defaultProps} />);
+      render(<MockSignupModal {...defaultProps} />);
       
       const passwordInput = screen.getByTestId('password-input');
       fireEvent.change(passwordInput, { target: { value: 'short' } });
@@ -334,7 +334,7 @@ describe('SignupModal Component', () => {
     });
 
     test('should validate password confirmation match', async () => {
-      render(<mockSignupModal {...defaultProps} />);
+      render(<MockSignupModal {...defaultProps} />);
       
       const passwordInput = screen.getByTestId('password-input');
       const confirmPasswordInput = screen.getByTestId('confirm-password-input');
@@ -351,7 +351,7 @@ describe('SignupModal Component', () => {
     });
 
     test('should handle existing email error', async () => {
-      render(<mockSignupModal {...defaultProps} />);
+      render(<MockSignupModal {...defaultProps} />);
       
       // Fill out form with existing email
       fireEvent.change(screen.getByTestId('firstname-input'), { target: { value: 'John' } });
@@ -370,7 +370,7 @@ describe('SignupModal Component', () => {
 
   describe('Signup Flow', () => {
     test('should call onSignupSuccess with user data on successful signup', async () => {
-      render(<mockSignupModal {...defaultProps} />);
+      render(<MockSignupModal {...defaultProps} />);
       
       // Fill out valid form
       fireEvent.change(screen.getByTestId('firstname-input'), { target: { value: 'John' } });
@@ -394,7 +394,7 @@ describe('SignupModal Component', () => {
     });
 
     test('should handle 2FA setup required flow', async () => {
-      render(<mockSignupModal {...defaultProps} />);
+      render(<MockSignupModal {...defaultProps} />);
       
       // Fill out form with 2FA email
       fireEvent.change(screen.getByTestId('firstname-input'), { target: { value: 'Jane' } });
@@ -414,7 +414,7 @@ describe('SignupModal Component', () => {
     });
 
     test('should handle Google OAuth signup', async () => {
-      render(<mockSignupModal {...defaultProps} />);
+      render(<MockSignupModal {...defaultProps} />);
       
       const googleButton = screen.getByTestId('google-signup-button');
       fireEvent.click(googleButton);
@@ -430,7 +430,7 @@ describe('SignupModal Component', () => {
     });
 
     test('should show loading state during signup', async () => {
-      render(<mockSignupModal {...defaultProps} />);
+      render(<MockSignupModal {...defaultProps} />);
       
       // Fill out form
       fireEvent.change(screen.getByTestId('firstname-input'), { target: { value: 'John' } });
@@ -449,21 +449,21 @@ describe('SignupModal Component', () => {
 
   describe('Modal Controls', () => {
     test('should call onClose when close button is clicked', () => {
-      render(<mockSignupModal {...defaultProps} />);
+      render(<MockSignupModal {...defaultProps} />);
       
       fireEvent.click(screen.getByTestId('close-button'));
       expect(mockOnClose).toHaveBeenCalledTimes(1);
     });
 
     test('should call onClose when overlay is clicked', () => {
-      render(<mockSignupModal {...defaultProps} />);
+      render(<MockSignupModal {...defaultProps} />);
       
       fireEvent.click(screen.getByTestId('modal-overlay'));
       expect(mockOnClose).toHaveBeenCalledTimes(1);
     });
 
     test('should call onShowLogin when login button is clicked', () => {
-      render(<mockSignupModal {...defaultProps} />);
+      render(<MockSignupModal {...defaultProps} />);
       
       fireEvent.click(screen.getByTestId('show-login-button'));
       expect(mockOnShowLogin).toHaveBeenCalledTimes(1);
@@ -472,7 +472,7 @@ describe('SignupModal Component', () => {
 
   describe('Accessibility', () => {
     test('should have proper form labels', () => {
-      render(<mockSignupModal {...defaultProps} />);
+      render(<MockSignupModal {...defaultProps} />);
       
       expect(screen.getByLabelText('First Name')).toBeInTheDocument();
       expect(screen.getByLabelText('Last Name')).toBeInTheDocument();
@@ -482,7 +482,7 @@ describe('SignupModal Component', () => {
     });
 
     test('should have required attributes on inputs', () => {
-      render(<mockSignupModal {...defaultProps} />);
+      render(<MockSignupModal {...defaultProps} />);
       
       expect(screen.getByTestId('firstname-input')).toHaveAttribute('required');
       expect(screen.getByTestId('lastname-input')).toHaveAttribute('required');
@@ -492,7 +492,7 @@ describe('SignupModal Component', () => {
     });
 
     test('should have correct input types', () => {
-      render(<mockSignupModal {...defaultProps} />);
+      render(<MockSignupModal {...defaultProps} />);
       
       expect(screen.getByTestId('email-input')).toHaveAttribute('type', 'email');
       expect(screen.getByTestId('password-input')).toHaveAttribute('type', 'password');

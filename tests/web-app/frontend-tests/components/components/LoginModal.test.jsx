@@ -3,7 +3,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { jest } from '@jest/globals';
 
 // Mock LoginModal component
-const mockLoginModal = ({ 
+const MockLoginModal = ({ 
   onClose, 
   onLoginSuccess, 
   onShowSignup, 
@@ -139,7 +139,7 @@ describe('LoginModal Component', () => {
 
   describe('Rendering', () => {
     test('should render login modal with correct elements', () => {
-      render(<mockLoginModal {...defaultProps} />);
+      render(<MockLoginModal {...defaultProps} />);
       
       expect(screen.getByTestId('login-modal')).toBeInTheDocument();
       expect(screen.getByTestId('modal-overlay')).toBeInTheDocument();
@@ -148,7 +148,7 @@ describe('LoginModal Component', () => {
     });
 
     test('should render form with email and password inputs', () => {
-      render(<mockLoginModal {...defaultProps} />);
+      render(<MockLoginModal {...defaultProps} />);
       
       expect(screen.getByTestId('login-form')).toBeInTheDocument();
       expect(screen.getByTestId('email-input')).toBeInTheDocument();
@@ -157,14 +157,14 @@ describe('LoginModal Component', () => {
     });
 
     test('should render OAuth section', () => {
-      render(<mockLoginModal {...defaultProps} />);
+      render(<MockLoginModal {...defaultProps} />);
       
       expect(screen.getByTestId('oauth-section')).toBeInTheDocument();
       expect(screen.getByTestId('google-login-button')).toBeInTheDocument();
     });
 
     test('should render signup section', () => {
-      render(<mockLoginModal {...defaultProps} />);
+      render(<MockLoginModal {...defaultProps} />);
       
       expect(screen.getByTestId('signup-section')).toBeInTheDocument();
       expect(screen.getByText("Don't have an account?")).toBeInTheDocument();
@@ -172,14 +172,14 @@ describe('LoginModal Component', () => {
     });
 
     test('should apply dark mode styling when isDarkMode is true', () => {
-      render(<mockLoginModal {...defaultProps} isDarkMode={true} />);
+      render(<MockLoginModal {...defaultProps} isDarkMode={true} />);
       
       const modal = screen.getByTestId('login-modal');
       expect(modal).toHaveClass('dark-mode');
     });
 
     test('should apply light mode styling when isDarkMode is false', () => {
-      render(<mockLoginModal {...defaultProps} isDarkMode={false} />);
+      render(<MockLoginModal {...defaultProps} isDarkMode={false} />);
       
       const modal = screen.getByTestId('login-modal');
       expect(modal).toHaveClass('light-mode');
@@ -188,7 +188,7 @@ describe('LoginModal Component', () => {
 
   describe('Form Interactions', () => {
     test('should update email input value when typed', () => {
-      render(<mockLoginModal {...defaultProps} />);
+      render(<MockLoginModal {...defaultProps} />);
       
       const emailInput = screen.getByTestId('email-input');
       fireEvent.change(emailInput, { target: { value: 'test@example.com' } });
@@ -197,7 +197,7 @@ describe('LoginModal Component', () => {
     });
 
     test('should update password input value when typed', () => {
-      render(<mockLoginModal {...defaultProps} />);
+      render(<MockLoginModal {...defaultProps} />);
       
       const passwordInput = screen.getByTestId('password-input');
       fireEvent.change(passwordInput, { target: { value: 'password123' } });
@@ -206,7 +206,7 @@ describe('LoginModal Component', () => {
     });
 
     test('should show loading state when submitting form', async () => {
-      render(<mockLoginModal {...defaultProps} />);
+      render(<MockLoginModal {...defaultProps} />);
       
       const emailInput = screen.getByTestId('email-input');
       const passwordInput = screen.getByTestId('password-input');
@@ -223,7 +223,7 @@ describe('LoginModal Component', () => {
 
   describe('Authentication Flow', () => {
     test('should call onLoginSuccess with user data on successful login', async () => {
-      render(<mockLoginModal {...defaultProps} />);
+      render(<MockLoginModal {...defaultProps} />);
       
       const emailInput = screen.getByTestId('email-input');
       const passwordInput = screen.getByTestId('password-input');
@@ -244,7 +244,7 @@ describe('LoginModal Component', () => {
     });
 
     test('should handle 2FA required flow', async () => {
-      render(<mockLoginModal {...defaultProps} />);
+      render(<MockLoginModal {...defaultProps} />);
       
       const emailInput = screen.getByTestId('email-input');
       const passwordInput = screen.getByTestId('password-input');
@@ -264,7 +264,7 @@ describe('LoginModal Component', () => {
     });
 
     test('should show error message on failed login', async () => {
-      render(<mockLoginModal {...defaultProps} />);
+      render(<MockLoginModal {...defaultProps} />);
       
       const emailInput = screen.getByTestId('email-input');
       const passwordInput = screen.getByTestId('password-input');
@@ -283,7 +283,7 @@ describe('LoginModal Component', () => {
     });
 
     test('should handle Google OAuth login', async () => {
-      render(<mockLoginModal {...defaultProps} />);
+      render(<MockLoginModal {...defaultProps} />);
       
       const googleButton = screen.getByTestId('google-login-button');
       fireEvent.click(googleButton);
@@ -301,7 +301,7 @@ describe('LoginModal Component', () => {
 
   describe('Modal Controls', () => {
     test('should call onClose when close button is clicked', () => {
-      render(<mockLoginModal {...defaultProps} />);
+      render(<MockLoginModal {...defaultProps} />);
       
       const closeButton = screen.getByTestId('close-button');
       fireEvent.click(closeButton);
@@ -310,7 +310,7 @@ describe('LoginModal Component', () => {
     });
 
     test('should call onClose when overlay is clicked', () => {
-      render(<mockLoginModal {...defaultProps} />);
+      render(<MockLoginModal {...defaultProps} />);
       
       const overlay = screen.getByTestId('modal-overlay');
       fireEvent.click(overlay);
@@ -319,7 +319,7 @@ describe('LoginModal Component', () => {
     });
 
     test('should not call onClose when modal content is clicked', () => {
-      render(<mockLoginModal {...defaultProps} />);
+      render(<MockLoginModal {...defaultProps} />);
       
       const modalContent = screen.getByTestId('modal-content');
       fireEvent.click(modalContent);
@@ -328,7 +328,7 @@ describe('LoginModal Component', () => {
     });
 
     test('should call onShowSignup when signup button is clicked', () => {
-      render(<mockLoginModal {...defaultProps} />);
+      render(<MockLoginModal {...defaultProps} />);
       
       const signupButton = screen.getByTestId('show-signup-button');
       fireEvent.click(signupButton);
@@ -339,7 +339,7 @@ describe('LoginModal Component', () => {
 
   describe('Form Validation', () => {
     test('should require email input', () => {
-      render(<mockLoginModal {...defaultProps} />);
+      render(<MockLoginModal {...defaultProps} />);
       
       const emailInput = screen.getByTestId('email-input');
       expect(emailInput).toHaveAttribute('required');
@@ -347,7 +347,7 @@ describe('LoginModal Component', () => {
     });
 
     test('should require password input', () => {
-      render(<mockLoginModal {...defaultProps} />);
+      render(<MockLoginModal {...defaultProps} />);
       
       const passwordInput = screen.getByTestId('password-input');
       expect(passwordInput).toHaveAttribute('required');
@@ -355,7 +355,7 @@ describe('LoginModal Component', () => {
     });
 
     test('should disable buttons when loading', async () => {
-      render(<mockLoginModal {...defaultProps} />);
+      render(<MockLoginModal {...defaultProps} />);
       
       const emailInput = screen.getByTestId('email-input');
       const passwordInput = screen.getByTestId('password-input');
@@ -374,14 +374,14 @@ describe('LoginModal Component', () => {
 
   describe('Accessibility', () => {
     test('should have proper form labels', () => {
-      render(<mockLoginModal {...defaultProps} />);
+      render(<MockLoginModal {...defaultProps} />);
       
       expect(screen.getByLabelText('Email')).toBeInTheDocument();
       expect(screen.getByLabelText('Password')).toBeInTheDocument();
     });
 
     test('should associate labels with inputs correctly', () => {
-      render(<mockLoginModal {...defaultProps} />);
+      render(<MockLoginModal {...defaultProps} />);
       
       const emailInput = screen.getByTestId('email-input');
       const passwordInput = screen.getByTestId('password-input');
@@ -391,7 +391,7 @@ describe('LoginModal Component', () => {
     });
 
     test('should have accessible button labels', () => {
-      render(<mockLoginModal {...defaultProps} />);
+      render(<MockLoginModal {...defaultProps} />);
       
       expect(screen.getByText('Login')).toBeInTheDocument();
       expect(screen.getByText('Login with Google')).toBeInTheDocument();

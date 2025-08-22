@@ -3,7 +3,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { jest } from '@jest/globals';
 
 // Mock StaticSubtitleUpload component
-const mockStaticSubtitleUpload = ({ isDarkMode }) => {
+const MockStaticSubtitleUpload = ({ isDarkMode }) => {
   const [file, setFile] = React.useState(null);
   const [targetLanguage, setTargetLanguage] = React.useState('en');
   const [censorProfanity, setCensorProfanity] = React.useState(true);
@@ -282,7 +282,7 @@ describe('StaticSubtitleUpload Component', () => {
 
   describe('Rendering', () => {
     test('should render upload component with correct title', () => {
-      render(<mockStaticSubtitleUpload {...defaultProps} />);
+      render(<MockStaticSubtitleUpload {...defaultProps} />);
       
       expect(screen.getByTestId('static-subtitle-upload')).toBeInTheDocument();
       expect(screen.getByText('Static Subtitle Translation')).toBeInTheDocument();
@@ -290,13 +290,13 @@ describe('StaticSubtitleUpload Component', () => {
     });
 
     test('should apply dark mode styling', () => {
-      render(<mockStaticSubtitleUpload {...defaultProps} isDarkMode={true} />);
+      render(<MockStaticSubtitleUpload {...defaultProps} isDarkMode={true} />);
       
       expect(screen.getByTestId('static-subtitle-upload')).toHaveClass('dark-mode');
     });
 
     test('should render drop zone initially', () => {
-      render(<mockStaticSubtitleUpload {...defaultProps} />);
+      render(<MockStaticSubtitleUpload {...defaultProps} />);
       
       expect(screen.getByTestId('drop-zone')).toBeInTheDocument();
       expect(screen.getByTestId('file-prompt')).toBeInTheDocument();
@@ -304,7 +304,7 @@ describe('StaticSubtitleUpload Component', () => {
     });
 
     test('should render translation settings', () => {
-      render(<mockStaticSubtitleUpload {...defaultProps} />);
+      render(<MockStaticSubtitleUpload {...defaultProps} />);
       
       expect(screen.getByTestId('translation-settings')).toBeInTheDocument();
       expect(screen.getByTestId('target-language-select')).toBeInTheDocument();
@@ -312,7 +312,7 @@ describe('StaticSubtitleUpload Component', () => {
     });
 
     test('should render action buttons', () => {
-      render(<mockStaticSubtitleUpload {...defaultProps} />);
+      render(<MockStaticSubtitleUpload {...defaultProps} />);
       
       expect(screen.getByTestId('action-buttons')).toBeInTheDocument();
       expect(screen.getByTestId('upload-button')).toBeInTheDocument();
@@ -321,7 +321,7 @@ describe('StaticSubtitleUpload Component', () => {
 
   describe('File Selection', () => {
     test('should handle file selection via input', () => {
-      render(<mockStaticSubtitleUpload {...defaultProps} />);
+      render(<MockStaticSubtitleUpload {...defaultProps} />);
       
       const fileInput = screen.getByTestId('file-input');
       const file = new File(['subtitle content'], 'test.srt', { type: 'text/plain' });
@@ -333,7 +333,7 @@ describe('StaticSubtitleUpload Component', () => {
     });
 
     test('should display file size when file is selected', () => {
-      render(<mockStaticSubtitleUpload {...defaultProps} />);
+      render(<MockStaticSubtitleUpload {...defaultProps} />);
       
       const fileInput = screen.getByTestId('file-input');
       const file = new File(['x'.repeat(1024)], 'test.srt', { type: 'text/plain' });
@@ -344,7 +344,7 @@ describe('StaticSubtitleUpload Component', () => {
     });
 
     test('should show clear button when file is selected', () => {
-      render(<mockStaticSubtitleUpload {...defaultProps} />);
+      render(<MockStaticSubtitleUpload {...defaultProps} />);
       
       const fileInput = screen.getByTestId('file-input');
       const file = new File(['content'], 'test.srt', { type: 'text/plain' });
@@ -355,7 +355,7 @@ describe('StaticSubtitleUpload Component', () => {
     });
 
     test('should reject invalid file extensions', () => {
-      render(<mockStaticSubtitleUpload {...defaultProps} />);
+      render(<MockStaticSubtitleUpload {...defaultProps} />);
       
       const fileInput = screen.getByTestId('file-input');
       const file = new File(['content'], 'test.txt', { type: 'text/plain' });
@@ -367,7 +367,7 @@ describe('StaticSubtitleUpload Component', () => {
     });
 
     test('should reject files larger than 10MB', () => {
-      render(<mockStaticSubtitleUpload {...defaultProps} />);
+      render(<MockStaticSubtitleUpload {...defaultProps} />);
       
       const fileInput = screen.getByTestId('file-input');
       // Create a file larger than 10MB
@@ -383,7 +383,7 @@ describe('StaticSubtitleUpload Component', () => {
     });
 
     test('should handle drag and drop', () => {
-      render(<mockStaticSubtitleUpload {...defaultProps} />);
+      render(<MockStaticSubtitleUpload {...defaultProps} />);
       
       const dropZone = screen.getByTestId('drop-zone');
       const file = new File(['content'], 'dropped.srt', { type: 'text/plain' });
@@ -399,7 +399,7 @@ describe('StaticSubtitleUpload Component', () => {
 
   describe('Translation Settings', () => {
     test('should change target language', () => {
-      render(<mockStaticSubtitleUpload {...defaultProps} />);
+      render(<MockStaticSubtitleUpload {...defaultProps} />);
       
       const languageSelect = screen.getByTestId('target-language-select');
       fireEvent.change(languageSelect, { target: { value: 'es' } });
@@ -408,7 +408,7 @@ describe('StaticSubtitleUpload Component', () => {
     });
 
     test('should toggle profanity filter', () => {
-      render(<mockStaticSubtitleUpload {...defaultProps} />);
+      render(<MockStaticSubtitleUpload {...defaultProps} />);
       
       const checkbox = screen.getByTestId('profanity-filter-checkbox');
       expect(checkbox.checked).toBe(true);
@@ -418,7 +418,7 @@ describe('StaticSubtitleUpload Component', () => {
     });
 
     test('should display all supported languages', () => {
-      render(<mockStaticSubtitleUpload {...defaultProps} />);
+      render(<MockStaticSubtitleUpload {...defaultProps} />);
       
       const languageSelect = screen.getByTestId('target-language-select');
       const options = Array.from(languageSelect.options);
@@ -431,14 +431,14 @@ describe('StaticSubtitleUpload Component', () => {
 
   describe('Upload Process', () => {
     test('should disable upload button when no file is selected', () => {
-      render(<mockStaticSubtitleUpload {...defaultProps} />);
+      render(<MockStaticSubtitleUpload {...defaultProps} />);
       
       const uploadButton = screen.getByTestId('upload-button');
       expect(uploadButton).toBeDisabled();
     });
 
     test('should enable upload button when file is selected', () => {
-      render(<mockStaticSubtitleUpload {...defaultProps} />);
+      render(<MockStaticSubtitleUpload {...defaultProps} />);
       
       const fileInput = screen.getByTestId('file-input');
       const file = new File(['content'], 'test.srt', { type: 'text/plain' });
@@ -450,7 +450,7 @@ describe('StaticSubtitleUpload Component', () => {
     });
 
     test('should show progress during upload', async () => {
-      render(<mockStaticSubtitleUpload {...defaultProps} />);
+      render(<MockStaticSubtitleUpload {...defaultProps} />);
       
       const fileInput = screen.getByTestId('file-input');
       const file = new File(['content'], 'test.srt', { type: 'text/plain' });
@@ -463,7 +463,7 @@ describe('StaticSubtitleUpload Component', () => {
     });
 
     test('should show translation results after successful upload', async () => {
-      render(<mockStaticSubtitleUpload {...defaultProps} />);
+      render(<MockStaticSubtitleUpload {...defaultProps} />);
       
       const fileInput = screen.getByTestId('file-input');
       const file = new File(['content'], 'test.srt', { type: 'text/plain' });
@@ -481,7 +481,7 @@ describe('StaticSubtitleUpload Component', () => {
     });
 
     test('should handle upload errors', async () => {
-      render(<mockStaticSubtitleUpload {...defaultProps} />);
+      render(<MockStaticSubtitleUpload {...defaultProps} />);
       
       const fileInput = screen.getByTestId('file-input');
       const file = new File(['content'], 'error-test.srt', { type: 'text/plain' });
@@ -495,7 +495,7 @@ describe('StaticSubtitleUpload Component', () => {
     });
 
     test('should disable buttons during upload', async () => {
-      render(<mockStaticSubtitleUpload {...defaultProps} />);
+      render(<MockStaticSubtitleUpload {...defaultProps} />);
       
       const fileInput = screen.getByTestId('file-input');
       const file = new File(['content'], 'test.srt', { type: 'text/plain' });
@@ -510,7 +510,7 @@ describe('StaticSubtitleUpload Component', () => {
 
   describe('Result Actions', () => {
     test('should handle file download', async () => {
-      render(<mockStaticSubtitleUpload {...defaultProps} />);
+      render(<MockStaticSubtitleUpload {...defaultProps} />);
       
       // Set up successful translation
       const fileInput = screen.getByTestId('file-input');
@@ -538,7 +538,7 @@ describe('StaticSubtitleUpload Component', () => {
     });
 
     test('should reset for new translation', async () => {
-      render(<mockStaticSubtitleUpload {...defaultProps} />);
+      render(<MockStaticSubtitleUpload {...defaultProps} />);
       
       // Complete a translation
       const fileInput = screen.getByTestId('file-input');
@@ -559,7 +559,7 @@ describe('StaticSubtitleUpload Component', () => {
     });
 
     test('should clear selected file when clear button is clicked', () => {
-      render(<mockStaticSubtitleUpload {...defaultProps} />);
+      render(<MockStaticSubtitleUpload {...defaultProps} />);
       
       const fileInput = screen.getByTestId('file-input');
       const file = new File(['content'], 'test.srt', { type: 'text/plain' });
@@ -576,14 +576,14 @@ describe('StaticSubtitleUpload Component', () => {
 
   describe('Accessibility', () => {
     test('should have proper labels for form elements', () => {
-      render(<mockStaticSubtitleUpload {...defaultProps} />);
+      render(<MockStaticSubtitleUpload {...defaultProps} />);
       
       expect(screen.getByLabelText('Target Language')).toBeInTheDocument();
       expect(screen.getByText('Enable profanity filter')).toBeInTheDocument();
     });
 
     test('should have accessible file input', () => {
-      render(<mockStaticSubtitleUpload {...defaultProps} />);
+      render(<MockStaticSubtitleUpload {...defaultProps} />);
       
       const fileInput = screen.getByTestId('file-input');
       expect(fileInput).toHaveAttribute('type', 'file');
