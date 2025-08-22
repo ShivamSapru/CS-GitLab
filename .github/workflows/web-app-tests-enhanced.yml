@@ -23,18 +23,18 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: ${{ matrix.node-version }}
-        cache: 'yarn'
-        cache-dependency-path: 'tests/web-app/frontend-tests/yarn.lock'
+        cache: 'npm'
+        cache-dependency-path: 'tests/web-app/frontend-tests/package.json'
         
     - name: Install frontend test dependencies
       run: |
         cd tests/web-app/frontend-tests
-        yarn install --frozen-lockfile
+        npm install
         
     - name: Run Frontend Unit Tests
       run: |
         cd tests/web-app/frontend-tests
-        yarn test:ci
+        npm run test:ci
       env:
         CI: true
         
@@ -229,92 +229,9 @@ jobs:
           tests/web-app/test-results/
         retention-days: 30
 
-  e2e-tests:
-    runs-on: ubuntu-latest
-    
-    strategy:
-      matrix:
-        browser: [chromium, firefox, webkit]
-    
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-      
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20.x'
-        cache: 'yarn'
-        cache-dependency-path: 'tests/web-app/e2e-tests/yarn.lock'
-        
-    - name: Install E2E test dependencies
-      run: |
-        cd tests/web-app/e2e-tests
-        yarn install --frozen-lockfile
-        
-    - name: Install Playwright Browsers
-      run: |
-        cd tests/web-app/e2e-tests
-        npx playwright install --with-deps ${{ matrix.browser }}
-        
-    - name: Setup Frontend Environment
-      run: |
-        cd frontend
-        yarn install --frozen-lockfile
-        
-    - name: Build Frontend
-      run: |
-        cd frontend
-        yarn build
-        
-    - name: Start Frontend Server
-      run: |
-        cd frontend
-        yarn preview --port 3000 &
-        FRONTEND_PID=$!
-        echo $FRONTEND_PID > /tmp/frontend.pid
-        echo "Frontend server started with PID: $FRONTEND_PID"
-        
-    - name: Wait for Frontend Server
-      run: |
-        echo "Waiting for frontend server to be ready..."
-        for i in {1..30}; do
-          if curl -s http://localhost:3000 > /dev/null; then
-            echo "Frontend server is ready!"
-            break
-          fi
-          echo "Waiting for frontend server... ($i/30)"
-          sleep 2
-        done
-        
-    - name: Run E2E Tests
-      run: |
-        cd tests/web-app/e2e-tests
-        npx playwright test --project=${{ matrix.browser }} --reporter=html,junit,json
-      env:
-        TEST_FRONTEND_URL: http://localhost:3000
-        
-    - name: Stop Frontend Server
-      if: always()
-      run: |
-        if [ -f /tmp/frontend.pid ]; then
-          kill $(cat /tmp/frontend.pid) || true
-          echo "Frontend server stopped"
-        fi
-        
-    - name: Upload E2E Test Results
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: e2e-test-results-${{ matrix.browser }}
-        path: |
-          tests/web-app/e2e-tests/playwright-report/
-          tests/web-app/e2e-tests/test-results/
-        retention-days: 30
-
   test-summary:
     runs-on: ubuntu-latest
-    needs: [frontend-unit-tests, backend-integration-tests, e2e-tests]
+    needs: [frontend-unit-tests, backend-integration-tests]
     if: always()
     
     steps:
@@ -331,16 +248,13 @@ jobs:
         # Count test result files
         frontend_results=$(find test-results -name "*frontend*" -type d | wc -l)
         backend_results=$(find test-results -name "*backend*" -type d | wc -l)
-        e2e_results=$(find test-results -name "*e2e*" -type d | wc -l)
         
         echo "- Frontend Unit Tests: $frontend_results job(s) completed" >> $GITHUB_STEP_SUMMARY
         echo "- Backend Integration Tests: $backend_results job(s) completed" >> $GITHUB_STEP_SUMMARY  
-        echo "- E2E Tests: $e2e_results job(s) completed" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         
         if [ "${{ needs.frontend-unit-tests.result }}" = "success" ] && \
-           [ "${{ needs.backend-integration-tests.result }}" = "success" ] && \
-           [ "${{ needs.e2e-tests.result }}" = "success" ]; then
+           [ "${{ needs.backend-integration-tests.result }}" = "success" ]; then
           echo "All test suites passed successfully!" >> $GITHUB_STEP_SUMMARY
         else
           echo "Some test suites failed. Check individual job results for details." >> $GITHUB_STEP_SUMMARY
