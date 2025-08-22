@@ -326,7 +326,7 @@ describe('Profile Component', () => {
 
   describe('Rendering', () => {
     test('should render profile component with correct sections', () => {
-      render(<mockProfile {...defaultProps} />);
+      render(<MockProfile {...defaultProps} />);
       
       expect(screen.getByTestId('profile-component')).toBeInTheDocument();
       expect(screen.getByText('Profile Settings')).toBeInTheDocument();
@@ -337,13 +337,13 @@ describe('Profile Component', () => {
     });
 
     test('should apply dark mode styling', () => {
-      render(<mockProfile {...defaultProps} isDarkMode={true} />);
+      render(<MockProfile {...defaultProps} isDarkMode={true} />);
       
       expect(screen.getByTestId('profile-component')).toHaveClass('dark-mode');
     });
 
     test('should display user information', () => {
-      render(<mockProfile {...defaultProps} />);
+      render(<MockProfile {...defaultProps} />);
       
       expect(screen.getByTestId('name-display')).toHaveTextContent('John Doe');
       expect(screen.getByTestId('email-display')).toHaveTextContent('test@example.com');
@@ -351,7 +351,7 @@ describe('Profile Component', () => {
     });
 
     test('should display credits information', () => {
-      render(<mockProfile {...defaultProps} />);
+      render(<MockProfile {...defaultProps} />);
       
       expect(screen.getByTestId('credits-display')).toBeInTheDocument();
       expect(screen.getByTestId('credits-count')).toHaveTextContent('3');
@@ -360,7 +360,7 @@ describe('Profile Component', () => {
 
   describe('Profile Editing', () => {
     test('should toggle edit mode when edit button is clicked', () => {
-      render(<mockProfile {...defaultProps} />);
+      render(<MockProfile {...defaultProps} />);
       
       expect(screen.getByTestId('profile-display')).toBeInTheDocument();
       expect(screen.queryByTestId('profile-edit-form')).not.toBeInTheDocument();
@@ -372,7 +372,7 @@ describe('Profile Component', () => {
     });
 
     test('should populate edit form with current user data', () => {
-      render(<mockProfile {...defaultProps} />);
+      render(<MockProfile {...defaultProps} />);
       
       fireEvent.click(screen.getByTestId('edit-profile-button'));
       
@@ -381,7 +381,7 @@ describe('Profile Component', () => {
     });
 
     test('should update form fields when typed', () => {
-      render(<mockProfile {...defaultProps} />);
+      render(<MockProfile {...defaultProps} />);
       
       fireEvent.click(screen.getByTestId('edit-profile-button'));
       
@@ -396,7 +396,7 @@ describe('Profile Component', () => {
     });
 
     test('should save profile changes', async () => {
-      render(<mockProfile {...defaultProps} />);
+      render(<MockProfile {...defaultProps} />);
       
       fireEvent.click(screen.getByTestId('edit-profile-button'));
       
@@ -413,7 +413,7 @@ describe('Profile Component', () => {
     });
 
     test('should cancel edit mode', () => {
-      render(<mockProfile {...defaultProps} />);
+      render(<MockProfile {...defaultProps} />);
       
       fireEvent.click(screen.getByTestId('edit-profile-button'));
       fireEvent.change(screen.getByTestId('first-name-input'), { target: { value: 'Changed' } });
@@ -424,7 +424,7 @@ describe('Profile Component', () => {
     });
 
     test('should disable buttons during save', async () => {
-      render(<mockProfile {...defaultProps} />);
+      render(<MockProfile {...defaultProps} />);
       
       fireEvent.click(screen.getByTestId('edit-profile-button'));
       fireEvent.click(screen.getByTestId('save-button'));
@@ -436,7 +436,7 @@ describe('Profile Component', () => {
 
   describe('Two-Factor Authentication', () => {
     test('should show 2FA as disabled initially', () => {
-      render(<mockProfile {...defaultProps} />);
+      render(<MockProfile {...defaultProps} />);
       
       expect(screen.getByTestId('2fa-disabled')).toBeInTheDocument();
       expect(screen.getByText('Disabled')).toBeInTheDocument();
@@ -444,7 +444,7 @@ describe('Profile Component', () => {
     });
 
     test('should open 2FA setup modal when enable button is clicked', () => {
-      render(<mockProfile {...defaultProps} />);
+      render(<MockProfile {...defaultProps} />);
       
       fireEvent.click(screen.getByTestId('enable-2fa-button'));
       
@@ -452,7 +452,7 @@ describe('Profile Component', () => {
     });
 
     test('should enable 2FA successfully', async () => {
-      render(<mockProfile {...defaultProps} />);
+      render(<MockProfile {...defaultProps} />);
       
       fireEvent.click(screen.getByTestId('enable-2fa-button'));
       fireEvent.click(screen.getByTestId('confirm-2fa-enable'));
@@ -466,7 +466,7 @@ describe('Profile Component', () => {
     });
 
     test('should disable 2FA', async () => {
-      render(<mockProfile {...defaultProps} />);
+      render(<MockProfile {...defaultProps} />);
       
       // First enable 2FA
       fireEvent.click(screen.getByTestId('enable-2fa-button'));
@@ -485,7 +485,7 @@ describe('Profile Component', () => {
     });
 
     test('should cancel 2FA setup', () => {
-      render(<mockProfile {...defaultProps} />);
+      render(<MockProfile {...defaultProps} />);
       
       fireEvent.click(screen.getByTestId('enable-2fa-button'));
       expect(screen.getByTestId('2fa-setup-modal')).toBeInTheDocument();
@@ -497,14 +497,14 @@ describe('Profile Component', () => {
 
   describe('Password Management', () => {
     test('should show password settings for email accounts', () => {
-      render(<mockProfile {...defaultProps} />);
+      render(<MockProfile {...defaultProps} />);
       
       expect(screen.getByTestId('password-settings')).toBeInTheDocument();
       expect(screen.getByTestId('change-password-button')).toBeInTheDocument();
     });
 
     test('should open change password modal', () => {
-      render(<mockProfile {...defaultProps} />);
+      render(<MockProfile {...defaultProps} />);
       
       fireEvent.click(screen.getByTestId('change-password-button'));
       
@@ -512,7 +512,7 @@ describe('Profile Component', () => {
     });
 
     test('should close change password modal', () => {
-      render(<mockProfile {...defaultProps} />);
+      render(<MockProfile {...defaultProps} />);
       
       fireEvent.click(screen.getByTestId('change-password-button'));
       fireEvent.click(screen.getByTestId('close-password-modal'));
@@ -523,7 +523,7 @@ describe('Profile Component', () => {
 
   describe('Account Actions', () => {
     test('should call onLogout when logout button is clicked', () => {
-      render(<mockProfile {...defaultProps} />);
+      render(<MockProfile {...defaultProps} />);
       
       fireEvent.click(screen.getByTestId('logout-button'));
       
@@ -533,7 +533,7 @@ describe('Profile Component', () => {
 
   describe('Messages and Notifications', () => {
     test('should show success message after profile update', async () => {
-      render(<mockProfile {...defaultProps} />);
+      render(<MockProfile {...defaultProps} />);
       
       fireEvent.click(screen.getByTestId('edit-profile-button'));
       fireEvent.click(screen.getByTestId('save-button'));
@@ -546,7 +546,7 @@ describe('Profile Component', () => {
     test('should auto-hide success message after 3 seconds', async () => {
       jest.useFakeTimers();
       
-      render(<mockProfile {...defaultProps} />);
+      render(<MockProfile {...defaultProps} />);
       
       fireEvent.click(screen.getByTestId('edit-profile-button'));
       fireEvent.click(screen.getByTestId('save-button'));
@@ -568,7 +568,7 @@ describe('Profile Component', () => {
     test('should show error messages when operations fail', async () => {
       // This would require mocking a failed API call scenario
       // For now, just verify error message rendering capability
-      render(<mockProfile {...defaultProps} />);
+      render(<MockProfile {...defaultProps} />);
       
       // The component structure supports error display
       expect(screen.queryByTestId('error-message')).not.toBeInTheDocument();
@@ -578,7 +578,7 @@ describe('Profile Component', () => {
   describe('Account Types', () => {
     test('should display Google account type correctly', () => {
       // This would require modifying the mock to support different account types
-      render(<mockProfile {...defaultProps} />);
+      render(<MockProfile {...defaultProps} />);
       
       expect(screen.getByTestId('provider-display')).toHaveTextContent('Email Account');
     });
@@ -586,7 +586,7 @@ describe('Profile Component', () => {
 
   describe('Accessibility', () => {
     test('should have proper form labels', () => {
-      render(<mockProfile {...defaultProps} />);
+      render(<MockProfile {...defaultProps} />);
       
       fireEvent.click(screen.getByTestId('edit-profile-button'));
       
@@ -595,7 +595,7 @@ describe('Profile Component', () => {
     });
 
     test('should have accessible button labels', () => {
-      render(<mockProfile {...defaultProps} />);
+      render(<MockProfile {...defaultProps} />);
       
       expect(screen.getByText('Edit Profile')).toBeInTheDocument();
       expect(screen.getByText('Enable 2FA')).toBeInTheDocument();
@@ -604,7 +604,7 @@ describe('Profile Component', () => {
     });
 
     test('should associate form inputs with labels', () => {
-      render(<mockProfile {...defaultProps} />);
+      render(<MockProfile {...defaultProps} />);
       
       fireEvent.click(screen.getByTestId('edit-profile-button'));
       
