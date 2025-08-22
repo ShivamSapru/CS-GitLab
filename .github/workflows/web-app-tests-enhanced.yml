@@ -206,7 +206,7 @@ jobs:
     - name: Run Original Integration Tests
       run: |
         cd tests/web-app/integration-tests
-        python -m pytest test_end_to_end_improved.py -v --tb=short -k "not transcription" --junitxml=../../../integration-test-results.xml
+        python -m pytest test_end_to_end_improved.py -s --tb=short -k "not transcription" --junitxml=../../../integration-test-results.xml
       env:
         PYTHONPATH: ${{ github.workspace }}
         TEST_BASE_URL: http://localhost:8000
