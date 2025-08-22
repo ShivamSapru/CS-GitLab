@@ -2,13 +2,12 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { jest } from '@jest/globals';
 
-// Mock Library component
+// Simplified Mock Library component to match actual implementation structure
 const MockLibrary = ({ isDarkMode, user, onShowLogin }) => {
   const [projects, setProjects] = React.useState([]);
-  const [isLoading, setIsLoading] = React.useState(true);
-  const [error, setError] = React.useState('');
-  const [filter, setFilter] = React.useState('all');
+  const [loading, setLoading] = React.useState(true);
   const [searchTerm, setSearchTerm] = React.useState('');
+  const [filterType, setFilterType] = React.useState('all');
   const [sortBy, setSortBy] = React.useState('date');
 
   // Mock projects data
@@ -17,97 +16,56 @@ const MockLibrary = ({ isDarkMode, user, onShowLogin }) => {
       id: 1,
       name: 'Movie Subtitles Spanish',
       type: 'translation',
+      file_name: 'movie.srt',
+      file_size: 15360,
       source_language: 'en',
       target_language: 'es',
-      created_at: '2024-01-15T10:30:00Z',
-      status: 'completed',
-      file_name: 'movie.srt',
-      file_size: 15432
+      created_at: '2024-01-15T00:00:00Z',
+      status: 'completed'
     },
     {
       id: 2,
-      name: 'Conference Audio French',
+      name: 'Podcast Transcription',
       type: 'transcription',
+      file_name: 'podcast.mp3',
+      file_size: 524288000,
       source_language: 'en',
-      target_language: 'fr',
-      created_at: '2024-01-14T14:20:00Z',
-      status: 'processing',
-      file_name: 'conference.mp4',
-      file_size: 524288000
+      target_language: 'en',
+      created_at: '2024-01-10T00:00:00Z',
+      status: 'processing'
     },
     {
       id: 3,
-      name: 'Interview Subtitles German',
+      name: 'Tutorial Translation',
       type: 'translation',
+      file_name: 'tutorial.vtt',
+      file_size: 9216,
       source_language: 'en',
-      target_language: 'de',
-      created_at: '2024-01-13T09:15:00Z',
-      status: 'completed',
-      file_name: 'interview.vtt',
-      file_size: 8964
+      target_language: 'fr',
+      created_at: '2024-01-05T00:00:00Z',
+      status: 'completed'
     }
   ];
 
   React.useEffect(() => {
-    const loadProjects = async () => {
-      setIsLoading(true);
-      try {
-        // Simulate API call
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        if (user) {
-          setProjects(mockProjects);
-        } else {
-          setProjects([]);
-        }
-      } catch (err) {
-        setError('Failed to load projects');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadProjects();
+    if (user) {
+      // Simulate loading
+      setTimeout(() => {
+        setProjects(mockProjects);
+        setLoading(false);
+      }, 100);
+    }
   }, [user]);
 
-  const filteredProjects = React.useMemo(() => {
-    let filtered = projects;
-
-    // Apply type filter
-    if (filter !== 'all') {
-      filtered = filtered.filter(project => project.type === filter);
-    }
-
-    // Apply search filter
-    if (searchTerm) {
-      filtered = filtered.filter(project =>
-        project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        project.file_name.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-
-    // Apply sorting
-    filtered.sort((a, b) => {
-      switch (sortBy) {
-        case 'name':
-          return a.name.localeCompare(b.name);
-        case 'type':
-          return a.type.localeCompare(b.type);
-        case 'date':
-        default:
-          return new Date(b.created_at) - new Date(a.created_at);
-      }
-    });
-
-    return filtered;
-  }, [projects, filter, searchTerm, sortBy]);
-
   const formatFileSize = (bytes) => {
-    if (bytes === 0) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return Math.round(bytes / Math.pow(k, i)) + ' ' + sizes[i];
+    if (bytes >= 1024 * 1024 * 1024) {
+      return Math.round(bytes / (1024 * 1024 * 1024)) + ' GB';
+    } else if (bytes >= 1024 * 1024) {
+      return Math.round(bytes / (1024 * 1024)) + ' MB';
+    } else if (bytes >= 1024) {
+      return Math.round(bytes / 1024) + ' KB';
+    }
+    return bytes + ' B';
   };
 
   const formatDate = (dateString) => {
@@ -115,162 +73,160 @@ const MockLibrary = ({ isDarkMode, user, onShowLogin }) => {
   };
 
   const handleDownload = (project) => {
-    // Mock download
+    // Mock download functionality
     const link = document.createElement('a');
-    link.href = 'data:text/plain;charset=utf-8,' + encodeURIComponent(`Mock content for ${project.name}`);
+    link.href = 'data:text/plain;charset=utf-8,' + encodeURIComponent('Mock file content');
     link.download = project.file_name;
+    document.body.appendChild(link);
     link.click();
+    document.body.removeChild(link);
   };
 
-  const handleDelete = async (projectId) => {
-    try {
-      // Mock delete API call
-      await new Promise(resolve => setTimeout(resolve, 300));
-      setProjects(prev => prev.filter(p => p.id !== projectId));
-    } catch (err) {
-      setError('Failed to delete project');
+  const handleDelete = (projectId) => {
+    setProjects(prev => prev.filter(p => p.id !== projectId));
+  };
+
+  const filteredProjects = projects.filter(project => {
+    const matchesSearch = project.name.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesFilter = filterType === 'all' || project.type === filterType;
+    return matchesSearch && matchesFilter;
+  });
+
+  const sortedProjects = [...filteredProjects].sort((a, b) => {
+    switch (sortBy) {
+      case 'name':
+        return a.name.localeCompare(b.name);
+      case 'type':
+        return a.type.localeCompare(b.type);
+      case 'date':
+      default:
+        return new Date(b.created_at) - new Date(a.created_at);
     }
-  };
-
-  if (!user) {
-    return (
-      <div data-testid="library-component" className={isDarkMode ? 'dark-mode' : 'light-mode'}>
-        <div className="library-container">
-          <h1>Translation Library</h1>
-          <div data-testid="login-required-message" className="login-message">
-            <p>Please log in to view your translation and transcription projects.</p>
-            <button data-testid="login-button" onClick={onShowLogin} className="primary-button">
-              Login
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  });
 
   return (
     <div data-testid="library-component" className={isDarkMode ? 'dark-mode' : 'light-mode'}>
       <div className="library-container">
         <h1>Translation Library</h1>
-        
-        {error && (
-          <div data-testid="error-message" className="error-message">
-            {error}
-          </div>
-        )}
 
-        <div data-testid="library-controls" className="controls-section">
-          <div className="search-section">
-            <input
-              data-testid="search-input"
-              type="text"
-              placeholder="Search projects..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="search-input"
-            />
-          </div>
-
-          <div className="filter-section">
-            <select
-              data-testid="filter-select"
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-              className="filter-select"
+        {!user ? (
+          <div data-testid="login-required-message" className="login-required">
+            <p>Please log in to view your translation and transcription projects.</p>
+            <button 
+              data-testid="login-button"
+              onClick={onShowLogin}
+              className="primary-button"
             >
-              <option value="all">All Projects</option>
-              <option value="translation">Translations</option>
-              <option value="transcription">Transcriptions</option>
-            </select>
-
-            <select
-              data-testid="sort-select"
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              className="sort-select"
-            >
-              <option value="date">Sort by Date</option>
-              <option value="name">Sort by Name</option>
-              <option value="type">Sort by Type</option>
-            </select>
-          </div>
-        </div>
-
-        {isLoading ? (
-          <div data-testid="loading-message" className="loading-message">
-            <p>Loading your projects...</p>
+              Login
+            </button>
           </div>
         ) : (
           <>
-            <div data-testid="projects-summary" className="summary-section">
-              <p>
-                Showing {filteredProjects.length} of {projects.length} projects
-              </p>
-            </div>
-
-            {filteredProjects.length === 0 ? (
-              <div data-testid="no-projects-message" className="empty-state">
-                {projects.length === 0 ? (
-                  <p>You haven't created any projects yet. Start by uploading a subtitle file or audio/video for transcription.</p>
-                ) : (
-                  <p>No projects match your search criteria.</p>
-                )}
+            {loading ? (
+              <div data-testid="loading-message" className="loading">
+                <p>Loading your projects...</p>
               </div>
             ) : (
-              <div data-testid="projects-grid" className="projects-grid">
-                {filteredProjects.map((project) => (
-                  <div key={project.id} data-testid={`project-card-${project.id}`} className="project-card">
-                    <div className="project-header">
-                      <h3 data-testid={`project-name-${project.id}`}>{project.name}</h3>
-                      <span 
-                        data-testid={`project-type-${project.id}`}
-                        className={`project-type ${project.type}`}
-                      >
-                        {project.type}
-                      </span>
-                    </div>
+              <>
+                <div data-testid="library-controls" className="controls">
+                  <input
+                    data-testid="search-input"
+                    type="text"
+                    placeholder="Search projects..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                  
+                  <select
+                    data-testid="filter-select"
+                    value={filterType}
+                    onChange={(e) => setFilterType(e.target.value)}
+                  >
+                    <option value="all">All Types</option>
+                    <option value="translation">Translation</option>
+                    <option value="transcription">Transcription</option>
+                  </select>
+                  
+                  <select
+                    data-testid="sort-select"
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value)}
+                  >
+                    <option value="date">Sort by Date</option>
+                    <option value="name">Sort by Name</option>
+                    <option value="type">Sort by Type</option>
+                  </select>
+                </div>
 
-                    <div className="project-details">
-                      <p data-testid={`project-file-${project.id}`}>
-                        <strong>File:</strong> {project.file_name}
-                      </p>
-                      <p data-testid={`project-size-${project.id}`}>
-                        <strong>Size:</strong> {formatFileSize(project.file_size)}
-                      </p>
-                      <p data-testid={`project-languages-${project.id}`}>
-                        <strong>Languages:</strong> {project.source_language} → {project.target_language}
-                      </p>
-                      <p data-testid={`project-date-${project.id}`}>
-                        <strong>Created:</strong> {formatDate(project.created_at)}
-                      </p>
-                      <p data-testid={`project-status-${project.id}`}>
-                        <strong>Status:</strong> 
-                        <span className={`status ${project.status}`}>{project.status}</span>
-                      </p>
-                    </div>
+                <div data-testid="projects-summary" className="summary">
+                  <p>Showing {sortedProjects.length} of {projects.length} projects</p>
+                </div>
 
-                    <div className="project-actions">
-                      {project.status === 'completed' && (
-                        <button
-                          data-testid={`download-button-${project.id}`}
-                          onClick={() => handleDownload(project)}
-                          className="primary-button"
-                        >
-                          Download
-                        </button>
-                      )}
-                      
-                      <button
-                        data-testid={`delete-button-${project.id}`}
-                        onClick={() => handleDelete(project.id)}
-                        className="danger-button"
-                      >
-                        Delete
-                      </button>
-                    </div>
+                {sortedProjects.length === 0 ? (
+                  <div data-testid="no-projects-message" className="empty-state">
+                    {projects.length === 0 ? (
+                      <p>You haven't created any projects yet. Start by uploading a subtitle file or audio/video for transcription.</p>
+                    ) : (
+                      <p>No projects match your search criteria.</p>
+                    )}
                   </div>
-                ))}
-              </div>
+                ) : (
+                  <div data-testid="projects-grid" className="projects-grid">
+                    {sortedProjects.map((project) => (
+                      <div key={project.id} data-testid={`project-card-${project.id}`} className="project-card">
+                        <div className="project-header">
+                          <h3 data-testid={`project-name-${project.id}`}>{project.name}</h3>
+                          <span 
+                            data-testid={`project-type-${project.id}`}
+                            className={`project-type ${project.type}`}
+                          >
+                            {project.type}
+                          </span>
+                        </div>
+
+                        <div className="project-details">
+                          <p data-testid={`project-file-${project.id}`}>
+                            <strong>File:</strong> {project.file_name}
+                          </p>
+                          <p data-testid={`project-size-${project.id}`}>
+                            <strong>Size:</strong> {formatFileSize(project.file_size)}
+                          </p>
+                          <p data-testid={`project-languages-${project.id}`}>
+                            <strong>Languages:</strong> {project.source_language} → {project.target_language}
+                          </p>
+                          <p data-testid={`project-date-${project.id}`}>
+                            <strong>Created:</strong> {formatDate(project.created_at)}
+                          </p>
+                          <p data-testid={`project-status-${project.id}`}>
+                            <strong>Status:</strong> 
+                            <span className={`status ${project.status}`}>{project.status}</span>
+                          </p>
+                        </div>
+
+                        <div className="project-actions">
+                          {project.status === 'completed' && (
+                            <button
+                              data-testid={`download-button-${project.id}`}
+                              onClick={() => handleDownload(project)}
+                              className="primary-button"
+                            >
+                              Download
+                            </button>
+                          )}
+                          
+                          <button
+                            data-testid={`delete-button-${project.id}`}
+                            onClick={() => handleDelete(project.id)}
+                            className="danger-button"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
             )}
           </>
         )}
@@ -530,11 +486,17 @@ describe('Library Component', () => {
         download: '',
         click: jest.fn()
       };
-      jest.spyOn(document, 'createElement').mockReturnValue(mockLink);
+      const createElement = jest.spyOn(document, 'createElement').mockReturnValue(mockLink);
+      const appendChild = jest.spyOn(document.body, 'appendChild').mockImplementation(() => {});
+      const removeChild = jest.spyOn(document.body, 'removeChild').mockImplementation(() => {});
       
       fireEvent.click(screen.getByTestId('download-button-1'));
       
       expect(mockLink.click).toHaveBeenCalled();
+      
+      createElement.mockRestore();
+      appendChild.mockRestore();
+      removeChild.mockRestore();
     });
 
     test('should handle project deletion', async () => {
@@ -554,21 +516,6 @@ describe('Library Component', () => {
     });
   });
 
-  describe('Empty States', () => {
-    test('should show empty state when user has no projects', async () => {
-      // Mock empty projects response
-      const emptyUser = { ...mockUser };
-      
-      render(<MockLibrary {...defaultProps} user={emptyUser} />);
-      
-      // This would require modifying the mock to return empty projects
-      // For now, we test the structure exists
-      await waitFor(() => {
-        expect(screen.getByTestId('library-controls')).toBeInTheDocument();
-      });
-    });
-  });
-
   describe('Styling and Themes', () => {
     test('should apply dark mode styling', async () => {
       render(<MockLibrary {...defaultProps} user={mockUser} isDarkMode={true} />);
@@ -580,18 +527,6 @@ describe('Library Component', () => {
       render(<MockLibrary {...defaultProps} user={mockUser} isDarkMode={false} />);
       
       expect(screen.getByTestId('library-component')).toHaveClass('light-mode');
-    });
-  });
-
-  describe('Error Handling', () => {
-    test('should display error messages when they occur', async () => {
-      // This would require mocking a failed API response
-      // The component structure supports error display
-      render(<MockLibrary {...defaultProps} user={mockUser} />);
-      
-      await waitFor(() => {
-        expect(screen.getByTestId('library-controls')).toBeInTheDocument();
-      });
     });
   });
 });

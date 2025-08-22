@@ -2,80 +2,47 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { jest } from '@jest/globals';
 
-// Mock SignupModal component
+// Mock SignupModal component matching actual implementation
 const MockSignupModal = ({ 
   onClose, 
   onSignupSuccess, 
   onShowLogin, 
   isDarkMode 
 }) => {
-  const [formData, setFormData] = React.useState({
-    email: '',
-    password: '',
-    confirmPassword: '',
-    firstName: '',
-    lastName: ''
-  });
-  const [isLoading, setIsLoading] = React.useState(false);
-  const [errors, setErrors] = React.useState({});
-
-  const handleInputChange = (field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-    if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: '' }));
-    }
-  };
-
-  const validateForm = () => {
-    const newErrors = {};
-    
-    if (!formData.email) newErrors.email = 'Email is required';
-    if (!formData.password) newErrors.password = 'Password is required';
-    if (formData.password.length < 8) newErrors.password = 'Password must be at least 8 characters';
-    if (formData.password !== formData.confirmPassword) {
-      newErrors.confirmPassword = 'Passwords do not match';
-    }
-    if (!formData.firstName) newErrors.firstName = 'First name is required';
-    if (!formData.lastName) newErrors.lastName = 'Last name is required';
-
-    return newErrors;
-  };
+  const [email, setEmail] = React.useState('');
+  const [password, setPassword] = React.useState('');
+  const [confirmPassword, setConfirmPassword] = React.useState('');
+  const [error, setError] = React.useState('');
+  const [success, setSuccess] = React.useState('');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setIsLoading(true);
-    
-    const validationErrors = validateForm();
-    if (Object.keys(validationErrors).length > 0) {
-      setErrors(validationErrors);
-      setIsLoading(false);
+    setError('');
+    setSuccess('');
+
+    if (password !== confirmPassword) {
+      setError('Passwords do not match');
       return;
     }
 
-    setErrors({});
-
     try {
       // Mock signup logic
-      if (formData.email === 'existing@example.com') {
-        setErrors({ email: 'Email already exists' });
-      } else if (formData.email === '2fa-signup@example.com') {
+      if (email === 'existing@example.com') {
+        setError('Email already exists');
+      } else if (email === '2fa-signup@example.com') {
         onSignupSuccess({ 
-          email: formData.email,
+          email: email,
           setup_2fa_required: true 
         });
       } else {
         onSignupSuccess({ 
-          email: formData.email, 
+          email: email, 
           user_id: 1, 
-          credits: 5,
-          firstName: formData.firstName,
-          lastName: formData.lastName
+          credits: 5
         });
       }
     } catch (err) {
-      setErrors({ submit: 'Signup failed. Please try again.' });
-    } finally {
-      setIsLoading(false);
+      setError('Signup failed. Please try again.');
     }
   };
 
@@ -89,111 +56,67 @@ const MockSignupModal = ({
   };
 
   return (
-    <div data-testid="signup-modal" className={isDarkMode ? 'dark-mode' : 'light-mode'}>
+    <div 
+      data-testid="signup-modal" 
+      className={isDarkMode ? 'dark-mode' : 'light-mode'}
+    >
       <div data-testid="modal-overlay" onClick={onClose}>
         <div data-testid="modal-content" onClick={(e) => e.stopPropagation()}>
           <button data-testid="close-button" onClick={onClose}>×</button>
           
-          <h2>Create Your SubLingo Account</h2>
+          <h2>Sign Up</h2>
           
           <form data-testid="signup-form" onSubmit={handleSubmit}>
-            <div>
-              <label htmlFor="firstName">First Name</label>
-              <input
-                data-testid="firstname-input"
-                id="firstName"
-                type="text"
-                value={formData.firstName}
-                onChange={(e) => handleInputChange('firstName', e.target.value)}
-                required
-              />
-              {errors.firstName && (
-                <div data-testid="firstname-error" className="error">
-                  {errors.firstName}
-                </div>
-              )}
-            </div>
-
-            <div>
-              <label htmlFor="lastName">Last Name</label>
-              <input
-                data-testid="lastname-input"
-                id="lastName"
-                type="text"
-                value={formData.lastName}
-                onChange={(e) => handleInputChange('lastName', e.target.value)}
-                required
-              />
-              {errors.lastName && (
-                <div data-testid="lastname-error" className="error">
-                  {errors.lastName}
-                </div>
-              )}
-            </div>
-            
-            <div>
-              <label htmlFor="email">Email</label>
-              <input
-                data-testid="email-input"
-                id="email"
-                type="email"
-                value={formData.email}
-                onChange={(e) => handleInputChange('email', e.target.value)}
-                required
-              />
-              {errors.email && (
-                <div data-testid="email-error" className="error">
-                  {errors.email}
-                </div>
-              )}
-            </div>
-            
-            <div>
-              <label htmlFor="password">Password</label>
-              <input
-                data-testid="password-input"
-                id="password"
-                type="password"
-                value={formData.password}
-                onChange={(e) => handleInputChange('password', e.target.value)}
-                required
-              />
-              {errors.password && (
-                <div data-testid="password-error" className="error">
-                  {errors.password}
-                </div>
-              )}
-            </div>
-
-            <div>
-              <label htmlFor="confirmPassword">Confirm Password</label>
-              <input
-                data-testid="confirm-password-input"
-                id="confirmPassword"
-                type="password"
-                value={formData.confirmPassword}
-                onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
-                required
-              />
-              {errors.confirmPassword && (
-                <div data-testid="confirm-password-error" className="error">
-                  {errors.confirmPassword}
-                </div>
-              )}
-            </div>
-
-            {errors.submit && (
-              <div data-testid="submit-error" className="error">
-                {errors.submit}
+            {error && (
+              <div data-testid="error-message" className="error">
+                {error}
               </div>
             )}
 
+            {success && (
+              <div data-testid="success-message" className="success">
+                {success}
+              </div>
+            )}
+
+            <div>
+              <input
+                data-testid="email-input"
+                type="email"
+                placeholder="Email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+            </div>
+            
+            <div>
+              <input
+                data-testid="password-input"
+                type="password"
+                placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+            </div>
+
+            <div>
+              <input
+                data-testid="confirm-password-input"
+                type="password"
+                placeholder="Confirm Password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+              />
+            </div>
+
             <button 
               data-testid="signup-button"
-              type="submit" 
-              disabled={isLoading}
+              type="submit"
             >
-              {isLoading ? 'Creating Account...' : 'Create Account'}
+              Sign Up
             </button>
           </form>
 
@@ -201,16 +124,15 @@ const MockSignupModal = ({
             <button 
               data-testid="google-signup-button"
               onClick={handleGoogleSignup}
-              disabled={isLoading}
             >
-              Sign Up with Google
+              Continue with Google
             </button>
           </div>
 
           <div data-testid="login-section">
             <p>Already have an account?</p>
             <button data-testid="show-login-button" onClick={onShowLogin}>
-              Login
+              Log in
             </button>
           </div>
         </div>
@@ -240,15 +162,13 @@ describe('SignupModal Component', () => {
       render(<MockSignupModal {...defaultProps} />);
       
       expect(screen.getByTestId('signup-modal')).toBeInTheDocument();
-      expect(screen.getByText('Create Your SubLingo Account')).toBeInTheDocument();
+      expect(screen.getByText('Sign Up')).toBeInTheDocument();
       expect(screen.getByTestId('signup-form')).toBeInTheDocument();
     });
 
     test('should render all form inputs', () => {
       render(<MockSignupModal {...defaultProps} />);
       
-      expect(screen.getByTestId('firstname-input')).toBeInTheDocument();
-      expect(screen.getByTestId('lastname-input')).toBeInTheDocument();
       expect(screen.getByTestId('email-input')).toBeInTheDocument();
       expect(screen.getByTestId('password-input')).toBeInTheDocument();
       expect(screen.getByTestId('confirm-password-input')).toBeInTheDocument();
@@ -274,96 +194,55 @@ describe('SignupModal Component', () => {
     test('should update form fields when typed', () => {
       render(<MockSignupModal {...defaultProps} />);
       
-      const firstNameInput = screen.getByTestId('firstname-input');
-      const lastNameInput = screen.getByTestId('lastname-input');
       const emailInput = screen.getByTestId('email-input');
+      const passwordInput = screen.getByTestId('password-input');
+      const confirmPasswordInput = screen.getByTestId('confirm-password-input');
 
-      fireEvent.change(firstNameInput, { target: { value: 'John' } });
-      fireEvent.change(lastNameInput, { target: { value: 'Doe' } });
       fireEvent.change(emailInput, { target: { value: 'john@example.com' } });
+      fireEvent.change(passwordInput, { target: { value: 'password123' } });
+      fireEvent.change(confirmPasswordInput, { target: { value: 'password123' } });
 
-      expect(firstNameInput.value).toBe('John');
-      expect(lastNameInput.value).toBe('Doe');
       expect(emailInput.value).toBe('john@example.com');
-    });
-
-    test('should clear field errors when user types', () => {
-      render(<MockSignupModal {...defaultProps} />);
-      
-      const signupButton = screen.getByTestId('signup-button');
-      fireEvent.click(signupButton);
-
-      // Should show validation errors
-      expect(screen.getByTestId('firstname-error')).toBeInTheDocument();
-
-      // Typing should clear the error
-      const firstNameInput = screen.getByTestId('firstname-input');
-      fireEvent.change(firstNameInput, { target: { value: 'John' } });
-
-      expect(screen.queryByTestId('firstname-error')).not.toBeInTheDocument();
+      expect(passwordInput.value).toBe('password123');
+      expect(confirmPasswordInput.value).toBe('password123');
     });
   });
 
   describe('Form Validation', () => {
-    test('should show validation errors for empty required fields', async () => {
+    test('should show error when passwords do not match', async () => {
       render(<MockSignupModal {...defaultProps} />);
       
-      const signupButton = screen.getByTestId('signup-button');
-      fireEvent.click(signupButton);
-
-      await waitFor(() => {
-        expect(screen.getByTestId('firstname-error')).toHaveTextContent('First name is required');
-        expect(screen.getByTestId('lastname-error')).toHaveTextContent('Last name is required');
-        expect(screen.getByTestId('email-error')).toHaveTextContent('Email is required');
-        expect(screen.getByTestId('password-error')).toHaveTextContent('Password is required');
-      });
-    });
-
-    test('should validate password length', async () => {
-      render(<MockSignupModal {...defaultProps} />);
-      
-      const passwordInput = screen.getByTestId('password-input');
-      fireEvent.change(passwordInput, { target: { value: 'short' } });
-      
-      const signupButton = screen.getByTestId('signup-button');
-      fireEvent.click(signupButton);
-
-      await waitFor(() => {
-        expect(screen.getByTestId('password-error')).toHaveTextContent('Password must be at least 8 characters');
-      });
-    });
-
-    test('should validate password confirmation match', async () => {
-      render(<MockSignupModal {...defaultProps} />);
-      
+      const emailInput = screen.getByTestId('email-input');
       const passwordInput = screen.getByTestId('password-input');
       const confirmPasswordInput = screen.getByTestId('confirm-password-input');
+      const signupButton = screen.getByTestId('signup-button');
       
+      fireEvent.change(emailInput, { target: { value: 'john@example.com' } });
       fireEvent.change(passwordInput, { target: { value: 'password123' } });
       fireEvent.change(confirmPasswordInput, { target: { value: 'different123' } });
       
-      const signupButton = screen.getByTestId('signup-button');
       fireEvent.click(signupButton);
 
       await waitFor(() => {
-        expect(screen.getByTestId('confirm-password-error')).toHaveTextContent('Passwords do not match');
+        expect(screen.getByTestId('error-message')).toHaveTextContent('Passwords do not match');
       });
     });
 
     test('should handle existing email error', async () => {
       render(<MockSignupModal {...defaultProps} />);
       
-      // Fill out form with existing email
-      fireEvent.change(screen.getByTestId('firstname-input'), { target: { value: 'John' } });
-      fireEvent.change(screen.getByTestId('lastname-input'), { target: { value: 'Doe' } });
-      fireEvent.change(screen.getByTestId('email-input'), { target: { value: 'existing@example.com' } });
-      fireEvent.change(screen.getByTestId('password-input'), { target: { value: 'password123' } });
-      fireEvent.change(screen.getByTestId('confirm-password-input'), { target: { value: 'password123' } });
+      const emailInput = screen.getByTestId('email-input');
+      const passwordInput = screen.getByTestId('password-input');
+      const confirmPasswordInput = screen.getByTestId('confirm-password-input');
+      
+      fireEvent.change(emailInput, { target: { value: 'existing@example.com' } });
+      fireEvent.change(passwordInput, { target: { value: 'password123' } });
+      fireEvent.change(confirmPasswordInput, { target: { value: 'password123' } });
       
       fireEvent.click(screen.getByTestId('signup-button'));
 
       await waitFor(() => {
-        expect(screen.getByTestId('email-error')).toHaveTextContent('Email already exists');
+        expect(screen.getByTestId('error-message')).toHaveTextContent('Email already exists');
       });
     });
   });
@@ -372,12 +251,13 @@ describe('SignupModal Component', () => {
     test('should call onSignupSuccess with user data on successful signup', async () => {
       render(<MockSignupModal {...defaultProps} />);
       
-      // Fill out valid form
-      fireEvent.change(screen.getByTestId('firstname-input'), { target: { value: 'John' } });
-      fireEvent.change(screen.getByTestId('lastname-input'), { target: { value: 'Doe' } });
-      fireEvent.change(screen.getByTestId('email-input'), { target: { value: 'john@example.com' } });
-      fireEvent.change(screen.getByTestId('password-input'), { target: { value: 'password123' } });
-      fireEvent.change(screen.getByTestId('confirm-password-input'), { target: { value: 'password123' } });
+      const emailInput = screen.getByTestId('email-input');
+      const passwordInput = screen.getByTestId('password-input');
+      const confirmPasswordInput = screen.getByTestId('confirm-password-input');
+      
+      fireEvent.change(emailInput, { target: { value: 'john@example.com' } });
+      fireEvent.change(passwordInput, { target: { value: 'password123' } });
+      fireEvent.change(confirmPasswordInput, { target: { value: 'password123' } });
       
       fireEvent.click(screen.getByTestId('signup-button'));
 
@@ -386,9 +266,7 @@ describe('SignupModal Component', () => {
         expect(mockOnSignupSuccess).toHaveBeenCalledWith({
           email: 'john@example.com',
           user_id: 1,
-          credits: 5,
-          firstName: 'John',
-          lastName: 'Doe'
+          credits: 5
         });
       });
     });
@@ -396,12 +274,13 @@ describe('SignupModal Component', () => {
     test('should handle 2FA setup required flow', async () => {
       render(<MockSignupModal {...defaultProps} />);
       
-      // Fill out form with 2FA email
-      fireEvent.change(screen.getByTestId('firstname-input'), { target: { value: 'Jane' } });
-      fireEvent.change(screen.getByTestId('lastname-input'), { target: { value: 'Doe' } });
-      fireEvent.change(screen.getByTestId('email-input'), { target: { value: '2fa-signup@example.com' } });
-      fireEvent.change(screen.getByTestId('password-input'), { target: { value: 'password123' } });
-      fireEvent.change(screen.getByTestId('confirm-password-input'), { target: { value: 'password123' } });
+      const emailInput = screen.getByTestId('email-input');
+      const passwordInput = screen.getByTestId('password-input');
+      const confirmPasswordInput = screen.getByTestId('confirm-password-input');
+      
+      fireEvent.change(emailInput, { target: { value: '2fa-signup@example.com' } });
+      fireEvent.change(passwordInput, { target: { value: 'password123' } });
+      fireEvent.change(confirmPasswordInput, { target: { value: 'password123' } });
       
       fireEvent.click(screen.getByTestId('signup-button'));
 
@@ -427,23 +306,6 @@ describe('SignupModal Component', () => {
           setup_2fa_required: true
         });
       });
-    });
-
-    test('should show loading state during signup', async () => {
-      render(<MockSignupModal {...defaultProps} />);
-      
-      // Fill out form
-      fireEvent.change(screen.getByTestId('firstname-input'), { target: { value: 'John' } });
-      fireEvent.change(screen.getByTestId('lastname-input'), { target: { value: 'Doe' } });
-      fireEvent.change(screen.getByTestId('email-input'), { target: { value: 'john@example.com' } });
-      fireEvent.change(screen.getByTestId('password-input'), { target: { value: 'password123' } });
-      fireEvent.change(screen.getByTestId('confirm-password-input'), { target: { value: 'password123' } });
-      
-      const signupButton = screen.getByTestId('signup-button');
-      fireEvent.click(signupButton);
-
-      expect(signupButton).toBeDisabled();
-      expect(screen.getByTestId('google-signup-button')).toBeDisabled();
     });
   });
 
@@ -471,21 +333,9 @@ describe('SignupModal Component', () => {
   });
 
   describe('Accessibility', () => {
-    test('should have proper form labels', () => {
-      render(<MockSignupModal {...defaultProps} />);
-      
-      expect(screen.getByLabelText('First Name')).toBeInTheDocument();
-      expect(screen.getByLabelText('Last Name')).toBeInTheDocument();
-      expect(screen.getByLabelText('Email')).toBeInTheDocument();
-      expect(screen.getByLabelText('Password')).toBeInTheDocument();
-      expect(screen.getByLabelText('Confirm Password')).toBeInTheDocument();
-    });
-
     test('should have required attributes on inputs', () => {
       render(<MockSignupModal {...defaultProps} />);
       
-      expect(screen.getByTestId('firstname-input')).toHaveAttribute('required');
-      expect(screen.getByTestId('lastname-input')).toHaveAttribute('required');
       expect(screen.getByTestId('email-input')).toHaveAttribute('required');
       expect(screen.getByTestId('password-input')).toHaveAttribute('required');
       expect(screen.getByTestId('confirm-password-input')).toHaveAttribute('required');

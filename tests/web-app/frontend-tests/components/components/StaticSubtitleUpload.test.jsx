@@ -2,268 +2,309 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { jest } from '@jest/globals';
 
-// Mock StaticSubtitleUpload component
+// Mock StaticSubtitleUpload component matching the actual complex implementation
 const MockStaticSubtitleUpload = ({ isDarkMode }) => {
-  const [file, setFile] = React.useState(null);
-  const [targetLanguage, setTargetLanguage] = React.useState('en');
-  const [censorProfanity, setCensorProfanity] = React.useState(true);
-  const [isUploading, setIsUploading] = React.useState(false);
-  const [uploadProgress, setUploadProgress] = React.useState(0);
-  const [translationResult, setTranslationResult] = React.useState(null);
-  const [error, setError] = React.useState('');
+  const [uploadedFile, setUploadedFile] = React.useState(null);
+  const [targetLanguages, setTargetLanguages] = React.useState([]);
+  const [censorProfanity, setCensorProfanity] = React.useState(false);
+  const [isTranslating, setIsTranslating] = React.useState(false);
+  const [translationProgress, setTranslationProgress] = React.useState(0);
+  const [translatedFiles, setTranslatedFiles] = React.useState([]);
+  const [error, setError] = React.useState(null);
+  const [currentTranslatingLanguage, setCurrentTranslatingLanguage] = React.useState('');
+  const [dragActive, setDragActive] = React.useState(false);
+  const [backendConnected, setBackendConnected] = React.useState(true);
+  const [languages] = React.useState([
+    { code: 'en', name: 'English' },
+    { code: 'es', name: 'Spanish' },
+    { code: 'fr', name: 'French' },
+    { code: 'de', name: 'German' },
+    { code: 'pt', name: 'Portuguese' },
+    { code: 'it', name: 'Italian' },
+    { code: 'ja', name: 'Japanese' },
+    { code: 'ko', name: 'Korean' },
+    { code: 'zh', name: 'Chinese' }
+  ]);
 
-  const supportedLanguages = {
-    'en': 'English',
-    'es': 'Spanish', 
-    'fr': 'French',
-    'de': 'German',
-    'pt': 'Portuguese',
-    'it': 'Italian',
-    'ja': 'Japanese',
-    'ko': 'Korean',
-    'zh': 'Chinese'
+  const handleDrag = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === 'dragenter' || e.type === 'dragover') {
+      setDragActive(true);
+    } else if (e.type === 'dragleave') {
+      setDragActive(false);
+    }
   };
 
-  const handleFileSelect = (event) => {
-    const selectedFile = event.target.files[0];
-    setError('');
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
     
-    if (selectedFile) {
-      const validExtensions = ['.srt', '.vtt'];
-      const fileExtension = selectedFile.name.toLowerCase().substring(selectedFile.name.lastIndexOf('.'));
-      
-      if (!validExtensions.includes(fileExtension)) {
-        setError('Please select a valid .srt or .vtt file');
-        setFile(null);
-        return;
-      }
-      
-      if (selectedFile.size > 10 * 1024 * 1024) { // 10MB limit
-        setError('File size must be less than 10MB');
-        setFile(null);
-        return;
-      }
-      
-      setFile(selectedFile);
+    const files = e.dataTransfer.files;
+    if (files && files[0]) {
+      handleFileSelection(files[0]);
     }
   };
 
-  const handleDrop = (event) => {
-    event.preventDefault();
-    const droppedFile = event.dataTransfer.files[0];
-    if (droppedFile) {
-      const fakeEvent = { target: { files: [droppedFile] } };
-      handleFileSelect(fakeEvent);
+  const handleFileInput = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      handleFileSelection(file);
     }
   };
 
-  const handleDragOver = (event) => {
-    event.preventDefault();
+  const handleFileSelection = (file) => {
+    setError(null);
+    
+    const validExtensions = ['.srt', '.vtt'];
+    const fileExtension = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
+    
+    if (!validExtensions.includes(fileExtension)) {
+      setError('Please select a valid .srt or .vtt file');
+      return;
+    }
+    
+    if (file.size > 10 * 1024 * 1024) { // 10MB limit
+      setError('File size must be less than 10MB');
+      return;
+    }
+    
+    setUploadedFile(file);
   };
 
-  const handleUpload = async () => {
-    if (!file) {
-      setError('Please select a file to upload');
+  const startTranslation = async () => {
+    if (!uploadedFile || targetLanguages.length === 0) {
+      setError('Please select a file and target languages');
       return;
     }
 
-    setIsUploading(true);
-    setUploadProgress(0);
-    setError('');
-
+    setIsTranslating(true);
+    setTranslationProgress(0);
+    setError(null);
+    
     try {
-      // Mock upload progress
-      for (let i = 0; i <= 100; i += 10) {
-        setUploadProgress(i);
-        await new Promise(resolve => setTimeout(resolve, 100));
+      // Mock translation process
+      for (let i = 0; i < targetLanguages.length; i++) {
+        const language = targetLanguages[i];
+        setCurrentTranslatingLanguage(`Translating to ${language.name}...`);
+        
+        // Simulate progress
+        for (let progress = 0; progress <= 100; progress += 20) {
+          setTranslationProgress(((i * 100) + progress) / targetLanguages.length);
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+        
+        // Add translated file
+        setTranslatedFiles(prev => [...prev, {
+          language: language.code,
+          languageName: language.name,
+          filename: `${uploadedFile.name.split('.')[0]}_${language.code}.${uploadedFile.name.split('.')[1]}`,
+          downloadUrl: 'mock-download-url'
+        }]);
       }
-
-      // Mock translation result
-      if (file.name === 'error-test.srt') {
-        throw new Error('Translation failed');
-      }
-
-      const mockResult = {
-        original_filename: file.name,
-        translated_filename: `${file.name.split('.')[0]}_${targetLanguage}.${file.name.split('.')[1]}`,
-        source_language: 'pt',
-        target_language: targetLanguage,
-        message: 'Translation completed successfully',
-        translated_file_path: '/downloads/translated-file.srt',
-        original_file_path: '/uploads/original-file.srt'
-      };
-
-      setTranslationResult(mockResult);
+      
+      setCurrentTranslatingLanguage('');
     } catch (err) {
-      setError(err.message || 'Translation failed. Please try again.');
+      setError('Translation failed. Please try again.');
     } finally {
-      setIsUploading(false);
-      setUploadProgress(0);
+      setIsTranslating(false);
+      setTranslationProgress(0);
     }
   };
 
-  const handleDownload = () => {
-    if (translationResult?.translated_file_path) {
-      // Mock download
-      const link = document.createElement('a');
-      link.href = 'data:text/plain;charset=utf-8,' + encodeURIComponent('Mock translated content');
-      link.download = translationResult.translated_filename;
-      link.click();
-    }
+  const downloadFile = (filename) => {
+    // Mock download
+    const link = document.createElement('a');
+    link.href = 'data:text/plain;charset=utf-8,' + encodeURIComponent('Mock translated content');
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
-  const handleReset = () => {
-    setFile(null);
-    setTranslationResult(null);
-    setError('');
-    setUploadProgress(0);
+  const resetComponent = () => {
+    setUploadedFile(null);
+    setTargetLanguages([]);
+    setTranslatedFiles([]);
+    setError(null);
+    setTranslationProgress(0);
+    setIsTranslating(false);
+    setCurrentTranslatingLanguage('');
   };
 
   return (
     <div data-testid="static-subtitle-upload" className={isDarkMode ? 'dark-mode' : 'light-mode'}>
       <div className="container">
-        <h1>Static Subtitle Translation</h1>
+        <h1>Subtitle Translation</h1>
         <p>Upload your .srt or .vtt subtitle files for translation</p>
 
-        {!translationResult ? (
-          <>
-            {/* File Upload Section */}
-            <div 
-              data-testid="drop-zone"
-              className="drop-zone"
-              onDrop={handleDrop}
-              onDragOver={handleDragOver}
-            >
-              <div className="drop-content">
-                {file ? (
-                  <div data-testid="file-selected">
-                    <span data-testid="file-name">{file.name}</span>
-                    <span data-testid="file-size">({Math.round(file.size / 1024)} KB)</span>
-                  </div>
-                ) : (
-                  <div data-testid="file-prompt">
-                    <p>Drag and drop your subtitle file here</p>
-                    <p>or</p>
-                    <label htmlFor="file-input" className="file-input-label">
-                      Choose File
-                    </label>
-                  </div>
-                )}
+        {/* Backend Connection Status */}
+        {!backendConnected && (
+          <div className="connection-error">
+            <p>Azure Translation Service: Disconnected</p>
+          </div>
+        )}
+
+        {/* Error Display */}
+        {error && (
+          <div data-testid="error-message" className="error-message">
+            {error}
+          </div>
+        )}
+
+        {/* File Upload Area */}
+        <div 
+          data-testid="drop-zone"
+          className={`drop-zone ${dragActive ? 'drag-active' : ''}`}
+          onDragEnter={handleDrag}
+          onDragLeave={handleDrag}
+          onDragOver={handleDrag}
+          onDrop={handleDrop}
+        >
+          <div className="drop-content">
+            {uploadedFile ? (
+              <div data-testid="file-selected">
+                <span data-testid="file-name">{uploadedFile.name}</span>
+                <span data-testid="file-size">({Math.round(uploadedFile.size / 1024)} KB)</span>
               </div>
-            </div>
-
-            <input
-              data-testid="file-input"
-              id="file-input"
-              type="file"
-              accept=".srt,.vtt"
-              onChange={handleFileSelect}
-              style={{ display: 'none' }}
-            />
-
-            {/* Translation Settings */}
-            <div data-testid="translation-settings" className="settings-section">
-              <h3>Translation Settings</h3>
-              
-              <div className="setting-group">
-                <label htmlFor="target-language">Target Language</label>
-                <select
-                  data-testid="target-language-select"
-                  id="target-language"
-                  value={targetLanguage}
-                  onChange={(e) => setTargetLanguage(e.target.value)}
-                >
-                  {Object.entries(supportedLanguages).map(([code, name]) => (
-                    <option key={code} value={code}>{name}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="setting-group">
-                <label>
-                  <input
-                    data-testid="profanity-filter-checkbox"
-                    type="checkbox"
-                    checked={censorProfanity}
-                    onChange={(e) => setCensorProfanity(e.target.checked)}
-                  />
-                  Enable profanity filter
-                </label>
-              </div>
-            </div>
-
-            {error && (
-              <div data-testid="error-message" className="error-message">
-                {error}
-              </div>
-            )}
-
-            {/* Upload Progress */}
-            {isUploading && (
-              <div data-testid="upload-progress">
-                <div className="progress-bar">
-                  <div 
-                    className="progress-fill" 
-                    style={{ width: `${uploadProgress}%` }}
-                  />
-                </div>
-                <span data-testid="progress-text">{uploadProgress}%</span>
-              </div>
-            )}
-
-            {/* Action Buttons */}
-            <div data-testid="action-buttons" className="button-group">
-              <button
-                data-testid="upload-button"
-                onClick={handleUpload}
-                disabled={!file || isUploading}
-                className="primary-button"
-              >
-                {isUploading ? 'Translating...' : 'Translate File'}
-              </button>
-
-              {file && (
+            ) : (
+              <div data-testid="file-prompt">
+                <p>Drop your subtitle files here</p>
+                <p>Supports SRT, VTT formats • Powered by Azure Translator</p>
                 <button
-                  data-testid="clear-button"
-                  onClick={handleReset}
-                  disabled={isUploading}
-                  className="secondary-button"
+                  onClick={() => document.getElementById('file-input').click()}
+                  className="browse-button"
                 >
-                  Clear
+                  Browse Files
                 </button>
-              )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <input
+          id="file-input"
+          data-testid="file-input"
+          type="file"
+          className="hidden"
+          accept=".srt,.vtt"
+          onChange={handleFileInput}
+          style={{ display: 'none' }}
+        />
+
+        {/* Language Selection */}
+        {uploadedFile && (
+          <div data-testid="translation-settings" className="settings-section">
+            <h3>Select Target Languages</h3>
+            <div className="language-grid">
+              {languages.map((language) => (
+                <label key={language.code} className="language-option">
+                  <input
+                    type="checkbox"
+                    data-testid={`language-${language.code}`}
+                    checked={targetLanguages.some(lang => lang.code === language.code)}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setTargetLanguages(prev => [...prev, language]);
+                      } else {
+                        setTargetLanguages(prev => prev.filter(lang => lang.code !== language.code));
+                      }
+                    }}
+                  />
+                  {language.name}
+                </label>
+              ))}
             </div>
-          </>
-        ) : (
-          /* Translation Results */
+            
+            <div className="setting-group">
+              <label>
+                <input
+                  data-testid="profanity-filter-checkbox"
+                  type="checkbox"
+                  checked={censorProfanity}
+                  onChange={(e) => setCensorProfanity(e.target.checked)}
+                />
+                Censor profanity
+              </label>
+            </div>
+          </div>
+        )}
+
+        {/* Translation Progress */}
+        {isTranslating && (
+          <div data-testid="upload-progress" className="progress-section">
+            <div className="progress-bar">
+              <div 
+                className="progress-fill" 
+                style={{ width: `${translationProgress}%` }}
+              />
+            </div>
+            <span data-testid="progress-text">{Math.round(translationProgress)}%</span>
+            {currentTranslatingLanguage && (
+              <p data-testid="current-language">{currentTranslatingLanguage}</p>
+            )}
+          </div>
+        )}
+
+        {/* Action Buttons */}
+        <div data-testid="action-buttons" className="button-group">
+          {uploadedFile && (
+            <button
+              onClick={resetComponent}
+              className="secondary-button"
+            >
+              Reset
+            </button>
+          )}
+
+          {uploadedFile && !isTranslating && translatedFiles.length === 0 && (
+            <button
+              data-testid="upload-button"
+              onClick={startTranslation}
+              disabled={targetLanguages.length === 0}
+              className="primary-button"
+            >
+              Start Translation
+            </button>
+          )}
+        </div>
+
+        {/* Download Results */}
+        {translatedFiles.length > 0 && (
           <div data-testid="translation-results" className="results-section">
             <h3>Translation Complete!</h3>
             
             <div data-testid="result-details" className="result-info">
-              <p><strong>Original:</strong> {translationResult.original_filename}</p>
-              <p><strong>Translated:</strong> {translationResult.translated_filename}</p>
-              <p><strong>Source Language:</strong> {translationResult.source_language}</p>
-              <p><strong>Target Language:</strong> {translationResult.target_language}</p>
-              <p><strong>Status:</strong> {translationResult.message}</p>
+              <p><strong>Original:</strong> {uploadedFile.name}</p>
+              <p><strong>Files translated:</strong> {translatedFiles.length}</p>
             </div>
 
-            <div data-testid="result-actions" className="button-group">
-              <button
-                data-testid="download-button"
-                onClick={handleDownload}
-                className="primary-button"
-              >
-                Download Translated File
-              </button>
-
-              <button
-                data-testid="new-translation-button"
-                onClick={handleReset}
-                className="secondary-button"
-              >
-                Translate Another File
-              </button>
+            <div className="files-list">
+              {translatedFiles.map((file) => (
+                <div key={file.language} className="file-item">
+                  <div className="file-info">
+                    <div data-testid={`file-name-${file.language}`}>{file.filename}</div>
+                    <div>Translated to {file.languageName}</div>
+                  </div>
+                  <button
+                    data-testid={`download-button-${file.language}`}
+                    onClick={() => downloadFile(file.filename)}
+                    className="download-button"
+                  >
+                    Download
+                  </button>
+                </div>
+              ))}
             </div>
+
+            <button
+              data-testid="new-translation-button"
+              onClick={resetComponent}
+              className="secondary-button"
+            >
+              Translate Another File
+            </button>
           </div>
         )}
       </div>
@@ -285,7 +326,7 @@ describe('StaticSubtitleUpload Component', () => {
       render(<MockStaticSubtitleUpload {...defaultProps} />);
       
       expect(screen.getByTestId('static-subtitle-upload')).toBeInTheDocument();
-      expect(screen.getByText('Static Subtitle Translation')).toBeInTheDocument();
+      expect(screen.getByText('Subtitle Translation')).toBeInTheDocument();
       expect(screen.getByText('Upload your .srt or .vtt subtitle files for translation')).toBeInTheDocument();
     });
 
@@ -300,22 +341,13 @@ describe('StaticSubtitleUpload Component', () => {
       
       expect(screen.getByTestId('drop-zone')).toBeInTheDocument();
       expect(screen.getByTestId('file-prompt')).toBeInTheDocument();
-      expect(screen.getByText('Drag and drop your subtitle file here')).toBeInTheDocument();
+      expect(screen.getByText('Drop your subtitle files here')).toBeInTheDocument();
     });
 
-    test('should render translation settings', () => {
-      render(<MockStaticSubtitleUpload {...defaultProps} />);
-      
-      expect(screen.getByTestId('translation-settings')).toBeInTheDocument();
-      expect(screen.getByTestId('target-language-select')).toBeInTheDocument();
-      expect(screen.getByTestId('profanity-filter-checkbox')).toBeInTheDocument();
-    });
-
-    test('should render action buttons', () => {
+    test('should render action buttons container', () => {
       render(<MockStaticSubtitleUpload {...defaultProps} />);
       
       expect(screen.getByTestId('action-buttons')).toBeInTheDocument();
-      expect(screen.getByTestId('upload-button')).toBeInTheDocument();
     });
   });
 
@@ -343,7 +375,7 @@ describe('StaticSubtitleUpload Component', () => {
       expect(screen.getByTestId('file-size')).toHaveTextContent('(1 KB)');
     });
 
-    test('should show clear button when file is selected', () => {
+    test('should show translation settings when file is selected', () => {
       render(<MockStaticSubtitleUpload {...defaultProps} />);
       
       const fileInput = screen.getByTestId('file-input');
@@ -351,7 +383,7 @@ describe('StaticSubtitleUpload Component', () => {
       
       fireEvent.change(fileInput, { target: { files: [file] } });
       
-      expect(screen.getByTestId('clear-button')).toBeInTheDocument();
+      expect(screen.getByTestId('translation-settings')).toBeInTheDocument();
     });
 
     test('should reject invalid file extensions', () => {
@@ -370,7 +402,7 @@ describe('StaticSubtitleUpload Component', () => {
       render(<MockStaticSubtitleUpload {...defaultProps} />);
       
       const fileInput = screen.getByTestId('file-input');
-      // Create a file larger than 10MB
+      // Mock large file size
       Object.defineProperty(File.prototype, 'size', { 
         value: 11 * 1024 * 1024, 
         configurable: true 
@@ -398,52 +430,57 @@ describe('StaticSubtitleUpload Component', () => {
   });
 
   describe('Translation Settings', () => {
-    test('should change target language', () => {
-      render(<MockStaticSubtitleUpload {...defaultProps} />);
-      
-      const languageSelect = screen.getByTestId('target-language-select');
-      fireEvent.change(languageSelect, { target: { value: 'es' } });
-      
-      expect(languageSelect.value).toBe('es');
-    });
-
-    test('should toggle profanity filter', () => {
-      render(<MockStaticSubtitleUpload {...defaultProps} />);
-      
-      const checkbox = screen.getByTestId('profanity-filter-checkbox');
-      expect(checkbox.checked).toBe(true);
-      
-      fireEvent.click(checkbox);
-      expect(checkbox.checked).toBe(false);
-    });
-
-    test('should display all supported languages', () => {
-      render(<MockStaticSubtitleUpload {...defaultProps} />);
-      
-      const languageSelect = screen.getByTestId('target-language-select');
-      const options = Array.from(languageSelect.options);
-      
-      expect(options).toHaveLength(9);
-      expect(options[0].value).toBe('en');
-      expect(options[0].textContent).toBe('English');
-    });
-  });
-
-  describe('Upload Process', () => {
-    test('should disable upload button when no file is selected', () => {
-      render(<MockStaticSubtitleUpload {...defaultProps} />);
-      
-      const uploadButton = screen.getByTestId('upload-button');
-      expect(uploadButton).toBeDisabled();
-    });
-
-    test('should enable upload button when file is selected', () => {
+    test('should show language selection when file is uploaded', () => {
       render(<MockStaticSubtitleUpload {...defaultProps} />);
       
       const fileInput = screen.getByTestId('file-input');
       const file = new File(['content'], 'test.srt', { type: 'text/plain' });
       
       fireEvent.change(fileInput, { target: { files: [file] } });
+      
+      expect(screen.getByTestId('translation-settings')).toBeInTheDocument();
+      expect(screen.getByText('Select Target Languages')).toBeInTheDocument();
+    });
+
+    test('should allow language selection', () => {
+      render(<MockStaticSubtitleUpload {...defaultProps} />);
+      
+      const fileInput = screen.getByTestId('file-input');
+      const file = new File(['content'], 'test.srt', { type: 'text/plain' });
+      
+      fireEvent.change(fileInput, { target: { files: [file] } });
+      
+      const spanishCheckbox = screen.getByTestId('language-es');
+      fireEvent.click(spanishCheckbox);
+      
+      expect(spanishCheckbox.checked).toBe(true);
+    });
+
+    test('should toggle profanity filter', () => {
+      render(<MockStaticSubtitleUpload {...defaultProps} />);
+      
+      const fileInput = screen.getByTestId('file-input');
+      const file = new File(['content'], 'test.srt', { type: 'text/plain' });
+      
+      fireEvent.change(fileInput, { target: { files: [file] } });
+      
+      const checkbox = screen.getByTestId('profanity-filter-checkbox');
+      expect(checkbox.checked).toBe(false);
+      
+      fireEvent.click(checkbox);
+      expect(checkbox.checked).toBe(true);
+    });
+  });
+
+  describe('Upload Process', () => {
+    test('should enable upload button when file and languages are selected', () => {
+      render(<MockStaticSubtitleUpload {...defaultProps} />);
+      
+      const fileInput = screen.getByTestId('file-input');
+      const file = new File(['content'], 'test.srt', { type: 'text/plain' });
+      
+      fireEvent.change(fileInput, { target: { files: [file] } });
+      fireEvent.click(screen.getByTestId('language-es'));
       
       const uploadButton = screen.getByTestId('upload-button');
       expect(uploadButton).not.toBeDisabled();
@@ -456,6 +493,7 @@ describe('StaticSubtitleUpload Component', () => {
       const file = new File(['content'], 'test.srt', { type: 'text/plain' });
       
       fireEvent.change(fileInput, { target: { files: [file] } });
+      fireEvent.click(screen.getByTestId('language-es'));
       fireEvent.click(screen.getByTestId('upload-button'));
       
       expect(screen.getByTestId('upload-progress')).toBeInTheDocument();
@@ -469,6 +507,7 @@ describe('StaticSubtitleUpload Component', () => {
       const file = new File(['content'], 'test.srt', { type: 'text/plain' });
       
       fireEvent.change(fileInput, { target: { files: [file] } });
+      fireEvent.click(screen.getByTestId('language-es'));
       fireEvent.click(screen.getByTestId('upload-button'));
       
       await waitFor(() => {
@@ -477,34 +516,6 @@ describe('StaticSubtitleUpload Component', () => {
       
       expect(screen.getByText('Translation Complete!')).toBeInTheDocument();
       expect(screen.getByTestId('result-details')).toBeInTheDocument();
-      expect(screen.getByTestId('download-button')).toBeInTheDocument();
-    });
-
-    test('should handle upload errors', async () => {
-      render(<MockStaticSubtitleUpload {...defaultProps} />);
-      
-      const fileInput = screen.getByTestId('file-input');
-      const file = new File(['content'], 'error-test.srt', { type: 'text/plain' });
-      
-      fireEvent.change(fileInput, { target: { files: [file] } });
-      fireEvent.click(screen.getByTestId('upload-button'));
-      
-      await waitFor(() => {
-        expect(screen.getByTestId('error-message')).toHaveTextContent('Translation failed');
-      }, { timeout: 3000 });
-    });
-
-    test('should disable buttons during upload', async () => {
-      render(<MockStaticSubtitleUpload {...defaultProps} />);
-      
-      const fileInput = screen.getByTestId('file-input');
-      const file = new File(['content'], 'test.srt', { type: 'text/plain' });
-      
-      fireEvent.change(fileInput, { target: { files: [file] } });
-      fireEvent.click(screen.getByTestId('upload-button'));
-      
-      expect(screen.getByTestId('upload-button')).toBeDisabled();
-      expect(screen.getByTestId('clear-button')).toBeDisabled();
     });
   });
 
@@ -517,10 +528,11 @@ describe('StaticSubtitleUpload Component', () => {
       const file = new File(['content'], 'test.srt', { type: 'text/plain' });
       
       fireEvent.change(fileInput, { target: { files: [file] } });
+      fireEvent.click(screen.getByTestId('language-es'));
       fireEvent.click(screen.getByTestId('upload-button'));
       
       await waitFor(() => {
-        expect(screen.getByTestId('download-button')).toBeInTheDocument();
+        expect(screen.getByTestId('download-button-es')).toBeInTheDocument();
       }, { timeout: 3000 });
       
       // Mock createElement and click for download
@@ -530,11 +542,17 @@ describe('StaticSubtitleUpload Component', () => {
         click: jest.fn()
       };
       
-      jest.spyOn(document, 'createElement').mockReturnValue(mockLink);
+      const createElement = jest.spyOn(document, 'createElement').mockReturnValue(mockLink);
+      const appendChild = jest.spyOn(document.body, 'appendChild').mockImplementation(() => {});
+      const removeChild = jest.spyOn(document.body, 'removeChild').mockImplementation(() => {});
       
-      fireEvent.click(screen.getByTestId('download-button'));
+      fireEvent.click(screen.getByTestId('download-button-es'));
       
       expect(mockLink.click).toHaveBeenCalled();
+      
+      createElement.mockRestore();
+      appendChild.mockRestore();
+      removeChild.mockRestore();
     });
 
     test('should reset for new translation', async () => {
@@ -545,6 +563,7 @@ describe('StaticSubtitleUpload Component', () => {
       const file = new File(['content'], 'test.srt', { type: 'text/plain' });
       
       fireEvent.change(fileInput, { target: { files: [file] } });
+      fireEvent.click(screen.getByTestId('language-es'));
       fireEvent.click(screen.getByTestId('upload-button'));
       
       await waitFor(() => {
@@ -557,37 +576,56 @@ describe('StaticSubtitleUpload Component', () => {
       expect(screen.getByTestId('drop-zone')).toBeInTheDocument();
       expect(screen.queryByTestId('translation-results')).not.toBeInTheDocument();
     });
+  });
 
-    test('should clear selected file when clear button is clicked', () => {
+  describe('Error Handling', () => {
+    test('should show error for invalid file type', () => {
+      render(<MockStaticSubtitleUpload {...defaultProps} />);
+      
+      const fileInput = screen.getByTestId('file-input');
+      const file = new File(['content'], 'test.pdf', { type: 'application/pdf' });
+      
+      fireEvent.change(fileInput, { target: { files: [file] } });
+      
+      expect(screen.getByTestId('error-message')).toHaveTextContent('Please select a valid .srt or .vtt file');
+    });
+
+    test('should show error for file too large', () => {
+      render(<MockStaticSubtitleUpload {...defaultProps} />);
+      
+      const fileInput = screen.getByTestId('file-input');
+      // Mock large file
+      Object.defineProperty(File.prototype, 'size', { 
+        value: 15 * 1024 * 1024, 
+        configurable: true 
+      });
+      const file = new File(['content'], 'large.srt', { type: 'text/plain' });
+      
+      fireEvent.change(fileInput, { target: { files: [file] } });
+      
+      expect(screen.getByTestId('error-message')).toHaveTextContent('File size must be less than 10MB');
+    });
+  });
+
+  describe('Accessibility', () => {
+    test('should have proper file input attributes', () => {
+      render(<MockStaticSubtitleUpload {...defaultProps} />);
+      
+      const fileInput = screen.getByTestId('file-input');
+      expect(fileInput).toHaveAttribute('type', 'file');
+      expect(fileInput).toHaveAttribute('accept', '.srt,.vtt');
+    });
+
+    test('should have proper form labels', () => {
       render(<MockStaticSubtitleUpload {...defaultProps} />);
       
       const fileInput = screen.getByTestId('file-input');
       const file = new File(['content'], 'test.srt', { type: 'text/plain' });
       
       fireEvent.change(fileInput, { target: { files: [file] } });
-      expect(screen.getByTestId('file-selected')).toBeInTheDocument();
       
-      fireEvent.click(screen.getByTestId('clear-button'));
-      
-      expect(screen.queryByTestId('file-selected')).not.toBeInTheDocument();
-      expect(screen.getByTestId('file-prompt')).toBeInTheDocument();
-    });
-  });
-
-  describe('Accessibility', () => {
-    test('should have proper labels for form elements', () => {
-      render(<MockStaticSubtitleUpload {...defaultProps} />);
-      
-      expect(screen.getByLabelText('Target Language')).toBeInTheDocument();
-      expect(screen.getByText('Enable profanity filter')).toBeInTheDocument();
-    });
-
-    test('should have accessible file input', () => {
-      render(<MockStaticSubtitleUpload {...defaultProps} />);
-      
-      const fileInput = screen.getByTestId('file-input');
-      expect(fileInput).toHaveAttribute('type', 'file');
-      expect(fileInput).toHaveAttribute('accept', '.srt,.vtt');
+      expect(screen.getByText('Select Target Languages')).toBeInTheDocument();
+      expect(screen.getByText('Censor profanity')).toBeInTheDocument();
     });
   });
 });

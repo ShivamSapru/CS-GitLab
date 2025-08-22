@@ -2,7 +2,7 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { jest } from '@jest/globals';
 
-// Mock LoginModal component
+// Mock LoginModal component matching actual implementation
 const MockLoginModal = ({ 
   onClose, 
   onLoginSuccess, 
@@ -11,12 +11,10 @@ const MockLoginModal = ({
 }) => {
   const [email, setEmail] = React.useState('');
   const [password, setPassword] = React.useState('');
-  const [isLoading, setIsLoading] = React.useState(false);
   const [error, setError] = React.useState('');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setIsLoading(true);
     setError('');
 
     try {
@@ -37,8 +35,6 @@ const MockLoginModal = ({
       }
     } catch (err) {
       setError('Login failed');
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -57,7 +53,7 @@ const MockLoginModal = ({
         <div data-testid="modal-content" onClick={(e) => e.stopPropagation()}>
           <button data-testid="close-button" onClick={onClose}>×</button>
           
-          <h2>Login to SubLingo</h2>
+          <h2>Login</h2>
           
           <form data-testid="login-form" onSubmit={handleSubmit}>
             <div>
@@ -92,10 +88,9 @@ const MockLoginModal = ({
 
             <button 
               data-testid="login-button"
-              type="submit" 
-              disabled={isLoading}
+              type="submit"
             >
-              {isLoading ? 'Logging in...' : 'Login'}
+              Log In
             </button>
           </form>
 
@@ -103,16 +98,15 @@ const MockLoginModal = ({
             <button 
               data-testid="google-login-button"
               onClick={handleGoogleLogin}
-              disabled={isLoading}
             >
-              Login with Google
+              Continue with Google
             </button>
           </div>
 
           <div data-testid="signup-section">
             <p>Don't have an account?</p>
             <button data-testid="show-signup-button" onClick={onShowSignup}>
-              Sign Up
+              Sign up
             </button>
           </div>
         </div>
@@ -144,7 +138,7 @@ describe('LoginModal Component', () => {
       expect(screen.getByTestId('login-modal')).toBeInTheDocument();
       expect(screen.getByTestId('modal-overlay')).toBeInTheDocument();
       expect(screen.getByTestId('modal-content')).toBeInTheDocument();
-      expect(screen.getByText('Login to SubLingo')).toBeInTheDocument();
+      expect(screen.getByText('Login')).toBeInTheDocument();
     });
 
     test('should render form with email and password inputs', () => {
@@ -203,21 +197,6 @@ describe('LoginModal Component', () => {
       fireEvent.change(passwordInput, { target: { value: 'password123' } });
       
       expect(passwordInput.value).toBe('password123');
-    });
-
-    test('should show loading state when submitting form', async () => {
-      render(<MockLoginModal {...defaultProps} />);
-      
-      const emailInput = screen.getByTestId('email-input');
-      const passwordInput = screen.getByTestId('password-input');
-      const loginButton = screen.getByTestId('login-button');
-
-      fireEvent.change(emailInput, { target: { value: 'test@example.com' } });
-      fireEvent.change(passwordInput, { target: { value: 'password123' } });
-      fireEvent.click(loginButton);
-
-      // Check for loading state (this might be brief)
-      expect(loginButton).toBeDisabled();
     });
   });
 
@@ -353,23 +332,6 @@ describe('LoginModal Component', () => {
       expect(passwordInput).toHaveAttribute('required');
       expect(passwordInput).toHaveAttribute('type', 'password');
     });
-
-    test('should disable buttons when loading', async () => {
-      render(<MockLoginModal {...defaultProps} />);
-      
-      const emailInput = screen.getByTestId('email-input');
-      const passwordInput = screen.getByTestId('password-input');
-      const loginButton = screen.getByTestId('login-button');
-      const googleButton = screen.getByTestId('google-login-button');
-
-      fireEvent.change(emailInput, { target: { value: 'test@example.com' } });
-      fireEvent.change(passwordInput, { target: { value: 'password123' } });
-      fireEvent.click(loginButton);
-
-      // During loading state, buttons should be disabled
-      expect(loginButton).toBeDisabled();
-      expect(googleButton).toBeDisabled();
-    });
   });
 
   describe('Accessibility', () => {
@@ -393,9 +355,9 @@ describe('LoginModal Component', () => {
     test('should have accessible button labels', () => {
       render(<MockLoginModal {...defaultProps} />);
       
-      expect(screen.getByText('Login')).toBeInTheDocument();
-      expect(screen.getByText('Login with Google')).toBeInTheDocument();
-      expect(screen.getByText('Sign Up')).toBeInTheDocument();
+      expect(screen.getByText('Log In')).toBeInTheDocument();
+      expect(screen.getByText('Continue with Google')).toBeInTheDocument();
+      expect(screen.getByText('Sign up')).toBeInTheDocument();
     });
   });
 });
