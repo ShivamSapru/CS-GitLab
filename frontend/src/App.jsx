@@ -182,7 +182,7 @@ const ModernHamburgerMenu = ({
                               : "bg-orange-500/20 text-orange-600 border border-orange-500/30"
                           }`}
                         >
-                          Login required
+                          .
                         </span>
                       )}
                     </div>
@@ -219,7 +219,7 @@ const ModernHamburgerMenu = ({
                         isDarkMode ? "text-gray-400" : "text-gray-500"
                       }`}
                     >
-                      {user.email || "User"}
+                      {user.display_name || "User"}
                     </p>
                   </div>
                 </div>
@@ -303,7 +303,7 @@ const SubtitleTranslatorApp = () => {
     },
     {
       id: "upload",
-      name: "Static Translation",
+      name: "Subtitle Translation",
       path: "/upload",
       requiresAuth: true,
     },
@@ -588,17 +588,19 @@ const SubtitleTranslatorApp = () => {
             <div className="flex items-center space-x-2 sm:space-x-3 -ml-2">
               <button
                 onClick={() => navigate("/dashboard")}
-                className="flex items-center space-x-0 hover:opacity-80 transition-opacity duration-200"
+                className="flex items-center space-x-0 sm:space-x-0 hover:opacity-80 transition-opacity duration-200"
               >
                 <img
                   src={isDarkMode ? "/logo.png" : "/logo.png"}
                   alt="SubtitleTranslator Logo"
-                  className="w-16 h-16 sm:w-20 sm:h-20 object-contain rounded-lg"
+                  className="w-12 h-12 sm:w-16 sm:h-16 lg:w-20 lg:h-20 object-contain rounded-lg"
                 />
                 <h1
-                  className={`text-lg sm:text-xl lg:text-2xl font-bold ${
-                    isDarkMode ? "text-white" : "text-gray-900"
-                  }`}
+                  className={`text-lg sm:text-xl lg:text-xl xl:text-2xl font-bold bg-gradient-to-r ${
+                    isDarkMode
+                      ? "from-cyan-400 via-blue-400 to-indigo-400"
+                      : "from-cyan-600 via-blue-600 to-indigo-600"
+                  } bg-clip-text text-transparent`}
                 >
                   SubLingo
                 </h1>

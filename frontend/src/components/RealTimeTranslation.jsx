@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 
 const ChromeExtensionPage = ({ isDarkMode = false }) => {
-  const [activeSection, setActiveSection] = useState("features");
+  const [activeSection, setActiveSection] = useState("usage");
 
   const features = [
     { icon: Globe, title: "100+ Languages", color: "bg-blue-500" },
@@ -31,6 +31,53 @@ const ChromeExtensionPage = ({ isDarkMode = false }) => {
   ];
 
   const sections = {
+    usage: {
+      title: "How to Use",
+      icon: Zap,
+      content: (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {[
+            {
+              icon: Video,
+              name: "YouTube",
+              steps: "Play video → Click extension → Select language",
+            },
+            {
+              icon: Users,
+              name: "Teams",
+              steps: "Enable captions → Click extension → Choose language",
+            },
+            {
+              icon: Monitor,
+              name: "Zoom",
+              steps: "Enable captions → Click extension → Start translating",
+            },
+          ].map((platform, index) => {
+            const IconComponent = platform.icon;
+            return (
+              <div
+                key={index}
+                className={`border rounded-lg p-4 ${isDarkMode ? "border-gray-600" : "border-gray-200"}`}
+              >
+                <div className="flex items-center space-x-2 mb-2">
+                  <IconComponent className="w-5 h-5 text-blue-500" />
+                  <h4
+                    className={`font-medium ${isDarkMode ? "text-white" : "text-gray-900"}`}
+                  >
+                    {platform.name}
+                  </h4>
+                </div>
+                <p
+                  className={`text-sm ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}
+                >
+                  {platform.steps}
+                </p>
+              </div>
+            );
+          })}
+        </div>
+      ),
+    },
     features: {
       title: "Features",
       icon: Settings,
@@ -180,53 +227,6 @@ const ChromeExtensionPage = ({ isDarkMode = false }) => {
               <li>• Settings are automatically saved for each website</li>
             </ul>
           </div>
-        </div>
-      ),
-    },
-    usage: {
-      title: "How to Use",
-      icon: Zap,
-      content: (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {[
-            {
-              icon: Video,
-              name: "YouTube",
-              steps: "Play video → Click extension → Select language",
-            },
-            {
-              icon: Users,
-              name: "Teams",
-              steps: "Enable captions → Click extension → Choose language",
-            },
-            {
-              icon: Monitor,
-              name: "Zoom",
-              steps: "Enable captions → Click extension → Start translating",
-            },
-          ].map((platform, index) => {
-            const IconComponent = platform.icon;
-            return (
-              <div
-                key={index}
-                className={`border rounded-lg p-4 ${isDarkMode ? "border-gray-600" : "border-gray-200"}`}
-              >
-                <div className="flex items-center space-x-2 mb-2">
-                  <IconComponent className="w-5 h-5 text-blue-500" />
-                  <h4
-                    className={`font-medium ${isDarkMode ? "text-white" : "text-gray-900"}`}
-                  >
-                    {platform.name}
-                  </h4>
-                </div>
-                <p
-                  className={`text-sm ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}
-                >
-                  {platform.steps}
-                </p>
-              </div>
-            );
-          })}
         </div>
       ),
     },

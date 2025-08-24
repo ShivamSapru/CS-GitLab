@@ -1896,7 +1896,7 @@ const TranscriptionApp = ({
                         "from-yellow-500 via-orange-500 to-red-500"
                   }`}
                 ></div>
-                AI Transcription
+                Audio/Video Transcription
               </span>
             </h1>
           </div>
