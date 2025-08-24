@@ -1242,26 +1242,6 @@ const StaticSubtitleUpload = ({
           ))}
         </svg>
 
-        {/* Wave patterns */}
-        <div className="absolute inset-0 opacity-10">
-          <div
-            className={`absolute w-full h-32 ${isDarkMode ? "bg-gradient-to-r from-blue-600 via-purple-500 to-indigo-600" : "bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400"}`}
-            style={{
-              top: "30%",
-              clipPath: "polygon(0 0, 100% 0, 100% 70%, 0 100%)",
-              transform: `translateX(${mousePosition.x * 20}px)`,
-            }}
-          />
-          <div
-            className={`absolute w-full h-24 ${isDarkMode ? "bg-gradient-to-r from-purple-600 via-pink-500 to-blue-600" : "bg-gradient-to-r from-purple-400 via-pink-400 to-blue-400"}`}
-            style={{
-              top: "60%",
-              clipPath: "polygon(0 30%, 100% 0, 100% 100%, 0 70%)",
-              transform: `translateX(${mousePosition.x * -15}px)`,
-            }}
-          />
-        </div>
-
         {/* Subtitle overlay effect */}
         <div className="absolute inset-0 flex items-center justify-center opacity-5">
           <div className="text-center space-y-4">
@@ -1311,9 +1291,9 @@ const StaticSubtitleUpload = ({
     >
       {renderStaticTranslationBackground()}
 
-      <div className="relative z-10 max-w-4xl mx-auto p-6">
+      <div className="relative z-10 max-w-4xl mx-auto p-6 min-h-screen flex items-center justify-center">
         <div
-          className={`relative z-10 rounded-xl shadow-lg p-8 transition-colors duration-300 backdrop-blur-sm ${
+          className={`relative z-10 rounded-xl shadow-lg p-8 transition-colors duration-300 backdrop-blur-sm w-full ${
             isDarkMode ? "bg-gray-800/90" : "bg-white/90"
           }`}
         >

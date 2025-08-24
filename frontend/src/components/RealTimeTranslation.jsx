@@ -311,7 +311,7 @@ const ChromeExtensionPage = ({ isDarkMode = false }) => {
           : "bg-gradient-to-br from-blue-50 to-indigo-100"
       }`}
     >
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 min-h-screen flex flex-col items-center justify-center">
         {/* Hero Section - Updated to match dashboard card */}
         <div
           className={`relative rounded-2xl shadow-2xl overflow-hidden mb-8 transition-colors duration-300 ${

@@ -267,7 +267,7 @@ const Library = ({ isDarkMode, user, onShowLogin }) => {
             console.log("Original file not found:", errorData);
 
             setOriginalContent(
-              `Original Content Not Available\n\n` +
+              `📁 Original Content Not Available\n\n` +
                 `This project was created before original file storage was implemented.\n\n` +
                 `Project Details:\n` +
                 `• File: ${filename}\n` +
@@ -281,7 +281,7 @@ const Library = ({ isDarkMode, user, onShowLogin }) => {
         } catch (originalError) {
           console.error("Error fetching original content:", originalError);
           setOriginalContent(
-            `Error Loading Original Content\n\n` +
+            `❌ Error Loading Original Content\n\n` +
               `Could not retrieve the original subtitle file.\n\n` +
               `Error: ${originalError.message}\n\n` +
               `You can still view and edit the translated content on the right.`,
@@ -290,7 +290,7 @@ const Library = ({ isDarkMode, user, onShowLogin }) => {
         }
       } else {
         setOriginalContent(
-          `No Project Selected\n\n` +
+          `⚠️ No Project Selected\n\n` +
             `Cannot load original content without project context.\n\n` +
             `Please select a project to view original files.`,
         );

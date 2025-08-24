@@ -1867,9 +1867,9 @@ const TranscriptionApp = ({
       {renderTranscriptionBackground()}
 
       {/* Centered content container */}
-      <div className="relative z-10 max-w-4xl mx-auto p-6">
+      <div className="relative z-10 max-w-4xl mx-auto p-6 min-h-screen flex items-center justify-center">
         <div
-          className={`relative z-10 rounded-xl shadow-lg overflow-hidden transition-colors duration-300 backdrop-blur-sm ${
+          className={`relative z-10 rounded-xl shadow-lg overflow-hidden transition-colors duration-300 backdrop-blur-sm w-full ${
             isDarkMode ? "bg-gray-800/90" : "bg-white/90"
           }`}
         >
