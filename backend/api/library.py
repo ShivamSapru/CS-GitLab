@@ -28,6 +28,7 @@ AZURE_TRANSLATOR_REGION = os.getenv("AZURE_TRANSLATOR_REGION")
  
 AZURE_STORAGE_CONNECTION_STRING = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
 AZURE_STORAGE_CONTAINER_NAME = os.getenv("AZURE_STORAGE_CONTAINER_NAME", "subtitle-projects")
+TRANSLATION_PROJECTS_FOLDER = os.getenv("TRANSLATION_PROJECTS_FOLDER")
  
 MAX_CHAR_LIMIT = 20000
  
@@ -178,7 +179,7 @@ async def delete_project(
             container_client = blob_client.get_container_client(AZURE_STORAGE_CONTAINER_NAME)
  
             # List and delete all blobs in the project folder
-            blob_list = container_client.list_blobs(name_starts_with=f"projects/{project_id}/")
+            blob_list = container_client.list_blobs(name_starts_with=f"{TRANSLATION_PROJECTS_FOLDER}/{project_id}/")
             for blob in blob_list:
                 blob_client.get_blob_client(
                     container=AZURE_STORAGE_CONTAINER_NAME,

@@ -122,10 +122,28 @@ async def check_status_with_fallback(project_id: str, request: Request, db: Sess
 
 # Convert mono audio, 16kHz WAV
 def convert_to_wav(input_path, output_path):
-    ffmpeg.input(input_path).output(
-        output_path, format='wav', acodec='pcm_s16le', ac=1, ar='16000'
-    ).overwrite_output().run(quiet=True)
-    return output_path
+    try:
+        (
+            ffmpeg
+            .input(input_path)
+            .output(
+                output_path,
+                format='wav',
+                acodec='pcm_s16le',  # 16-bit PCM encoding
+                ac=1,                # mono
+                ar='16000'           # 16 kHz
+            )
+            .overwrite_output()
+            .run(capture_stdout=True, capture_stderr=True)  # capture errors
+        )
+        return output_path
+    except ffmpeg.Error as e:
+        print("FFmpeg error occurred:")
+        print(e.stderr.decode("utf-8"))  # detailed ffmpeg log
+        return None
+    except Exception as e:
+        print(f"Unexpected error: {e}")
+        return None
 
 # Format output to SRT/VTT
 def convert_to_srt(segments, output_format):

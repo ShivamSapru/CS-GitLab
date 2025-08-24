@@ -472,97 +472,97 @@ async def save_project(
 
         print(f"Looking for original subtitle file at: {local_path}")
 
-        if os.path.exists(local_path):
-            # Original file exists, store it
-            file_size = 0
-            blob_name = f"{TRANSLATION_PROJECTS_FOLDER}/{project_id}/{subtitle_filename}"
-            blob_url = f"https://{os.getenv('AZURE_STORAGE_ACCOUNT_NAME')}.blob.core.windows.net/{AZURE_STORAGE_CONTAINER_NAME}/{blob_name}"
+        # if os.path.exists(local_path):
+        #     # Original file exists, store it
+        #     file_size = 0
+        #     blob_name = f"{TRANSLATION_PROJECTS_FOLDER}/{project_id}/{subtitle_filename}"
+        #     blob_url = f"https://{os.getenv('AZURE_STORAGE_ACCOUNT_NAME')}.blob.core.windows.net/{AZURE_STORAGE_CONTAINER_NAME}/{blob_name}"
 
-            with open(local_path, "rb") as f:
-                file_bytes = f.read()
-            file_size = len(file_bytes)
-            blob_client.get_blob_client(container=AZURE_STORAGE_CONTAINER_NAME, blob=blob_name).upload_blob(file_bytes, overwrite=True)
+        #     with open(local_path, "rb") as f:
+        #         file_bytes = f.read()
+        #     file_size = len(file_bytes)
+        #     blob_client.get_blob_client(container=AZURE_STORAGE_CONTAINER_NAME, blob=blob_name).upload_blob(file_bytes, overwrite=True)
 
-            # Create the ORIGINAL subtitle file record
-            original_subtitle_file = SubtitleFile(
-                file_id=uuid4(),
-                project_id=project_id,
-                original_file_name=subtitle_filename,
-                file_format=subtitle_filename.split(".")[-1] if subtitle_filename else "srt",
-                file_size_bytes=file_size,
-                is_original=True,  # This is the original file
-                source_language=get_project_field(project_data, 'source_language', 'auto'),
-                blob_url=blob_url
-            )
-            db.add(original_subtitle_file)
-            db.flush()
+        #     # Create the ORIGINAL subtitle file record
+        #     original_subtitle_file = SubtitleFile(
+        #         file_id=uuid4(),
+        #         project_id=project_id,
+        #         original_file_name=subtitle_filename,
+        #         file_format=subtitle_filename.split(".")[-1] if subtitle_filename else "srt",
+        #         file_size_bytes=file_size,
+        #         is_original=True,  # This is the original file
+        #         source_language=get_project_field(project_data, 'source_language', 'auto'),
+        #         blob_url=blob_url
+        #     )
+        #     db.add(original_subtitle_file)
+        #     db.flush()
 
-            uploaded_files.append({
-                "filename": subtitle_filename,
-                "blob_path": blob_name,
-                "size": file_size,
-                "is_original": True
-            })
-            original_file_stored = True
-            print(f"Original subtitle file uploaded to blob: {blob_name}")
-        else:
-            print(f"Warning: Original subtitle file not found at {local_path}")
-            # Try to find the file by looking for any subtitle file in temp_dir that might match
-            import glob
+        #     uploaded_files.append({
+        #         "filename": subtitle_filename,
+        #         "blob_path": blob_name,
+        #         "size": file_size,
+        #         "is_original": True
+        #     })
+        #     original_file_stored = True
+        #     print(f"Original subtitle file uploaded to blob: {blob_name}")
+        # else:
+        #     print(f"Warning: Original subtitle file not found at {local_path}")
+        #     # Try to find the file by looking for any subtitle file in temp_dir that might match
+        #     import glob
 
-            # Look for potential subtitle files
-            potential_files = []
-            if original_filename:
-                base_name = os.path.splitext(original_filename)[0]
-                potential_files.extend(glob.glob(os.path.join(temp_dir, f"{base_name}*.srt")))
-                potential_files.extend(glob.glob(os.path.join(temp_dir, f"{base_name}*.vtt")))
+        #     # Look for potential subtitle files
+        #     potential_files = []
+        #     if original_filename:
+        #         base_name = os.path.splitext(original_filename)[0]
+        #         potential_files.extend(glob.glob(os.path.join(temp_dir, f"{base_name}*.srt")))
+        #         potential_files.extend(glob.glob(os.path.join(temp_dir, f"{base_name}*.vtt")))
 
-            # Look for any recent subtitle files
-            potential_files.extend(glob.glob(os.path.join(temp_dir, "*.srt")))
-            potential_files.extend(glob.glob(os.path.join(temp_dir, "*.vtt")))
+        #     # Look for any recent subtitle files
+        #     potential_files.extend(glob.glob(os.path.join(temp_dir, "*.srt")))
+        #     potential_files.extend(glob.glob(os.path.join(temp_dir, "*.vtt")))
 
-            if potential_files:
-                # Use the most recently modified file
-                potential_files.sort(key=os.path.getmtime, reverse=True)
-                found_file = potential_files[0]
-                print(f"Found potential subtitle file: {found_file}")
+        #     if potential_files:
+        #         # Use the most recently modified file
+        #         potential_files.sort(key=os.path.getmtime, reverse=True)
+        #         found_file = potential_files[0]
+        #         print(f"Found potential subtitle file: {found_file}")
 
-                # Try to use this file
-                try:
-                    with open(found_file, "rb") as f:
-                        file_bytes = f.read()
-                    file_size = len(file_bytes)
+        #         # Try to use this file
+        #         try:
+        #             with open(found_file, "rb") as f:
+        #                 file_bytes = f.read()
+        #             file_size = len(file_bytes)
 
-                    blob_name = f"{TRANSLATION_PROJECTS_FOLDER}/{project_id}/{subtitle_filename}"
-                    blob_url = f"https://{os.getenv('AZURE_STORAGE_ACCOUNT_NAME')}.blob.core.windows.net/{AZURE_STORAGE_CONTAINER_NAME}/{blob_name}"
+        #             blob_name = f"{TRANSLATION_PROJECTS_FOLDER}/{project_id}/{subtitle_filename}"
+        #             blob_url = f"https://{os.getenv('AZURE_STORAGE_ACCOUNT_NAME')}.blob.core.windows.net/{AZURE_STORAGE_CONTAINER_NAME}/{blob_name}"
 
-                    blob_client.get_blob_client(container=AZURE_STORAGE_CONTAINER_NAME, blob=blob_name).upload_blob(file_bytes, overwrite=True)
+        #             blob_client.get_blob_client(container=AZURE_STORAGE_CONTAINER_NAME, blob=blob_name).upload_blob(file_bytes, overwrite=True)
 
-                    # Create the ORIGINAL subtitle file record
-                    original_subtitle_file = SubtitleFile(
-                        file_id=uuid4(),
-                        project_id=project_id,
-                        original_file_name=subtitle_filename,
-                        file_format=subtitle_filename.split(".")[-1] if subtitle_filename else "srt",
-                        file_size_bytes=file_size,
-                        is_original=True,
-                        source_language=get_project_field(project_data, 'source_language', 'auto'),
-                        blob_url=blob_url
-                    )
-                    db.add(original_subtitle_file)
-                    db.flush()
+        #             # Create the ORIGINAL subtitle file record
+        #             original_subtitle_file = SubtitleFile(
+        #                 file_id=uuid4(),
+        #                 project_id=project_id,
+        #                 original_file_name=subtitle_filename,
+        #                 file_format=subtitle_filename.split(".")[-1] if subtitle_filename else "srt",
+        #                 file_size_bytes=file_size,
+        #                 is_original=True,
+        #                 source_language=get_project_field(project_data, 'source_language', 'auto'),
+        #                 blob_url=blob_url
+        #             )
+        #             db.add(original_subtitle_file)
+        #             db.flush()
 
-                    uploaded_files.append({
-                        "filename": subtitle_filename,
-                        "blob_path": blob_name,
-                        "size": file_size,
-                        "is_original": True
-                    })
-                    original_file_stored = True
-                    print(f"Found and uploaded subtitle file: {blob_name}")
+        #             uploaded_files.append({
+        #                 "filename": subtitle_filename,
+        #                 "blob_path": blob_name,
+        #                 "size": file_size,
+        #                 "is_original": True
+        #             })
+        #             original_file_stored = True
+        #             print(f"Found and uploaded subtitle file: {blob_name}")
 
-                except Exception as fallback_error:
-                    print(f"Failed to use fallback file: {fallback_error}")
+        #         except Exception as fallback_error:
+        #             print(f"Failed to use fallback file: {fallback_error}")
 
         if os.path.exists(local_path):
             # Original file exists, store it
@@ -674,29 +674,6 @@ async def save_project(
 
         if not uploaded_files:
             return JSONResponse(status_code=400, content={"error": "No valid files uploaded"})
-
-
-        # transcription_project = TranscriptionProject(
-        #     project_id=project_id,
-        #     user_id=user.user_id,
-        #     status="Pending",
-        #     created_at=current_time,
-        #     subtitle_file_url=uploaded_files[0]["blob_path"],
-        #     media_url=None
-        # )
-        # db.add(transcription_project)
-        # db.flush()
-
-        # notification = Notification(
-        #     user_id=user.user_id,
-        #     project_id=project_id,
-        #     project_status="Pending",
-        #     creation_time=current_time,
-        #     message=f"Your project '{project_data.project_name}' has been created and is pending transcription.",
-        #     is_read=False
-        # )
-        # db.add(notification)
-        #
         db.commit()
 
         return {
