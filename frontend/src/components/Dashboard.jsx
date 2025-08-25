@@ -119,6 +119,12 @@ const Dashboard = ({ onNavigate, isDarkMode, user, onShowLogin }) => {
     const handleWheel = (e) => {
       if (isScrolling) return;
 
+      // Special handling for About section - allow natural scrolling
+      if (currentFeature.isFooter) {
+        return; // Let browser handle natural scroll in About section
+      }
+
+      // Normal section jumping for other sections
       e.preventDefault();
       setIsScrolling(true);
       setIsManualScroll(true);
@@ -131,7 +137,6 @@ const Dashboard = ({ onNavigate, isDarkMode, user, onShowLogin }) => {
 
       setCurrentSection(newSection);
 
-      // Scroll to the section
       if (containerRef.current) {
         containerRef.current.scrollTo({
           top: newSection * window.innerHeight,
@@ -142,7 +147,7 @@ const Dashboard = ({ onNavigate, isDarkMode, user, onShowLogin }) => {
       setTimeout(() => {
         setIsScrolling(false);
         setIsManualScroll(false);
-      }, 1000);
+      }, 600); // Reduced from 1000ms
     };
 
     const handleScroll = () => {
@@ -914,7 +919,9 @@ const Dashboard = ({ onNavigate, isDarkMode, user, onShowLogin }) => {
       >
         {currentFeature.isFooter ? (
           // Footer content - About component
-          <About isDarkMode={isDarkMode} />
+          <div className="w-full h-full overflow-y-auto py-4">
+            <About isDarkMode={isDarkMode} />
+          </div>
         ) : (
           // Regular feature content
           <div

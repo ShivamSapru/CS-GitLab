@@ -34,8 +34,8 @@ def get_db():
 
 @router.get("/login")
 async def login(request: Request):
-    # Use BACKEND_URL instead of VITE_BACKEND_URL to match your .env
-    backend_url = os.getenv("BACKEND_URL", "http://localhost:8000")
+
+    backend_url = os.getenv("VITE_BACKEND_URL")
     redirect_uri = f"{backend_url}/auth/callback"
     print(f"OAuth redirect URI: {redirect_uri}")  # Debug log
     return await oauth.google.authorize_redirect(request, redirect_uri)

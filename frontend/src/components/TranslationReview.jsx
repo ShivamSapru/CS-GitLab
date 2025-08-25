@@ -2668,7 +2668,7 @@ const TranscriptionApp = ({
                       )}
 
                       {/* New Transcription Button */}
-                      <div className="pt-4 border-t border-gray-200 dark:border-gray-600">
+                      <div className="pt-4 border-t transition-colors duration-300 border-gray-200 dark:border-gray-600">
                         <button
                           onClick={resetForm}
                           className={`w-full py-2 px-4 rounded-lg font-medium transition-colors duration-300 ${
@@ -2715,34 +2715,6 @@ const TranscriptionApp = ({
             </div>
           )}
         </div>
-
-        {/* Footer with Reset Option */}
-        {transcriptionResult && (
-          <div className="mt-6 text-center">
-            <button
-              onClick={resetForm}
-              className={`px-4 py-2 text-sm rounded-lg transition-colors duration-300 ${
-                isDarkMode
-                  ? "text-gray-400 hover:text-gray-200 hover:bg-gray-800"
-                  : "text-gray-600 hover:text-gray-800 hover:bg-gray-100"
-              }`}
-            >
-              Start New Transcription
-            </button>
-            {/* Navigation Warning Modal */}
-            {showNavigationWarning && (
-              <NavigationWarningModal
-                isOpen={showNavigationWarning}
-                onClose={handleNavigationWarningClose}
-                onConfirm={handleNavigationConfirm}
-                isDarkMode={isDarkMode}
-                transcriptionProgress={
-                  transcriptionStage || "Processing your transcription..."
-                }
-              />
-            )}
-          </div>
-        )}
       </div>
     </div>
   );

@@ -585,7 +585,7 @@ const SubtitleTranslatorApp = () => {
       >
         <div className="max-w-7xl mx-auto px-1 sm:px-2 lg:px-4">
           <div className="flex justify-between items-center py-1">
-            <div className="flex items-center space-x-2 sm:space-x-3 -ml-2">
+            <div className="flex items-center space-x-2 sm:space-x-3 ml-2 sm:-ml-2">
               <button
                 onClick={() => navigate("/dashboard")}
                 className="flex items-center space-x-0 sm:space-x-0 hover:opacity-80 transition-opacity duration-200"

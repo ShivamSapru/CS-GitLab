@@ -72,10 +72,10 @@ const About = ({ isDarkMode }) => {
   ];
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 md:px-8 py-8 sm:py-12 md:py-16">
-      <div className="text-center mb-8 sm:mb-12">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 md:px-8 py-4 sm:py-8 md:py-16">
+      <div className="text-center mb-4 sm:mb-8 md:mb-12">
         <h2
-          className={`text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-light mb-4 sm:mb-6 ${isDarkMode ? "text-white" : "text-gray-900"} leading-tight`}
+          className={`text-xl sm:text-2xl md:text-3xl lg:text-4xl xl:text-5xl font-light mb-2 sm:mb-4 md:mb-6 ${isDarkMode ? "text-white" : "text-gray-900"} leading-tight`}
         >
           Meet Our Team
         </h2>

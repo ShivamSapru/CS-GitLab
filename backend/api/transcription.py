@@ -51,6 +51,7 @@ AZURE_SPEECH_KEY = os.getenv("AZURE_SPEECH_KEY")
 AZURE_SPEECH_REGION = os.getenv("AZURE_SPEECH_REGION")
 AZURE_STORAGE_CONNECTION_STRING = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
 AZURE_BLOB_CONTAINER = os.getenv("AZURE_STORAGE_CONTAINER_NAME")
+BACKEND_URL = os.getenv("VITE_BACKEND_URL")
 
 # Safely handle BATCH_ENDPOINT and GET_ENDPOINT_TEMPLATE with null checking
 batch_endpoint_template = os.getenv("BATCH_ENDPOINT")
@@ -103,7 +104,8 @@ async def check_status_with_fallback(project_id: str, request: Request, db: Sess
         # Add media_url - use proxy URL regardless of database state
         if project.status == "Completed":
             # Always provide proxy URL for completed projects
-            proxy_url = f"http://localhost:8000/api/proxy-media/{project_id}"
+            proxy_url = f"{BACKEND_URL}/api/proxy-media/{project_id}"
+
             response["media_url"] = proxy_url
             print(f"Added proxy media_url: {proxy_url}")
 
@@ -376,7 +378,7 @@ def monitor_transcription_job(job_id, project_id, user_id, file_name, output_for
             "status": "Completed",
             "message": "Transcription completed successfully!",
             "filename": out_name,
-            "media_url": f"http://localhost:8000/api/proxy-media/{project_id}",  # Include proxy URL
+            "media_url": f"{BACKEND_URL}/api/proxy-media/{project_id}",
             "subtitle_file_url": subtitle_file_url,
             "timestamp": datetime.now(timezone.utc)
         }
