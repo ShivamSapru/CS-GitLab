@@ -1,0 +1,13 @@
+# Minutes of Meeting – Daily Internal Call  
+**Date:** July 24, 2025  
+**Project:** Subtitle Translator App  
+**Attendees:** Project Team
+
+| Name                   | Tasks Done                                                                                                                                       | Tasks To Do                                                                                                              |
+|------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------|
+| Samudra Pratim Borkakoti | - Continued refining error handling for transcription and translation across edge cases.  <br> - Investigated persistent transcription errors.        | - Finalize transcription error fixes.  <br> - Continue exploring queuing implementation.  <br> - Progress with integration in container setup. |
+| Shubham Limkar         | - Worked on Chrome Extension overlay updates.  <br> - Updated the overlay feature branch with latest code.                                       | - Begin implementing overlay for Microsoft Teams platform.  <br> - Test cross-platform consistency.                     |
+| Shivam Sapru           | - Collaborated on containerization setup.  <br> - Identified ongoing issues in container deployment.                                              | - Continue resolving containerization problems.  <br> - Finalize Docker-based deployment structure.                      |
+| Yadnesh Sirdeshmukh    | - Started containerization setup.  <br> - Pushed backend/frontend Docker images to Azure Container Registry.  <br> - Created Azure Container App.  <br> - Investigated .env file errors in deployment. | - Troubleshoot .env loading inside containers.  <br> - Finalize backend/frontend Docker integration.  <br> - Resolve container launch issues. |
+| Pratham Sharma         | - Worked on routing and login popup integration in Chrome Extension.  <br> - Addressed previous UI feedback.                                     | - Finalize login popup changes.  <br> - Coordinate for testing and automation coverage.                                  |
+| Rishabh Lingsugur      | - Continued testing and reviewed common issues and errors.  <br> - Reviewed translation logic methodology.  <br> - Completed and posted MoMs.    | - Begin scripting accuracy testing and unit tests for translation module.  <br> - Support documentation, metric reports, and testing strategy for upcoming evaluation.  <br> - work on unit and integration testing |

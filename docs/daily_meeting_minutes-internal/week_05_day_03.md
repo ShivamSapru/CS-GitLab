@@ -1,0 +1,13 @@
+# Minutes of Meeting – Daily Internal Call  
+**Date:** July 2, 2025  
+**Project:** Subtitle Translator App  
+**Attendees:** Project Team  
+
+| Name                    | Tasks Done                                                                                                                                       | Tasks To Do                                                                                                                       |
+|-------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------|
+| **Samudra Pratim Borkakoti** | - Improved transcription feature for audio/radio files.  <br> - Configured batch transcription using blob storage.                                | - Improve transcription accuracy. <br> - Limit supported languages for transcription. <br> - Propose redirect flow to static subtitle translation after transcription. |
+| **Pratham Sharma**           | - Updated library: removed preview & expanded views, added public flag icon. <br> - Started linking library to project view.                    | - Complete Projects page display. <br> - Optimize backend API usage through /get-languages <br> - Disable UI interactions until health check passes. |
+| **Shivam Sapru**             | - Finished database schema changes for credit management. <br> - Working on backend scheduler to reset credits.                                | - Finalize scheduler logic using startup/shutdown events. <br> - Push latest code changes to dev branch.                          |
+| **Shubham Limkar**           | - Integrated Chrome extension with web app backend/frontend. <br> - Clarified doubts about where transcription output should appear.            | - Confirm final behavior: show transcription in extension or redirect to app. <br> - Fix integration issues.                     |
+| **Yadnesh Sirdeshmukh**      | - Finished 2FA verification flow during registration and in profile. <br> - Implemented separation of public/private projects for users.        | - Assist with real-time translation module. <br> - Finalize My Projects UI for displaying user-specific projects.                 |
+| **Rishabh Lingsugur**        | - Debugged Chrome extension <br> - Completed and posted MOMs <br> - Added extension test cases in Excel. <br> - Continued updating user stories | - Complete test case documentation. <br> - Finalize user stories for Chrome extension and other modules.                         |

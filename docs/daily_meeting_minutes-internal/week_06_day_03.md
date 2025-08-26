@@ -1,0 +1,13 @@
+# Minutes of Meeting – Daily Internal Call  
+**Date:** July 10, 2025  
+**Project:** Subtitle Translator App  
+**Attendees:** Project Team  
+
+| Name                    | Tasks Done                                                                                                                                                 | Tasks To Do                                                                                                                                                                     |
+|-------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **Samudra Pratim Borkakoti** | - Made code changes locally to avoid potential failure points.<br>- Planned to push updated real-time transcription code after testing with latest dev branch.<br>- Added fixes for known edge cases. | - Test real-time transcription implementation on Azure.<br>- Merge with dev branch post validation. |
+| **Pratham Sharma**          | - Integrated AI-based transcription frontend.<br>- Designed advanced section UI for accurate transcription options.<br>- Supported speaker count and language source selection. | - Finalize UI to allow user to translate transcript to other languages.<br>- Add option to use transcription output directly for translation. |
+| **Shubham Limkar**          | - Created Azure Container Registry for both frontend and backend.<br>- App Service created for deployment. | - Proceed with deployment from container registry to App Service. |
+| **Yadnesh Sirdeshmukh**     | - Worked on database schema changes before Azure PostgreSQL setup.<br>- Investigated storing original + translated files in DB.<br>- Suggested feature for Chrome Extension. | - Complete schema updates and move to Azure PostgreSQL.<br>- Collaborate on backend database integration. |
+| **Shivam Sapru**            | - Resolved PostgreSQL-related errors.<br>- Completed scheduler and credit reset system updates. | - Start migration to Azure PostgreSQL.<br>- Coordinate on backend DB work. |
+| **Rishabh Lingsugur**       | - Completed and posted MoMs.<br>- Updated user stories and test cases for:<br>&nbsp;&nbsp;• Real-time transcription<br>&nbsp;&nbsp;• Azure integration<br>&nbsp;&nbsp;• Containerization<br>&nbsp;&nbsp;• Transcription/Translation module | - Begin working on the final report.<br>- Continue refining user stories and test case documentation as new features are added. |
