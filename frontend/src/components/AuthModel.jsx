@@ -2,6 +2,8 @@ import React from "react";
 import { FcGoogle } from "react-icons/fc";
 
 const AuthModal = () => {
+  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
       <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-sm text-center">
@@ -13,7 +15,7 @@ const AuthModal = () => {
         <button
           onClick={() => {
             // Redirects user to FastAPI OAuth login
-            window.location.href = "http://localhost:8000/login";
+            window.location.href = `${BACKEND_URL}/login`;
           }}
           className="flex items-center justify-center w-full px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
         >

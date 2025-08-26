@@ -1,16 +1,64 @@
-fastapi
-uvicorn
-httpx
-python-dotenv
-pydantic
-sqlalchemy
-psycopg2-binary
-authlib
-srt
-webvtt-py
-passlib
-bcrypt
+﻿# Core FastAPI and ASGI server
+fastapi==0.115.13
+uvicorn==0.34.3
+anyio==4.8.0
+h11==0.14.0
+httpcore==1.0.7
+httpx==0.28.1
+sniffio==1.3.1
+websockets==15.0.1      # Explicitly added
+httptools==0.6.4        # Explicitly added
+python-multipart==0.0.9 # Explicitly added and confirmed version
 
-# Database dependencies
-asyncpg    
-alembic
+# Database (PostgreSQL with SQLAlchemy and asyncpg)
+SQLAlchemy==2.0.41
+alembic==1.16.2
+psycopg2-binary==2.9.10
+asyncpg==0.30.0
+greenlet==3.2.3         # Required by asyncpg
+
+# Authentication
+Authlib==1.6.0
+passlib==1.7.4
+bcrypt==4.3.0           # Often used with passlib for password hashing
+cryptography==45.0.4    # Dependency for bcrypt and Authlib
+
+# Pydantic (FastAPI's data validation)
+pydantic==2.11.7
+pydantic_core==2.33.2
+pydantic-extra-types==2.10.5
+pydantic-settings==2.10.0
+typing-inspection==0.4.1
+typing_extensions==4.12.2
+
+# Azure Services (Blob Storage, Core for Translator, Speech)
+azure-core==1.34.0
+azure-storage-blob==12.25.1
+azure-cognitiveservices-speech==1.38.0
+
+# Subtitle Processing
+srt==3.5.3
+webvtt-py==0.5.1
+
+# FFmpeg wrapper (note: requires system-level ffmpeg installed)
+ffmpeg-python
+
+# Other essential utilities (often indirect dependencies, good to include explicitly for clarity)
+python-dotenv==1.1.0    # Only needed if your local dev relies on it for scripts outside Docker Compose
+                        # Ideally, remove `load_dotenv()` from code if using Docker Compose env_file
+click==8.1.8            # Uvicorn's CLI dependency
+itsdangerous==2.2.0     # Common for auth/signing
+MarkupSafe==3.0.2       # Common templating dependency
+Jinja2==3.1.5           # Common templating dependency (might be pulled by FastAPI/Authlib)
+pandas          # Data processing utility (used for CSV/JSON manipulation)
+
+# authenticator
+pyotp
+apscheduler
+tzlocal
+
+# Testing dependencies
+pytest==7.4.4
+pytest-asyncio==0.23.2
+httpx==0.28.1  # Already included above but ensuring it's available for tests
+pytest-cov==4.1.0  # For coverage reporting
