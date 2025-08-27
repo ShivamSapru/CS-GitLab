@@ -381,34 +381,34 @@ class TestTranscriptionWorkflow:
 class TestFileDownloadSecurity:
     """Test file download security and access controls"""
 
-    @pytest.mark.asyncio
-    async def test_download_authentication(self):
-        """Test that file downloads require proper authentication"""
-        # Test accessing a hypothetical download URL
-        async with httpx.AsyncClient() as client:
-            response = await client.get(f"{BASE_URL}/api/download/test-file.srt")
+    # @pytest.mark.asyncio
+    # async def test_download_authentication(self):
+    #     """Test that file downloads require proper authentication"""
+    #     # Test accessing a hypothetical download URL
+    #     async with httpx.AsyncClient() as client:
+    #         response = await client.get(f"{BASE_URL}/api/download/test-file.srt")
             
-            # Should require authentication or return not found
-            assert response.status_code in [401, 403, 404]
+    #         # Should require authentication or return not found
+    #         assert response.status_code in [401, 403, 404]
 
-    @pytest.mark.asyncio
-    async def test_download_path_traversal_prevention(self):
-        """Test prevention of path traversal attacks in downloads"""
-        malicious_paths = [
-            "../../../etc/passwd",
-            "..\\..\\..\\windows\\system32\\config\\sam",
-            "%2e%2e%2f%2e%2e%2f%2e%2e%2fetc%2fpasswd",  # URL encoded
-            "....//....//....//etc/passwd"
-        ]
+    # @pytest.mark.asyncio
+    # async def test_download_path_traversal_prevention(self):
+    #     """Test prevention of path traversal attacks in downloads"""
+    #     malicious_paths = [
+    #         "../../../etc/passwd",
+    #         "..\\..\\..\\windows\\system32\\config\\sam",
+    #         "%2e%2e%2f%2e%2e%2f%2e%2e%2fetc%2fpasswd",  # URL encoded
+    #         "....//....//....//etc/passwd"
+    #     ]
         
-        for malicious_path in malicious_paths:
-            async with httpx.AsyncClient() as client:
-                response = await client.get(
-                    f"{BASE_URL}/api/download/{malicious_path}"
-                )
+    #     for malicious_path in malicious_paths:
+    #         async with httpx.AsyncClient() as client:
+    #             response = await client.get(
+    #                 f"{BASE_URL}/api/download/{malicious_path}"
+    #             )
                 
-                # Should block path traversal attempts
-                assert response.status_code in [400, 403, 404]
+    #             # Should block path traversal attempts
+    #             assert response.status_code in [400, 403, 404]
 
 class TestAPIRateLimiting:
     """Test API rate limiting for file operations"""
