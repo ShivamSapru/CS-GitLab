@@ -87,7 +87,6 @@ jobs:
       run: npm test
       env:
         CI: true
-<<<<<<< HEAD
 
   web-app-api-check:
     runs-on: ubuntu-latest
@@ -264,5 +263,3 @@ jobs:
           kill $(cat /tmp/fastapi.pid) || true
           echo "FastAPI server stopped"
         fi
-=======
->>>>>>> 6159d728c789920963e3968253959637a5f808f6
