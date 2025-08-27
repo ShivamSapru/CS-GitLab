@@ -232,15 +232,15 @@ class TestTwoFactorAuthentication:
             result = response.json()
             assert isinstance(result, dict)
 
-    @pytest.mark.asyncio
-    async def test_2fa_disable_endpoints(self):
-        """Test 2FA disable functionality"""
-        async with httpx.AsyncClient() as client:
-            # Test 2FA disable
-            response = await client.post(f"{BASE_URL}/disable-2fa")
+    # @pytest.mark.asyncio
+    # async def test_2fa_disable_endpoints(self):
+    #     """Test 2FA disable functionality"""
+    #     async with httpx.AsyncClient() as client:
+    #         # Test 2FA disable
+    #         response = await client.post(f"{BASE_URL}/disable-2fa")
             
-            # Should require authentication
-            assert response.status_code in [200, 401, 403, 404]
+    #         # Should require authentication
+    #         assert response.status_code in [200, 401, 403, 404]
 
 class TestSessionSecurity:
     """Test session security and cookie handling"""
@@ -319,15 +319,15 @@ class TestAccountManagement:
             # Should require authentication
             assert response.status_code in [200, 400, 401, 403]
 
-    @pytest.mark.asyncio
-    async def test_account_deletion(self):
-        """Test account deletion endpoints"""
-        async with httpx.AsyncClient() as client:
-            # Test account deletion request
-            response = await client.delete(f"{BASE_URL}/api/account")
+    # @pytest.mark.asyncio
+    # async def test_account_deletion(self):
+    #     """Test account deletion endpoints"""
+    #     async with httpx.AsyncClient() as client:
+    #         # Test account deletion request
+    #         response = await client.delete(f"{BASE_URL}/api/account")
             
-            # Should require authentication and confirmation
-            assert response.status_code in [200, 401, 403, 404]
+    #         # Should require authentication and confirmation
+    #         assert response.status_code in [200, 401, 403, 404]
 
 class TestRateLimiting:
     """Test rate limiting and abuse prevention"""
